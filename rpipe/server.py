@@ -97,7 +97,7 @@ def _write(channel: str):
 
 def start(host: str, port: int, debug: bool):
     Thread(target=_periodic_prune, daemon=True).start()
-    print("Starting server.")
+    print(f"Starting server on {host}:{port}")
     if debug:
         app.run(host=host, port=port, debug=True)
     else:
