@@ -95,16 +95,20 @@ def _write(channel: str):
 # Main
 #
 
-def start(host: str, port: int):
+def start(host: str, port: int, debug: bool):
     Thread(target=_periodic_prune, daemon=True).start()
-    # app.run(debug=True)
-    waitress.serve(app, host="0.0.0.0", port=8081)
+    print("Starting server.")
+    if debug:
+        app.run(host=host, port=port, debug=True)
+    else:
+        waitress.serve(app, host=host, port=port)
 
 
 def _main(prog, *args):
     parser = argparse.ArgumentParser(prog=os.path.basename(prog))
     parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
     parser.add_argument("port", type=int, help="The port waitress will listen on")
+    parser.add_argument("--debug", action='store_true', help="Run in debug mode")
     start(**vars(parser.parse_args(args)))
 
 
