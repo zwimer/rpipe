@@ -1,7 +1,6 @@
-from typing import Optional
+from __future__ import annotations
 from pathlib import Path
 import argparse
-import json
 import sys
 import os
 
@@ -59,7 +58,8 @@ def _clear(config: Config):
 #
 
 
-def pipe(print_config: bool, save_config: bool, url: Optional[str], channel: Optional[str], peek: bool, clear: bool):
+def pipe(print_config: bool, save_config: bool, url: str | None,
+    channel: str | None, peek: bool, clear: bool):
     # Error checking
     if clear and peek:
         raise RuntimeError("--peek may not be used with --clear")
@@ -74,8 +74,8 @@ def pipe(print_config: bool, save_config: bool, url: Optional[str], channel: Opt
         if url is None or channel is None:
             raise RuntimeError("--url and --channel must be provided when using --save_config")
         if not config_file.parent.exists():
-            config_file.parent.mkdir(exists_ok=True)
-        out: str = Config.Schema().dumps(Config(url=url, channel=channel))
+            config_file.parent.mkdir(exist_ok=True)
+        out: str = Config.Schema().dumps(Config(url=url, channel=channel))  # type: ignore
         with config_file.open("w") as f:
             f.write(out)
     # Load config, print if requested
@@ -84,7 +84,7 @@ def pipe(print_config: bool, save_config: bool, url: Optional[str], channel: Opt
             raise RuntimeError("No config file found; please create one with --save_config.")
         try:
             with config_file.open("r") as f:
-                conf: Config = Config.Schema().loads(f.read())
+                conf: Config = Config.Schema().loads(f.read())  # type: ignore
         except Exception as e:
             raise RuntimeError(f"Invalid config; please fix or remove {config_file}") from e
         if print_config:
@@ -93,7 +93,7 @@ def pipe(print_config: bool, save_config: bool, url: Optional[str], channel: Opt
         url = conf.url if url is None else url
         channel = conf.channel if channel is None else channel
     # Exec
-    conf = Config(url=url, channel=channel)
+    conf = Config(url=url, channel=channel)  # type: ignore
     if clear:
         _clear(conf)
     elif has_stdin:
@@ -104,8 +104,10 @@ def pipe(print_config: bool, save_config: bool, url: Optional[str], channel: Opt
 
 def _main(prog, *args):
     parser = argparse.ArgumentParser(prog=os.path.basename(prog))
-    parser.add_argument("--print_config", action="store_true", help="Print out the saved config information then exit")
-    parser.add_argument("-s", "--save_config", action="store_true", help=f"Configure {prog} to use the provided url and channel by default")
+    parser.add_argument("--print_config", action="store_true",
+        help="Print out the saved config information then exit")
+    parser.add_argument("-s", "--save_config", action="store_true",
+        help=f"Configure {prog} to use the provided url and channel by default")
     parser.add_argument("-u", "--url", default=None, help="The pipe url to use")
     parser.add_argument("-c", "--channel", default=None, help="The channel to use")
     parser.add_argument("-p", "--peek", action="store_true", help="Read in 'peek' mode")

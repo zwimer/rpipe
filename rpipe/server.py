@@ -6,7 +6,7 @@ import time
 import sys
 import os
 
-from flask import Flask, Response, request, redirect
+from flask import Flask, Response, request
 import waitress
 
 #
@@ -59,7 +59,8 @@ def _periodic_prune():
 
 @app.route("/help")
 def _help():
-    return "Write to /write, read from /read or /peek, clear with /clear; add a trailing /<channel> to specify the channel"
+    return "Write to /write, read from /read or /peek, clear with " \
+        "/clear; add a trailing /<channel> to specify the channel"
 
 
 @app.route("/")
