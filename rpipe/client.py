@@ -16,6 +16,7 @@ class Config:
     """
     Information about where the remote pipe is
     """
+
     url: str
     channel: str
 
@@ -35,6 +36,7 @@ def _recv(config: Config, peek: bool):
     sys.stdout.buffer.write(r.content)
     sys.stdout.flush()
 
+
 def _send(config: Config):
     """
     Send data to the remote pipe
@@ -43,6 +45,7 @@ def _send(config: Config):
     r = requests.post(f"{config.url}/write/{config.channel}", data=data)
     if not r.ok:
         raise RuntimeError(f"{r.status_code}: {r.text}")
+
 
 def _clear(config: Config):
     """
@@ -58,8 +61,7 @@ def _clear(config: Config):
 #
 
 
-def pipe(print_config: bool, save_config: bool, url: str | None,
-    channel: str | None, peek: bool, clear: bool):
+def pipe(print_config: bool, save_config: bool, url: str | None, channel: str | None, peek: bool, clear: bool):
     # Error checking
     if clear and peek:
         raise RuntimeError("--peek may not be used with --clear")
@@ -104,10 +106,13 @@ def pipe(print_config: bool, save_config: bool, url: str | None,
 
 def _main(prog, *args):
     parser = argparse.ArgumentParser(prog=os.path.basename(prog))
-    parser.add_argument("--print_config", action="store_true",
-        help="Print out the saved config information then exit")
-    parser.add_argument("-s", "--save_config", action="store_true",
-        help=f"Configure {prog} to use the provided url and channel by default")
+    parser.add_argument("--print_config", action="store_true", help="Print out the saved config information then exit")
+    parser.add_argument(
+        "-s",
+        "--save_config",
+        action="store_true",
+        help=f"Configure {prog} to use the provided url and channel by default",
+    )
     parser.add_argument("-u", "--url", default=None, help="The pipe url to use")
     parser.add_argument("-c", "--channel", default=None, help="The channel to use")
     parser.add_argument("-p", "--peek", action="store_true", help="Read in 'peek' mode")
@@ -117,6 +122,7 @@ def _main(prog, *args):
 
 def main():
     _main(*sys.argv)
+
 
 if __name__ == "__main__":
     main()

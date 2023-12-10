@@ -13,12 +13,15 @@ import waitress
 # Types
 #
 
+
 class Data(NamedTuple):
     """
     A timestamped bytes class
     """
+
     data: bytes
     when: datetime
+
 
 #
 # Globals
@@ -33,6 +36,7 @@ app.url_map.strict_slashes = False
 #
 # Helpers
 #
+
 
 def _get(channel: str, delete: bool):
     with lock:
@@ -49,18 +53,22 @@ def _periodic_prune():
     while True:
         old: datetime = datetime.now() - prune_age
         with lock:
-            for i in [i for i,k in data.items() if k.when < old]:
+            for i in [i for i, k in data.items() if k.when < old]:
                 del data[i]
         time.sleep(60)
+
 
 #
 # Routes
 #
 
+
 @app.route("/help")
 def _help():
-    return "Write to /write, read from /read or /peek, clear with " \
+    return (
+        "Write to /write, read from /read or /peek, clear with "
         "/clear; add a trailing /<channel> to specify the channel"
+    )
 
 
 @app.route("/")
@@ -92,9 +100,11 @@ def _write(channel: str):
         data[channel] = Data(request.get_data(), datetime.now())
     return Response(status=204)
 
+
 #
 # Main
 #
+
 
 def start(host: str, port: int, debug: bool):
     Thread(target=_periodic_prune, daemon=True).start()
@@ -109,12 +119,13 @@ def _main(prog, *args):
     parser = argparse.ArgumentParser(prog=os.path.basename(prog))
     parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
     parser.add_argument("port", type=int, help="The port waitress will listen on")
-    parser.add_argument("--debug", action='store_true', help="Run in debug mode")
+    parser.add_argument("--debug", action="store_true", help="Run in debug mode")
     start(**vars(parser.parse_args(args)))
 
 
 def main():
     _main(*sys.argv)
+
 
 if __name__ == "__main__":
     main()
