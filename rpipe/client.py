@@ -9,6 +9,7 @@ import requests
 
 
 config_file = Path.home() / ".config" / "pipe.json"
+_timeout: int = 60
 
 
 @dataclass
@@ -30,7 +31,7 @@ def _recv(config: Config, peek: bool):
     """
     Receive data from the remote pipe
     """
-    r = requests.get(f"{config.url}/{'peek' if peek else 'read'}/{config.channel}")
+    r = requests.get(f"{config.url}/{'peek' if peek else 'read'}/{config.channel}", timeout=None)
     if not r.ok:
         raise RuntimeError(f"{r.status_code}: {r.text}")
     sys.stdout.buffer.write(r.content)
@@ -42,7 +43,7 @@ def _send(config: Config):
     Send data to the remote pipe
     """
     data = sys.stdin.buffer.read()
-    r = requests.post(f"{config.url}/write/{config.channel}", data=data)
+    r = requests.post(f"{config.url}/write/{config.channel}", data=data, timeout=_timeout)
     if not r.ok:
         raise RuntimeError(f"{r.status_code}: {r.text}")
 
@@ -51,7 +52,7 @@ def _clear(config: Config):
     """
     Clear the remote pipe
     """
-    r = requests.get(f"{config.url}/clear/{config.channel}")
+    r = requests.get(f"{config.url}/clear/{config.channel}", timeout=_timeout)
     if not r.ok:
         raise RuntimeError(f"{r.status_code}: {r.text}")
 
@@ -62,6 +63,9 @@ def _clear(config: Config):
 
 
 def pipe(print_config: bool, save_config: bool, url: str | None, channel: str | None, peek: bool, clear: bool):
+    """
+    rpipe
+    """
     # Error checking
     if clear and peek:
         raise RuntimeError("--peek may not be used with --clear")
@@ -104,8 +108,11 @@ def pipe(print_config: bool, save_config: bool, url: str | None, channel: str | 
         _recv(conf, peek)
 
 
-def _main(prog, *args):
-    parser = argparse.ArgumentParser(prog=os.path.basename(prog))
+def main(prog: str, *args: str):
+    """
+    Parses arguments then invokes rpipe
+    """
+    parser = argparse.ArgumentParser(prog=Path(prog).name)
     parser.add_argument("--print_config", action="store_true", help="Print out the saved config information then exit")
     parser.add_argument(
         "-s",
@@ -120,9 +127,5 @@ def _main(prog, *args):
     pipe(**vars(parser.parse_args(args)))
 
 
-def main():
-    _main(*sys.argv)
-
-
 if __name__ == "__main__":
-    main()
+    main(*sys.argv)
