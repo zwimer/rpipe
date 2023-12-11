@@ -127,5 +127,9 @@ def main(prog: str, *args: str):
     pipe(**vars(parser.parse_args(args)))
 
 
-if __name__ == "__main__":
+def cli():
     main(*sys.argv)
+
+
+if __name__ == "__main__":
+    cli()

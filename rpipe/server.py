@@ -115,7 +115,7 @@ def start(host: str, port: int, debug: bool):
         waitress.serve(app, host=host, port=port)
 
 
-def _main(prog, *args):
+def main(prog, *args):
     parser = argparse.ArgumentParser(prog=os.path.basename(prog))
     parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
     parser.add_argument("port", type=int, help="The port waitress will listen on")
@@ -123,9 +123,9 @@ def _main(prog, *args):
     start(**vars(parser.parse_args(args)))
 
 
-def main():
-    _main(*sys.argv)
+def cli():
+    main(*sys.argv)
 
 
 if __name__ == "__main__":
-    main()
+    cli()
