@@ -1,10 +1,11 @@
-from typing import NamedTuple, Dict, Optional
+from __future__ import annotations
 from datetime import datetime, timedelta
 from threading import Thread, RLock
+from typing import NamedTuple
+from pathlib import Path
 import argparse
 import time
 import sys
-import os
 
 from flask import Flask, Response, request
 import waitress
@@ -27,7 +28,7 @@ class Data(NamedTuple):
 # Globals
 #
 
-data: Dict[str, Data] = {}
+data: dict[str, Data] = {}
 lock = RLock()
 
 app = Flask(__name__)
@@ -38,9 +39,9 @@ app.url_map.strict_slashes = False
 #
 
 
-def _get(channel: str, delete: bool):
+def _get(channel: str, delete: bool) -> tuple[str, int] | bytes:
     with lock:
-        got: Optional[Data] = data.get(channel, None)
+        got: Data | None = data.get(channel, None)
         if delete and got is not None:
             del data[channel]
     if got is None:
@@ -48,7 +49,7 @@ def _get(channel: str, delete: bool):
     return got.data
 
 
-def _periodic_prune():
+def _periodic_prune() -> None:
     prune_age = timedelta(minutes=5)
     while True:
         old: datetime = datetime.now() - prune_age
@@ -64,7 +65,7 @@ def _periodic_prune():
 
 
 @app.route("/help")
-def _help():
+def _help() -> str:
     return (
         "Write to /write, read from /read or /peek, clear with "
         "/clear; add a trailing /<channel> to specify the channel"
@@ -72,12 +73,12 @@ def _help():
 
 
 @app.route("/")
-def _root():
+def _root() -> str:
     return _help()
 
 
 @app.route("/clear/<channel>")
-def _clear(channel: str):
+def _clear(channel: str) -> Response:
     with lock:
         if channel in data:
             del data[channel]
@@ -85,17 +86,17 @@ def _clear(channel: str):
 
 
 @app.route("/peek/<channel>")
-def _peek(channel: str):
+def _peek(channel: str) -> tuple[str, int] | bytes:
     return _get(channel, False)
 
 
 @app.route("/read/<channel>")
-def _read(channel: str):
+def _read(channel: str) -> tuple[str, int] | bytes:
     return _get(channel, True)
 
 
 @app.route("/write/<channel>", methods=["POST"])
-def _write(channel: str):
+def _write(channel: str) -> Response:
     with lock:
         data[channel] = Data(request.get_data(), datetime.now())
     return Response(status=204)
@@ -106,7 +107,7 @@ def _write(channel: str):
 #
 
 
-def start(host: str, port: int, debug: bool):
+def start(host: str, port: int, debug: bool) -> None:
     Thread(target=_periodic_prune, daemon=True).start()
     print(f"Starting server on {host}:{port}")
     if debug:
@@ -115,15 +116,15 @@ def start(host: str, port: int, debug: bool):
         waitress.serve(app, host=host, port=port)
 
 
-def main(prog, *args):
-    parser = argparse.ArgumentParser(prog=os.path.basename(prog))
+def main(prog, *args) -> None:
+    parser = argparse.ArgumentParser(prog=Path(prog).name)
     parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
     parser.add_argument("port", type=int, help="The port waitress will listen on")
     parser.add_argument("--debug", action="store_true", help="Run in debug mode")
     start(**vars(parser.parse_args(args)))
 
 
-def cli():
+def cli() -> None:
     main(*sys.argv)
 
 

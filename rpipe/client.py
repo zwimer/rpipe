@@ -27,7 +27,7 @@ class Config:
 #
 
 
-def _recv(config: Config, peek: bool):
+def _recv(config: Config, peek: bool) -> None:
     """
     Receive data from the remote pipe
     """
@@ -38,7 +38,7 @@ def _recv(config: Config, peek: bool):
     sys.stdout.flush()
 
 
-def _send(config: Config):
+def _send(config: Config) -> None:
     """
     Send data to the remote pipe
     """
@@ -48,7 +48,7 @@ def _send(config: Config):
         raise RuntimeError(f"{r.status_code}: {r.text}")
 
 
-def _clear(config: Config):
+def _clear(config: Config) -> None:
     """
     Clear the remote pipe
     """
@@ -62,7 +62,7 @@ def _clear(config: Config):
 #
 
 
-def pipe(print_config: bool, save_config: bool, url: str | None, channel: str | None, peek: bool, clear: bool):
+def pipe(print_config: bool, save_config: bool, url: str | None, channel: str | None, peek: bool, clear: bool) -> None:
     """
     rpipe
     """
@@ -108,7 +108,7 @@ def pipe(print_config: bool, save_config: bool, url: str | None, channel: str | 
         _recv(conf, peek)
 
 
-def main(prog: str, *args: str):
+def main(prog: str, *args: str) -> None:
     """
     Parses arguments then invokes rpipe
     """
@@ -127,7 +127,7 @@ def main(prog: str, *args: str):
     pipe(**vars(parser.parse_args(args)))
 
 
-def cli():
+def cli() -> None:
     main(*sys.argv)
 
 
