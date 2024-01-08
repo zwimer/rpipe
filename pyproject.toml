@@ -16,6 +16,7 @@ requires-python = ">= 3.8"
 dependencies = [
     # Client
     "marshmallow-dataclass[enum,union]",
+	"pycryptodomex",
     "requests",
     # Server
     "flask",
