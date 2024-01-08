@@ -1,5 +1,6 @@
 from __future__ import annotations
 from base64 import b64encode, b64decode
+from urllib.parse import quote
 from pathlib import Path
 import argparse
 import hashlib
@@ -33,15 +34,15 @@ class Config:
 def _crypt(encrypt: bool, data: bytes, password: str | None) -> bytes:
     if password is None:
         return data
-    options = {"password": password.encode(), "n": 2**14, "r": 8, "p": 1, "dklen": 32}
+    opts = {"password": password.encode(), "n": 2**14, "r": 8, "p": 1, "dklen": 32}
     mode = AES.MODE_GCM
     if encrypt:
         salt = get_random_bytes(AES.block_size)
-        conf = AES.new(hashlib.scrypt(salt=salt, **options), mode)  # type: ignore
+        conf = AES.new(hashlib.scrypt(salt=salt, **opts), mode)  # type: ignore
         text, tag = conf.encrypt_and_digest(data)
         return b".".join(b64encode(i) for i in (text, salt, conf.nonce, tag))
     text, salt, nonce, tag = (b64decode(i) for i in data.split(b"."))
-    return AES.new(hashlib.scrypt(salt=salt, **options), mode, nonce=nonce).decrypt_and_verify(text, tag)  # type: ignore
+    return AES.new(hashlib.scrypt(salt=salt, **opts), mode, nonce=nonce).decrypt_and_verify(text, tag)  # type: ignore
 
 
 #
@@ -53,7 +54,7 @@ def _recv(config: Config, peek: bool) -> None:
     """
     Receive data from the remote pipe
     """
-    r = requests.get(f"{config.url}/{'peek' if peek else 'read'}/{config.channel}", timeout=None)
+    r = requests.get(f"{config.url}/{'peek' if peek else 'read'}/{quote(config.channel)}", timeout=None)
     if not r.ok:
         raise RuntimeError(f"{r.status_code}: {r.text}")
     sys.stdout.buffer.write(_crypt(False, r.content, config.password))
@@ -65,7 +66,7 @@ def _send(config: Config) -> None:
     Send data to the remote pipe
     """
     data = _crypt(True, sys.stdin.buffer.read(), config.password)
-    r = requests.post(f"{config.url}/write/{config.channel}", data=data, timeout=_timeout)
+    r = requests.post(f"{config.url}/write/{quote(config.channel)}", data=data, timeout=_timeout)
     if not r.ok:
         raise RuntimeError(f"{r.status_code}: {r.text}")
 
@@ -84,7 +85,9 @@ def _clear(config: Config) -> None:
 #
 
 
-def _error_check(has_stdin: bool, no_password: bool, password_env: bool, clear: bool, peek: bool) -> None:
+def _error_check(
+    has_stdin: bool, no_password: bool, password_env: bool, clear: bool, peek: bool, channel: str | None
+) -> None:
     if no_password and password_env:
         raise RuntimeError("--no_password and --password-env are mutually exclusive")
     if clear and peek:
@@ -94,6 +97,11 @@ def _error_check(has_stdin: bool, no_password: bool, password_env: bool, clear: 
             raise RuntimeError("--clear may not be used when writing data to the pipe")
         if peek:
             raise RuntimeError("--peek may not be used when writing data to the pipe")
+
+
+def _config_check(config: Config) -> None:
+    if config.channel is not None and config.channel.lower() == "version":
+        raise RuntimeError(f"{config.channel} is a reserved channel name")
 
 
 def pipe(
@@ -110,7 +118,7 @@ def pipe(
     rpipe
     """
     has_stdin: bool = not os.isatty(sys.stdin.fileno())
-    _error_check(has_stdin, no_password, password_env, clear, peek)
+    _error_check(has_stdin, no_password, password_env, clear, peek, channel)
     # Configure if requested
     password = None if not password_env else os.getenv(_PASSWORD_ENV)
     if save_config:
@@ -140,6 +148,7 @@ def pipe(
         password = None if no_password else (conf.password if password is None else password)
     # Exec
     conf = Config(url=url, channel=channel, password=password)  # type: ignore
+    _config_check(conf)
     if clear:
         _clear(conf)
     elif has_stdin:

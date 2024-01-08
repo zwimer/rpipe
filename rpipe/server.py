@@ -80,6 +80,13 @@ def _root() -> str:
     return _help()
 
 
+@app.route("/version")
+@app.route("/Version")
+@app.route("/VERSION")
+def _show_version() -> str:
+    return __version__
+
+
 @app.route("/clear/<channel>")
 def _clear(channel: str) -> Response:
     with lock:
