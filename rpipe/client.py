@@ -135,7 +135,7 @@ def pipe(
             return
         url = conf.url if url is None else url
         channel = conf.channel if channel is None else channel
-        password = conf.password if password is None else password
+        password = None if no_password else (conf.password if password is None else password)
     # Exec
     conf = Config(url=url, channel=channel, password=password)  # type: ignore
     if clear:
