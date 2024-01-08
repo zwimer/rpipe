@@ -10,6 +10,9 @@ import sys
 from flask import Flask, Response, request
 import waitress
 
+from ._version import __version__
+
+
 #
 # Types
 #
@@ -117,7 +120,9 @@ def start(host: str, port: int, debug: bool) -> None:
 
 
 def main(prog, *args) -> None:
-    parser = argparse.ArgumentParser(prog=Path(prog).name)
+    name = Path(prog).name
+    parser = argparse.ArgumentParser(prog=name)
+    parser.add_argument("--version", action="version", version=f"{name} {__version__}")
     parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
     parser.add_argument("port", type=int, help="The port waitress will listen on")
     parser.add_argument("--debug", action="store_true", help="Run in debug mode")

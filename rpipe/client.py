@@ -11,6 +11,8 @@ from Cryptodome.Random import get_random_bytes
 from marshmallow_dataclass import dataclass
 import requests
 
+from ._version import __version__
+
 
 config_file = Path.home() / ".config" / "pipe.json"
 _timeout: int = 60
@@ -150,7 +152,9 @@ def main(prog: str, *args: str) -> None:
     """
     Parses arguments then invokes rpipe
     """
-    parser = argparse.ArgumentParser(prog=Path(prog).name)
+    name = Path(prog).name
+    parser = argparse.ArgumentParser(prog=name)
+    parser.add_argument("--version", action="version", version=f"{name} {__version__}")
     parser.add_argument("--print_config", action="store_true", help="Print out the saved config information then exit")
     parser.add_argument(
         "-s",
