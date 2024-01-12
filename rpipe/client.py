@@ -4,6 +4,7 @@ from urllib.parse import quote
 from pathlib import Path
 import argparse
 import hashlib
+import zlib
 import sys
 import os
 
@@ -18,6 +19,7 @@ from ._version import __version__
 config_file = Path.home() / ".config" / "pipe.json"
 _timeout: int = 60
 _PASSWORD_ENV: str = "RPIPE_PASSWORD"
+_ZLIB_LEVEL: int = 6
 
 
 @dataclass
@@ -39,10 +41,11 @@ def _crypt(encrypt: bool, data: bytes, password: str | None) -> bytes:
     if encrypt:
         salt = get_random_bytes(AES.block_size)
         conf = AES.new(hashlib.scrypt(salt=salt, **opts), mode)  # type: ignore
-        text, tag = conf.encrypt_and_digest(data)
+        text, tag = conf.encrypt_and_digest(zlib.compress(data, level=_ZLIB_LEVEL))
         return b".".join(b64encode(i) for i in (text, salt, conf.nonce, tag))
     text, salt, nonce, tag = (b64decode(i) for i in data.split(b"."))
-    return AES.new(hashlib.scrypt(salt=salt, **opts), mode, nonce=nonce).decrypt_and_verify(text, tag)  # type: ignore
+    aes = AES.new(hashlib.scrypt(salt=salt, **opts), mode, nonce=nonce)  # type: ignore
+    return zlib.decompress(aes.decrypt_and_verify(text, tag))
 
 
 #
