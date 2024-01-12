@@ -1,4 +1,3 @@
-from __future__ import annotations
 from base64 import b64encode, b64decode
 from urllib.parse import quote
 from pathlib import Path
@@ -8,18 +7,35 @@ import zlib
 import sys
 import os
 
-from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
+from Cryptodome.Cipher import AES
 from marshmallow_dataclass import dataclass
 import requests
 
+from ._shared import WriteCode, ReadCode, Headers
 from ._version import __version__
 
 
 config_file = Path.home() / ".config" / "pipe.json"
-_timeout: int = 60
 _PASSWORD_ENV: str = "RPIPE_PASSWORD"
 _ZLIB_LEVEL: int = 6
+_TIMEOUT: int = 60
+
+#
+# Classes
+#
+
+
+class UsageError(ValueError):
+    pass
+
+
+class VersionError(UsageError):
+    pass
+
+
+class NoData(ValueError):
+    pass
 
 
 @dataclass
@@ -31,6 +47,11 @@ class Config:
     url: str
     channel: str
     password: str | None
+
+
+#
+# Helpers
+#
 
 
 def _crypt(encrypt: bool, data: bytes, password: str | None) -> bytes:
@@ -53,15 +74,27 @@ def _crypt(encrypt: bool, data: bytes, password: str | None) -> bytes:
 #
 
 
-def _recv(config: Config, peek: bool) -> None:
+def _recv(config: Config, peek: bool, force: bool) -> None:
     """
     Receive data from the remote pipe
     """
-    r = requests.get(f"{config.url}/{'peek' if peek else 'read'}/{quote(config.channel)}", timeout=None)
-    if not r.ok:
-        raise RuntimeError(f"{r.status_code}: {r.text}")
-    sys.stdout.buffer.write(_crypt(False, r.content, config.password))
-    sys.stdout.flush()
+    r = requests.get(
+        f"{config.url}/{'peek' if peek else 'read'}/{quote(config.channel)}",
+        headers={Headers.client_version: __version__, Headers.version_override: str(force)},
+        timeout=_TIMEOUT,
+    )
+    match r.status_code:
+        case ReadCode.ok:
+            sys.stdout.buffer.write(_crypt(False, r.content, config.password))
+            sys.stdout.flush()
+        case ReadCode.wrong_version:
+            raise VersionError(f"Version mismatch; uploader version = {r.text}; force a read with --force")
+        case ReadCode.illegal_version:
+            raise VersionError(f"Server requires version >= {r.text}")
+        case ReadCode.no_data:
+            raise NoData(f"The channel {config.channel} is empty.")
+        case _:
+            raise RuntimeError(f"Unknown status code: {r.status_code}\nBody: {r.text}")
 
 
 def _send(config: Config) -> None:
@@ -69,18 +102,30 @@ def _send(config: Config) -> None:
     Send data to the remote pipe
     """
     data = _crypt(True, sys.stdin.buffer.read(), config.password)
-    r = requests.post(f"{config.url}/write/{quote(config.channel)}", data=data, timeout=_timeout)
-    if not r.ok:
-        raise RuntimeError(f"{r.status_code}: {r.text}")
+    r = requests.post(
+        f"{config.url}/write/{quote(config.channel)}",
+        headers={Headers.client_version: __version__},
+        timeout=_TIMEOUT,
+        data=data,
+    )
+    match r.status_code:
+        case WriteCode.ok:
+            pass
+        case WriteCode.illegal_version:
+            raise VersionError(f"Server requires version >= {r.text}")
+        case WriteCode.missing_version:
+            raise VersionError("Client failed to set headers correctly; please report this")
+        case _:
+            raise RuntimeError(f"Unexpected status code: {r.status_code}\nBody: {r.text}")
 
 
 def _clear(config: Config) -> None:
     """
     Clear the remote pipe
     """
-    r = requests.get(f"{config.url}/clear/{config.channel}", timeout=_timeout)
+    r = requests.get(f"{config.url}/clear/{config.channel}", timeout=_TIMEOUT)
     if not r.ok:
-        raise RuntimeError(f"{r.status_code}: {r.text}")
+        raise RuntimeError(f"Unexpected status code: {r.status_code}\nBody: {r.text}")
 
 
 #
@@ -88,9 +133,7 @@ def _clear(config: Config) -> None:
 #
 
 
-def _error_check(
-    has_stdin: bool, no_password: bool, password_env: bool, clear: bool, peek: bool, channel: str | None
-) -> None:
+def _error_check(has_stdin: bool, no_password: bool, password_env: bool, clear: bool, peek: bool) -> None:
     if no_password and password_env:
         raise RuntimeError("--no_password and --password-env are mutually exclusive")
     if clear and peek:
@@ -107,7 +150,8 @@ def _config_check(config: Config) -> None:
         raise RuntimeError(f"{config.channel} is a reserved channel name")
 
 
-def pipe(
+# pylint: disable=too-many-arguments
+def rpipe(
     print_config: bool,
     save_config: bool,
     url: str | None,
@@ -115,29 +159,32 @@ def pipe(
     password_env: bool,
     no_password: bool,
     peek: bool,
+    force: bool,
     clear: bool,
 ) -> None:
     """
     rpipe
     """
     has_stdin: bool = not sys.stdin.isatty()
-    _error_check(has_stdin, no_password, password_env, clear, peek, channel)
+    _error_check(has_stdin, no_password, password_env, clear, peek)
     # Configure if requested
     password = None if not password_env else os.getenv(_PASSWORD_ENV)
     if save_config:
         if url is None or channel is None:
-            raise RuntimeError("--url and --channel must be provided when using --save_config")
+            raise RuntimeError("--url and --channel must be provided when using --save-config")
         if not password_env and not no_password:
-            print("Either --password-env or --no-password must be provided when using --save_config")
+            print("Either --password-env or --no-password must be provided when using --save-config")
         if not config_file.parent.exists():
             config_file.parent.mkdir(exist_ok=True)
-        out: str = Config.Schema().dumps(Config(url=url, channel=channel, password=password))  # type: ignore
+        out: str = Config.Schema().dumps(Config(url, channel, password))  # type: ignore
         with config_file.open("w") as f:
             f.write(out)
+        print("Config saved")
+        return
     # Load config, print if requested
     if print_config or url is None or channel is None:
         if not config_file.exists():
-            raise RuntimeError("No config file found; please create one with --save_config.")
+            raise RuntimeError("No config file found; please create one with --save-config.")
         try:
             with config_file.open("r") as f:
                 conf: Config = Config.Schema().loads(f.read())  # type: ignore
@@ -150,14 +197,14 @@ def pipe(
         channel = conf.channel if channel is None else channel
         password = None if no_password else (conf.password if password is None else password)
     # Exec
-    conf = Config(url=url, channel=channel, password=password)  # type: ignore
+    conf = Config(url, channel, password)  # type: ignore
     _config_check(conf)
     if clear:
         _clear(conf)
     elif has_stdin:
         _send(conf)
     else:
-        _recv(conf, peek)
+        _recv(conf, peek, force)
 
 
 def main(prog: str, *args: str) -> None:
@@ -167,13 +214,15 @@ def main(prog: str, *args: str) -> None:
     name = Path(prog).name
     parser = argparse.ArgumentParser(prog=name)
     parser.add_argument("--version", action="version", version=f"{name} {__version__}")
-    parser.add_argument("--print_config", action="store_true", help="Print out the saved config information then exit")
+    parser.add_argument("-p", "--peek", action="store_true", help="Read in 'peek' mode")
     parser.add_argument(
-        "-s",
-        "--save_config",
+        "-f",
+        "--force",
         action="store_true",
-        help=f"Configure {prog} to use the provided url and channel by default",
+        help="Attempt to read data even if this is a upload/download client version mismatch",
     )
+    parser.add_argument("--clear", action="store_true", help="Delete all entries in the channel")
+    # Config options
     parser.add_argument("-u", "--url", help="The pipe url to use")
     parser.add_argument("-c", "--channel", help="The channel to use")
     group = parser.add_mutually_exclusive_group()
@@ -183,9 +232,14 @@ def main(prog: str, *args: str) -> None:
         help=f"Encrypt the data with the password stored in the environment variable: {_PASSWORD_ENV}",
     )
     group.add_argument("--no-password", action="store_true", help="Do not encrypt the data")
-    parser.add_argument("-p", "--peek", action="store_true", help="Read in 'peek' mode")
-    parser.add_argument("--clear", action="store_true", help="Delete all entries in the channel")
-    pipe(**vars(parser.parse_args(args)))
+    parser.add_argument("--print_config", action="store_true", help="Print out the saved config information then exit")
+    parser.add_argument(
+        "-s",
+        "--save-config",
+        action="store_true",
+        help=f"Configure {prog} to use the provided url and channel by default then exit",
+    )
+    rpipe(**vars(parser.parse_args(args)))
 
 
 def cli() -> None:
