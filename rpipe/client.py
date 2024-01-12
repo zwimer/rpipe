@@ -1,7 +1,9 @@
 from base64 import b64encode, b64decode
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 from pathlib import Path
 import argparse
+import logging
 import hashlib
 import zlib
 import sys
@@ -10,16 +12,23 @@ import os
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Cipher import AES
 from marshmallow_dataclass import dataclass
-import requests
+from requests import Request, Session
 
 from ._shared import WriteCode, ReadCode, Headers
 from ._version import __version__
+
+if TYPE_CHECKING:
+    from requests import Response
 
 
 config_file = Path.home() / ".config" / "pipe.json"
 _PASSWORD_ENV: str = "RPIPE_PASSWORD"
 _ZLIB_LEVEL: int = 6
 _TIMEOUT: int = 60
+
+
+logging.basicConfig(level=logging.WARNING, format="%(message)s")
+
 
 #
 # Classes
@@ -69,6 +78,18 @@ def _crypt(encrypt: bool, data: bytes, password: str | None) -> bytes:
     return zlib.decompress(aes.decrypt_and_verify(text, tag))
 
 
+def _request(*args, **kwargs) -> "Response":
+    r = Request(*args, **kwargs).prepare()
+    logging.debug("Preparing request:\n  %s %s", r.method, r.url)
+    for i, k in r.headers.items():
+        logging.debug("    %s: %s", i, k)
+    if r.body:
+        logging.debug("  len(request.body) = %d", len(r.body))
+    logging.debug("  timeout=%d", _TIMEOUT)
+    ret = Session().send(r, timeout=_TIMEOUT)
+    return ret
+
+
 #
 # Actions
 #
@@ -78,10 +99,11 @@ def _recv(config: Config, peek: bool, force: bool) -> None:
     """
     Receive data from the remote pipe
     """
-    r = requests.get(
+    logging.debug("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
+    r = _request(
+        "GET",
         f"{config.url}/{'peek' if peek else 'read'}/{quote(config.channel)}",
         headers={Headers.client_version: __version__, Headers.version_override: str(force)},
-        timeout=_TIMEOUT,
     )
     match r.status_code:
         case ReadCode.ok:
@@ -101,11 +123,12 @@ def _send(config: Config) -> None:
     """
     Send data to the remote pipe
     """
+    logging.debug("Writing to channel %s", config.channel)
     data = _crypt(True, sys.stdin.buffer.read(), config.password)
-    r = requests.post(
+    r = _request(
+        "POST",
         f"{config.url}/write/{quote(config.channel)}",
         headers={Headers.client_version: __version__},
-        timeout=_TIMEOUT,
         data=data,
     )
     match r.status_code:
@@ -123,7 +146,8 @@ def _clear(config: Config) -> None:
     """
     Clear the remote pipe
     """
-    r = requests.get(f"{config.url}/clear/{config.channel}", timeout=_TIMEOUT)
+    logging.debug("Clearing channel %s", config.channel)
+    r = _request("GET", f"{config.url}/clear/{config.channel}")
     if not r.ok:
         raise RuntimeError(f"Unexpected status code: {r.status_code}\nBody: {r.text}")
 
@@ -158,6 +182,7 @@ def rpipe(
     channel: str | None,
     password_env: bool,
     no_password: bool,
+    verbose: bool,
     peek: bool,
     force: bool,
     clear: bool,
@@ -165,31 +190,34 @@ def rpipe(
     """
     rpipe
     """
+    if verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
     has_stdin: bool = not sys.stdin.isatty()
     _error_check(has_stdin, no_password, password_env, clear, peek)
     # Configure if requested
     password = None if not password_env else os.getenv(_PASSWORD_ENV)
     if save_config:
+        logging.debug("Generating config...")
         if url is None or channel is None:
-            raise RuntimeError("--url and --channel must be provided when using --save-config")
+            raise UsageError("--url and --channel must be provided when using --save-config")
         if not password_env and not no_password:
-            print("Either --password-env or --no-password must be provided when using --save-config")
+            raise UsageError("Either --password-env or --no-password must be provided when using --save-config")
         if not config_file.parent.exists():
             config_file.parent.mkdir(exist_ok=True)
         out: str = Config.Schema().dumps(Config(url, channel, password))  # type: ignore
-        with config_file.open("w") as f:
-            f.write(out)
-        print("Config saved")
+        logging.debug("Saving config to: %s", config_file)
+        config_file.write_text(out)
+        logging.info("Config saved")
         return
     # Load config, print if requested
     if print_config or url is None or channel is None:
+        logging.debug("Loading saved config...")
         if not config_file.exists():
-            raise RuntimeError("No config file found; please create one with --save-config.")
+            raise UsageError("No config file found; please create one with --save-config.")
         try:
-            with config_file.open("r") as f:
-                conf: Config = Config.Schema().loads(f.read())  # type: ignore
+            conf: Config = Config.Schema().loads(config_file.read_text())  # type: ignore
         except Exception as e:
-            raise RuntimeError(f"Invalid config; please fix or remove {config_file}") from e
+            raise ValueError(f"Invalid config; please fix or remove {config_file}") from e
         if print_config:
             print(f"Saved Config: {conf}")
             return
@@ -197,6 +225,7 @@ def rpipe(
         channel = conf.channel if channel is None else channel
         password = None if no_password else (conf.password if password is None else password)
     # Exec
+    logging.debug("Validating config...")
     conf = Config(url, channel, password)  # type: ignore
     _config_check(conf)
     if clear:
@@ -222,6 +251,7 @@ def main(prog: str, *args: str) -> None:
         help="Attempt to read data even if this is a upload/download client version mismatch",
     )
     parser.add_argument("--clear", action="store_true", help="Delete all entries in the channel")
+    parser.add_argument("--verbose", action="store_true", help="Be verbose")
     # Config options
     parser.add_argument("-u", "--url", help="The pipe url to use")
     parser.add_argument("-c", "--channel", help="The channel to use")

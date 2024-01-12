@@ -1,1 +1,1 @@
-__version__: str = "3.0.0"  # Must be "<major>.<minor>.<patch>", all numbers
+__version__: str = "3.1.0"  # Must be "<major>.<minor>.<patch>", all numbers
