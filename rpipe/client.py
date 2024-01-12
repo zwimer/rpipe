@@ -117,7 +117,7 @@ def pipe(
     """
     rpipe
     """
-    has_stdin: bool = not os.isatty(sys.stdin.fileno())
+    has_stdin: bool = not sys.stdin.isatty()
     _error_check(has_stdin, no_password, password_env, clear, peek, channel)
     # Configure if requested
     password = None if not password_env else os.getenv(_PASSWORD_ENV)
