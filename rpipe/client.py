@@ -1,3 +1,4 @@
+from dataclasses import dataclass, asdict, fields
 from base64 import b64encode, b64decode
 from typing import TYPE_CHECKING
 from urllib.parse import quote
@@ -5,13 +6,13 @@ from pathlib import Path
 import argparse
 import logging
 import hashlib
+import json
 import zlib
 import sys
 import os
 
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Cipher import AES
-from marshmallow_dataclass import dataclass
 from requests import Request, Session
 
 from ._shared import WriteCode, ReadCode, Headers
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
     from requests import Response
 
 
-config_file = Path.home() / ".config" / "rpipe.json"
+CONFIG_FILE = Path(os.environ.get("RPIPE_CONFIG_FILE", Path.home() / ".config" / "rpipe.json"))
 _PASSWORD_ENV: str = "RPIPE_PASSWORD"
 _ZLIB_LEVEL: int = 6
 _TIMEOUT: int = 60
@@ -47,8 +48,19 @@ class NoData(ValueError):
     pass
 
 
-@dataclass
+@dataclass(kw_only=True, frozen=True)
 class Config:
+    """
+    Information about where the remote pipe is
+    """
+
+    url: str | None
+    channel: str | None
+    password: str | None
+
+
+@dataclass(kw_only=True, frozen=True)
+class ValidConfig:
     """
     Information about where the remote pipe is
     """
@@ -56,6 +68,27 @@ class Config:
     url: str
     channel: str
     password: str | None
+
+
+# pylint: disable=too-many-instance-attributes
+@dataclass(kw_only=True, frozen=True)
+class Mode:
+    """
+    Arguments used to decide how rpipe should operate
+    """
+
+    # Priority
+    print_config: bool  # Priority
+    save_config: bool  # Priority
+    # Whether the user *explicitly* requested encryption or plaintext
+    # These variables do *not* cover implicit deductions
+    encrypt: bool
+    plaintext: bool
+    # Read/Write/Clear options
+    read: bool
+    peek: bool
+    force: bool
+    clear: bool
 
 
 #
@@ -95,7 +128,7 @@ def _request(*args, **kwargs) -> "Response":
 #
 
 
-def _recv(config: Config, peek: bool, force: bool) -> None:
+def _recv(config: ValidConfig, peek: bool, force: bool) -> None:
     """
     Receive data from the remote pipe
     """
@@ -120,7 +153,7 @@ def _recv(config: Config, peek: bool, force: bool) -> None:
             raise RuntimeError(f"Unknown status code: {r.status_code}\nBody: {r.text}")
 
 
-def _send(config: Config) -> None:
+def _send(config: ValidConfig) -> None:
     """
     Send data to the remote pipe
     """
@@ -146,12 +179,12 @@ def _send(config: Config) -> None:
             raise RuntimeError(f"Unexpected status code: {r.status_code}\nBody: {r.text}")
 
 
-def _clear(config: Config) -> None:
+def _clear(config: ValidConfig) -> None:
     """
     Clear the remote pipe
     """
     logging.debug("Clearing channel %s", config.channel)
-    r = _request("GET", f"{config.url}/clear/{config.channel}")
+    r = _request("GET", f"{config.url}/clear/{quote(config.channel)}")
     if not r.ok:
         raise RuntimeError(f"Unexpected status code: {r.status_code}\nBody: {r.text}")
 
@@ -161,86 +194,89 @@ def _clear(config: Config) -> None:
 #
 
 
-def _error_check(has_stdin: bool, no_password: bool, password_env: bool, clear: bool, peek: bool) -> None:
-    if no_password and password_env:
-        raise RuntimeError("--no_password and --password-env are mutually exclusive")
-    if clear and peek:
+def _mode_check(m: Mode) -> None:
+    if m.clear and m.peek:
         raise RuntimeError("--peek may not be used with --clear")
-    if has_stdin:
-        if clear:
+    if not m.read:
+        if m.clear:
             raise RuntimeError("--clear may not be used when writing data to the pipe")
-        if peek:
+        if m.peek:
             raise RuntimeError("--peek may not be used when writing data to the pipe")
 
 
-def _config_check(config: Config) -> None:
-    banned = ("version", "web")
-    if config.channel is not None and config.channel.lower() in banned:
-        raise RuntimeError(f"{config.channel} is a reserved channel name")
+def _print_config() -> None:
+    logging.debug("Mode: print-config")
+    print(f"Config file: {CONFIG_FILE}")
+    if not CONFIG_FILE.exists():
+        print("No saved config")
+    raw = CONFIG_FILE.read_text(encoding="utf-8")
+    try:
+        print(Config(**json.loads(raw)))
+    except TypeError:
+        print(f"Failed to load config: {raw}")
 
 
-# pylint: disable=too-many-arguments
-def rpipe(
-    print_config: bool,
-    save_config: bool,
-    url: str | None,
-    channel: str | None,
-    password_env: bool,
-    no_password: bool,
-    verbose: bool,
-    peek: bool,
-    force: bool,
-    clear: bool,
-) -> None:
+def _load_config(conf: Config, plaintext: bool) -> Config:
+    logging.debug("Generating config...")
+    password = None if plaintext else os.getenv(_PASSWORD_ENV)
+    raw = json.loads(CONFIG_FILE.read_text(encoding="utf-8")) if CONFIG_FILE.exists() else {}
+    return Config(
+        url=raw.get("url", None) if conf.url is None else conf.url,
+        channel=raw.get("channel", None) if conf.channel is None else conf.channel,
+        password=raw.get("password", None) if password is None and not plaintext else password,
+    )
+
+
+def _save_config(conf: Config, encrypt: bool) -> None:
+    logging.debug("Mode: save-config")
+    if encrypt and os.environ.get(_PASSWORD_ENV, None) is None:
+        raise UsageError(f"--save-config --encrypt requires {_PASSWORD_ENV} be set")
+    parent = CONFIG_FILE.parent
+    if not parent.exists():
+        logging.debug("Creating directory %s", parent)
+        parent.mkdir(exist_ok=True)
+    logging.debug("Saving config %s", conf)
+    CONFIG_FILE.write_text(json.dumps(asdict(conf)), encoding="utf-8")
+    logging.info("Config saved")
+
+
+def _verify_config(conf: Config, encrypt: bool) -> None:
+    logging.debug("Validating config...")
+    if conf.url is None:
+        raise UsageError("Missing: --url")
+    if conf.channel is None:
+        raise UsageError("Missing: --channel")
+    if encrypt and conf.password is None:
+        raise UsageError("Missing: --encrypt requires a password")
+
+
+def rpipe(conf: Config, mode: Mode) -> None:
     """
     rpipe
     """
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-    has_stdin: bool = not sys.stdin.isatty()
-    _error_check(has_stdin, no_password, password_env, clear, peek)
-    # Configure if requested
-    password = None if not password_env else os.getenv(_PASSWORD_ENV)
-    if save_config:
-        logging.debug("Generating config...")
-        if url is None or channel is None:
-            raise UsageError("--url and --channel must be provided when using --save-config")
-        if not password_env and not no_password:
-            raise UsageError(
-                "Either --password-env or --no-password must be provided when using --save-config"
-            )
-        if not config_file.parent.exists():
-            config_file.parent.mkdir(exist_ok=True)
-        out: str = Config.Schema().dumps(Config(url, channel, password))  # type: ignore
-        logging.debug("Saving config to: %s", config_file)
-        config_file.write_text(out)
-        logging.info("Config saved")
+    logging.debug("Config file: %s", CONFIG_FILE)
+    _mode_check(mode)
+    if mode.print_config:
+        _print_config()
         return
-    # Load config, print if requested
-    if print_config or url is None or channel is None:
-        logging.debug("Loading saved config...")
-        if not config_file.exists():
-            raise UsageError("No config file found; please create one with --save-config.")
-        try:
-            conf: Config = Config.Schema().loads(config_file.read_text())  # type: ignore
-        except Exception as e:
-            raise ValueError(f"Invalid config; please fix or remove {config_file}") from e
-        if print_config:
-            print(f"Saved Config: {conf}")
-            return
-        url = conf.url if url is None else url
-        channel = conf.channel if channel is None else channel
-        password = None if no_password else (conf.password if password is None else password)
-    # Exec
-    logging.debug("Validating config...")
-    conf = Config(url, channel, password)  # type: ignore
-    _config_check(conf)
-    if clear:
-        _clear(conf)
-    elif has_stdin:
-        _send(conf)
+    # Load pipe config and save is requested
+    conf = _load_config(conf, mode.plaintext)
+    msg = "Loaded config with:\n  url = %s\n  channel = %s\n  has password: %s"
+    logging.debug(msg, conf.url, conf.channel, conf.password is not None)
+    if mode.save_config:
+        _save_config(conf, mode.encrypt)
+        return
+    if not (mode.encrypt or mode.plaintext or mode.read or mode.clear):
+        logging.info("Write mode: No password found, falling back to --plaintext")
+    _verify_config(conf, mode.encrypt)
+    # Invoke mode
+    valid_conf = ValidConfig(**vars(asdict(conf)))
+    if mode.clear:
+        _clear(valid_conf)
+    elif mode.read:
+        _recv(valid_conf, mode.peek, mode.force)
     else:
-        _recv(conf, peek, force)
+        _send(valid_conf)
 
 
 def main(prog: str, *args: str) -> None:
@@ -251,34 +287,42 @@ def main(prog: str, *args: str) -> None:
     parser = argparse.ArgumentParser(prog=name)
     parser.add_argument("--version", action="version", version=f"{name} {__version__}")
     parser.add_argument("-p", "--peek", action="store_true", help="Read in 'peek' mode")
+    parser.add_argument("--clear", action="store_true", help="Delete all entries in the channel")
     parser.add_argument(
         "-f",
         "--force",
         action="store_true",
         help="Attempt to read data even if this is a upload/download client version mismatch",
     )
-    parser.add_argument("--clear", action="store_true", help="Delete all entries in the channel")
     parser.add_argument("--verbose", action="store_true", help="Be verbose")
     # Config options
     parser.add_argument("-u", "--url", help="The pipe url to use")
     parser.add_argument("-c", "--channel", help="The channel to use")
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
-        "--password-env",
+        "--encrypt",
         action="store_true",
-        help=f"Encrypt the data with the password stored in the environment variable: {_PASSWORD_ENV}",
+        help=f"Encrypt the data; uses {_PASSWORD_ENV} as the password if set, otherwise uses saved password",
     )
-    group.add_argument("--no-password", action="store_true", help="Do not encrypt the data")
+    group.add_argument("--plaintext", action="store_true", help="Do not encrypt the data")
     parser.add_argument(
-        "--print_config", action="store_true", help="Print out the saved config information then exit"
+        "--print-config", action="store_true", help="Print out the saved config information then exit"
     )
     parser.add_argument(
         "-s",
         "--save-config",
         action="store_true",
-        help=f"Configure {prog} to use the provided url and channel by default then exit",
+        help="Update the existing rpipe config then exit; allows incomplete configs to be saved",
     )
-    rpipe(**vars(parser.parse_args(args)))
+    ns = vars(parser.parse_args(args))
+    if ns.pop("verbose"):
+        logging.getLogger().setLevel(logging.DEBUG)
+    keys = lambda x: (i.name for i in fields(x))
+    conf_d = {i: k for i, k in ns.items() if i in keys(Config)}
+    mode_d = {i: k for i, k in ns.items() if i in keys(Mode)}
+    assert set(ns) == set(conf_d) | set(mode_d)
+    conf_d["password"] = None
+    return rpipe(Config(**conf_d), Mode(read=sys.stdin.isatty(), **mode_d))
 
 
 def cli() -> None:
