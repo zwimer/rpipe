@@ -14,3 +14,4 @@ class WriteCode:
 class Headers:  # Underscores are not allowed
     version_override: str = "Version-Override"
     client_version: str = "Client-Version"
+    encrypted: str = "Encrypted-Data"

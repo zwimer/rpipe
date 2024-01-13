@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from requests import Response
 
 
-config_file = Path.home() / ".config" / "pipe.json"
+config_file = Path.home() / ".config" / "rpipe.json"
 _PASSWORD_ENV: str = "RPIPE_PASSWORD"
 _ZLIB_LEVEL: int = 6
 _TIMEOUT: int = 60
@@ -107,7 +107,8 @@ def _recv(config: Config, peek: bool, force: bool) -> None:
     )
     match r.status_code:
         case ReadCode.ok:
-            sys.stdout.buffer.write(_crypt(False, r.content, config.password))
+            encrypted = r.headers.get(Headers.encrypted, "False") == "True"
+            sys.stdout.buffer.write(_crypt(False, r.content, config.password if encrypted else None))
             sys.stdout.flush()
         case ReadCode.wrong_version:
             raise VersionError(f"Version mismatch; uploader version = {r.text}; force a read with --force")
@@ -128,7 +129,7 @@ def _send(config: Config) -> None:
     r = _request(
         "POST",
         f"{config.url}/write/{quote(config.channel)}",
-        headers={Headers.client_version: __version__},
+        headers={Headers.client_version: __version__, Headers.encrypted: str(isinstance(config.password, str))},
         data=data,
     )
     match r.status_code:
@@ -170,7 +171,8 @@ def _error_check(has_stdin: bool, no_password: bool, password_env: bool, clear: 
 
 
 def _config_check(config: Config) -> None:
-    if config.channel is not None and config.channel.lower() == "version":
+    banned = ("version", "web")
+    if config.channel is not None and config.channel.lower() in banned:
         raise RuntimeError(f"{config.channel} is a reserved channel name")
 
 

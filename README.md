@@ -29,8 +29,12 @@ rpipe --peek # Read the data but do not remove it from the server
 
 Additional options can be found via `rpipe --help`
 
+### Web Version
+
+While discouraged and lacking support for encryption, users can forgo usage of the `rpipe` client and connect directly to an `rpipe` with simple `GET`/`POST` requests. Visit the server's URL `/help` for more details.
+
 ### Custom URL or channel
-Both sending and receiving support the command line options `-c`/`--channel` and `-u`/`--url` to use a different channel or url than is saved.
+Both sending and receiving support the command line options `-c`/`--channel` and `-u`/`--url` to use a different channel or URL than is saved.
 
 
 # Server

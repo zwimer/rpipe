@@ -6,7 +6,7 @@ import argparse
 import time
 import sys
 
-from flask import Flask, Response, request
+from flask import Flask, Response, request, redirect
 import waitress
 
 from ._shared import WriteCode, ReadCode, Headers
@@ -14,9 +14,11 @@ from ._version import __version__
 
 if TYPE_CHECKING:
     from werkzeug.datastructures import Headers as HeadersType
+    from werkzeug.wrappers import Response as BaseResponse
 
 
 MIN_CLIENT_VERSION = (3, 0, 0)
+WEB_VERSION = "0.0.0"
 
 
 #
@@ -31,6 +33,7 @@ class Data(NamedTuple):
 
     data: bytes
     when: datetime
+    encrypted: bool
     client_version: tuple[int, int, int]
 
 
@@ -66,7 +69,7 @@ def _version_from_tuple(version: tuple[int, int, int]) -> str:
 
 def _check_required_version(client_version: str) -> Response | None:
     if not client_version:
-        return Response("Try updating your client", status=WriteCode.missing_version)
+        return Response("Try updating your client or visit /help if using a browser", status=WriteCode.missing_version)
     try:
         if _version_to_tuple(client_version) < MIN_CLIENT_VERSION:
             raise ValueError()
@@ -75,20 +78,34 @@ def _check_required_version(client_version: str) -> Response | None:
     return None
 
 
-def _get(channel: str, headers: "HeadersType", delete: bool) -> Response:
-    client_version: str = headers.get(Headers.client_version, "")
-    if (ret := _check_required_version(client_version)) is not None:
-        return ret
+def _get(channel: str, path: str, headers: "HeadersType", delete: bool) -> Response:
+    """
+    Get the data from channel, delete it afterwards if required
+    If web version: Fail if not encrypted, bypass version checks
+    If non web-version, but should be: redirect to web version
+    Otherwise: Version check
+    """
+    if Headers.client_version not in request.headers:
+        if not path.startswith("/web"):
+            return redirect(f"/web{path}", code=308)  # type: ignore
+        client_version = WEB_VERSION
+    else:
+        client_version = headers.get(Headers.client_version, "")
+        if (ret := _check_required_version(client_version)) is not None:
+            return ret
     with lock:
         got: Data | None = data.get(channel, None)
         if got is None:
             return Response(f"No data on channel {channel}", status=ReadCode.no_data)
-        if _version_to_tuple(client_version) != got.client_version:
+        if client_version == WEB_VERSION and got.encrypted:
+            return Response("Web version cannot read encrypted data. Use the CLI: pip install rpipe", status=422)
+        got_ver = _version_from_tuple(got.client_version)
+        if client_version not in (WEB_VERSION, got_ver):
             if headers.get(Headers.version_override, "") != "True":
-                return Response(_version_from_tuple(got.client_version), status=ReadCode.wrong_version)
+                return Response(got_ver, status=ReadCode.wrong_version)
         if got is not None and delete:
             del data[channel]
-    return Response(got.data, status=ReadCode.ok)
+    return Response(got.data, headers={Headers.encrypted: str(got.encrypted)}, status=ReadCode.ok)
 
 
 def _periodic_prune() -> None:
@@ -106,17 +123,19 @@ def _periodic_prune() -> None:
 #
 
 
+@app.route("/")
+@app.route("/web")
 @app.route("/help")
+@app.route("/web/help")
 def _help() -> str:
     return (
-        "Write to /write, read from /read or /peek, clear with "
-        "/clear; add a trailing /<channel> to specify the channel"
+        "Write to /web/write, read from /web/read or /web/peek, clear with "
+        "/web/clear; add a trailing /<channel> to specify the channel. "
+        "Note: Using the /web/ API bypasses version consistenct checks "
+        "and may result in safe but unexpected behavior (such as failing "
+        "an uploaded message; if possible use the rpipe CLI instead. "
+        "Install the CLI via: pip install rpipe"
     )
-
-
-@app.route("/")
-def _root() -> str:
-    return _help()
 
 
 @app.route("/version")
@@ -125,30 +144,48 @@ def _show_version() -> str:
 
 
 @app.route("/clear/<channel>")
-def _clear(channel: str) -> Response:
+@app.route("/web/clear/<channel>")
+def _clear(channel: str) -> "BaseResponse":
+    if Headers.client_version not in request.headers:
+        if not request.path.startswith("/web"):
+            return redirect(f"/web{request.path}", code=308)
+    else:
+        client_version: str = request.headers.get(Headers.client_version, "")
+        if (ret := _check_required_version(client_version)) is not None:
+            return ret
     with lock:
         if channel in data:
             del data[channel]
-    return Response(status=202)
+    return Response("Cleared", status=202)
 
 
 @app.route("/peek/<channel>")
-def _peek(channel: str) -> Response:
-    return _get(channel, request.headers, False)
+@app.route("/web/peek/<channel>")
+def _peek(channel: str) -> "BaseResponse":
+    return _get(channel, request.path, request.headers, False)
 
 
 @app.route("/read/<channel>")
-def _read(channel: str) -> Response:
-    return _get(channel, request.headers, True)
+@app.route("/web/read/<channel>")
+def _read(channel: str) -> "BaseResponse":
+    return _get(channel, request.path, request.headers, True)
 
 
 @app.route("/write/<channel>", methods=["POST"])
-def _write(channel: str) -> Response:
-    client_version: str = request.headers.get(Headers.client_version, "")
-    if (ret := _check_required_version(client_version)) is not None:
-        return ret
+@app.route("/web/write/<channel>", methods=["POST"])
+def _write(channel: str) -> "BaseResponse":
+    if Headers.client_version not in request.headers:
+        if not request.path.startswith("/web"):
+            return redirect(f"/web{request.path}", code=308)
+        client_version = WEB_VERSION
+        encrypted = False
+    else:
+        client_version = request.headers.get(Headers.client_version, "")
+        if (ret := _check_required_version(client_version)) is not None:
+            return ret
+        encrypted = request.headers.get(Headers.encrypted, "False") == "True"
     with lock:
-        data[channel] = Data(request.get_data(), datetime.now(), _version_to_tuple(client_version))
+        data[channel] = Data(request.get_data(), datetime.now(), encrypted, _version_to_tuple(client_version))
     return Response(status=WriteCode.ok)
 
 
