@@ -270,7 +270,7 @@ def rpipe(conf: Config, mode: Mode) -> None:
         logging.info("Write mode: No password found, falling back to --plaintext")
     _verify_config(conf, mode.encrypt)
     # Invoke mode
-    valid_conf = ValidConfig(**vars(asdict(conf)))
+    valid_conf = ValidConfig(**asdict(conf))
     if mode.clear:
         _clear(valid_conf)
     elif mode.read:
