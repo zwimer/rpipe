@@ -11,11 +11,11 @@ import zlib
 import sys
 import os
 
+from requests import Request, Session
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Cipher import AES
-from requests import Request, Session
 
-from ._shared import WriteCode, ReadCode, Headers
+from ._shared import ENCRYPTED_HEADER, RequestParams, ErrorCode
 from ._version import __version__
 
 if TYPE_CHECKING:
@@ -114,8 +114,6 @@ def _crypt(encrypt: bool, data: bytes, password: str | None) -> bytes:
 def _request(*args, **kwargs) -> "Response":
     r = Request(*args, **kwargs).prepare()
     logging.debug("Preparing request:\n  %s %s", r.method, r.url)
-    for i, k in r.headers.items():
-        logging.debug("    %s: %s", i, k)
     if r.body:
         logging.debug("  len(request.body) = %d", len(r.body))
     logging.debug("  timeout=%d", _TIMEOUT)
@@ -133,24 +131,23 @@ def _recv(config: ValidConfig, peek: bool, force: bool) -> None:
     Receive data from the remote pipe
     """
     logging.debug("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
-    r = _request(
-        "GET",
-        f"{config.url}/{'peek' if peek else 'read'}/{quote(config.channel)}",
-        headers={Headers.client_version: __version__, Headers.version_override: str(force)},
-    )
+    url = f"{config.url}/{'peek' if peek else 'read'}/{quote(config.channel)}"
+    r = _request("GET", url, params=RequestParams(version=__version__, override=force).to_dict())
+    encrypted: bool = r.headers.get(ENCRYPTED_HEADER, "") == "True"
+    if r.ok:
+        sys.stdout.buffer.write(_crypt(False, r.content, config.password if encrypted else None))
+        sys.stdout.flush()
+        return
     match r.status_code:
-        case ReadCode.ok:
-            encrypted = r.headers.get(Headers.encrypted, "False") == "True"
-            sys.stdout.buffer.write(_crypt(False, r.content, config.password if encrypted else None))
-            sys.stdout.flush()
-        case ReadCode.wrong_version:
+        case ErrorCode.wrong_version:
             raise VersionError(f"Version mismatch; uploader version = {r.text}; force a read with --force")
-        case ReadCode.illegal_version:
+        case ErrorCode.illegal_version:
             raise VersionError(f"Server requires version >= {r.text}")
-        case ReadCode.no_data:
+        case ErrorCode.no_data:
             raise NoData(f"The channel {config.channel} is empty.")
         case _:
-            raise RuntimeError(f"Unknown status code: {r.status_code}\nBody: {r.text}")
+            logging.debug("Body: %s", r.text)
+            raise RuntimeError(f"Unknown status code: {r.status_code}")
 
 
 def _send(config: ValidConfig) -> None:
@@ -162,19 +159,14 @@ def _send(config: ValidConfig) -> None:
     r = _request(
         "POST",
         f"{config.url}/write/{quote(config.channel)}",
-        headers={
-            Headers.client_version: __version__,
-            Headers.encrypted: str(isinstance(config.password, str)),
-        },
+        params=RequestParams(version=__version__, encrypted=config.password is not None).to_dict(),
         data=data,
     )
+    if r.ok:
+        return
     match r.status_code:
-        case WriteCode.ok:
-            pass
-        case WriteCode.illegal_version:
+        case ErrorCode.illegal_version:
             raise VersionError(f"Server requires version >= {r.text}")
-        case WriteCode.missing_version:
-            raise VersionError("Client failed to set headers correctly; please report this")
         case _:
             raise RuntimeError(f"Unexpected status code: {r.status_code}\nBody: {r.text}")
 
@@ -184,7 +176,7 @@ def _clear(config: ValidConfig) -> None:
     Clear the remote pipe
     """
     logging.debug("Clearing channel %s", config.channel)
-    r = _request("GET", f"{config.url}/clear/{quote(config.channel)}")
+    r = _request("DELETE", f"{config.url}/clear/{quote(config.channel)}")
     if not r.ok:
         raise RuntimeError(f"Unexpected status code: {r.status_code}\nBody: {r.text}")
 
@@ -250,22 +242,23 @@ def _verify_config(conf: Config, encrypt: bool) -> None:
         raise UsageError("Missing: --encrypt requires a password")
 
 
-def rpipe(conf: Config, mode: Mode) -> None:
+def rpipe(conf: Config, mode: Mode) -> bool:
     """
     rpipe
+    :returns: True on success
     """
     logging.debug("Config file: %s", CONFIG_FILE)
     _mode_check(mode)
     if mode.print_config:
         _print_config()
-        return
+        return True
     # Load pipe config and save is requested
     conf = _load_config(conf, mode.plaintext)
     msg = "Loaded config with:\n  url = %s\n  channel = %s\n  has password: %s"
     logging.debug(msg, conf.url, conf.channel, conf.password is not None)
     if mode.save_config:
         _save_config(conf, mode.encrypt)
-        return
+        return True
     if not (mode.encrypt or mode.plaintext or mode.read or mode.clear):
         logging.info("Write mode: No password found, falling back to --plaintext")
     _verify_config(conf, mode.encrypt)
@@ -277,6 +270,7 @@ def rpipe(conf: Config, mode: Mode) -> None:
         _recv(valid_conf, mode.peek, mode.force)
     else:
         _send(valid_conf)
+    return True
 
 
 def main(prog: str, *args: str) -> None:
@@ -322,7 +316,8 @@ def main(prog: str, *args: str) -> None:
     mode_d = {i: k for i, k in ns.items() if i in keys(Mode)}
     assert set(ns) == set(conf_d) | set(mode_d)
     conf_d["password"] = None
-    return rpipe(Config(**conf_d), Mode(read=sys.stdin.isatty(), **mode_d))
+    if not rpipe(Config(**conf_d), Mode(read=sys.stdin.isatty(), **mode_d)):
+        sys.exit(1)
 
 
 def cli() -> None:
