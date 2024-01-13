@@ -71,7 +71,9 @@ def _check_required_version(client_version: str) -> Response | None:
     :return: A flask Response if the version is not acceptable
     """
     if not client_version:
-        return Response("Try updating your client or visit /help if using a browser", status=WriteCode.missing_version)
+        return Response(
+            "Try updating your client or visit /help if using a browser", status=WriteCode.missing_version
+        )
     try:
         if _version_to_tuple(client_version) < MIN_CLIENT_VERSION:
             raise ValueError()
@@ -105,7 +107,9 @@ def _get(channel: str, path: str, headers: HeadersType, delete: bool) -> Respons
             return Response(f"No data on channel {channel}", status=ReadCode.no_data)
         # Web version cannot handle encryption
         if client_version == WEB_VERSION and got.encrypted:
-            return Response("Web version cannot read encrypted data. Use the CLI: pip install rpipe", status=422)
+            return Response(
+                "Web version cannot read encrypted data. Use the CLI: pip install rpipe", status=422
+            )
         # Version comparison; bypass if web version or override requested
         got_ver = _version_from_tuple(got.client_version)
         if client_version not in (WEB_VERSION, got_ver):

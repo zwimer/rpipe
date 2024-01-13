@@ -129,7 +129,10 @@ def _send(config: Config) -> None:
     r = _request(
         "POST",
         f"{config.url}/write/{quote(config.channel)}",
-        headers={Headers.client_version: __version__, Headers.encrypted: str(isinstance(config.password, str))},
+        headers={
+            Headers.client_version: __version__,
+            Headers.encrypted: str(isinstance(config.password, str)),
+        },
         data=data,
     )
     match r.status_code:
@@ -203,7 +206,9 @@ def rpipe(
         if url is None or channel is None:
             raise UsageError("--url and --channel must be provided when using --save-config")
         if not password_env and not no_password:
-            raise UsageError("Either --password-env or --no-password must be provided when using --save-config")
+            raise UsageError(
+                "Either --password-env or --no-password must be provided when using --save-config"
+            )
         if not config_file.parent.exists():
             config_file.parent.mkdir(exist_ok=True)
         out: str = Config.Schema().dumps(Config(url, channel, password))  # type: ignore
@@ -264,7 +269,9 @@ def main(prog: str, *args: str) -> None:
         help=f"Encrypt the data with the password stored in the environment variable: {_PASSWORD_ENV}",
     )
     group.add_argument("--no-password", action="store_true", help="Do not encrypt the data")
-    parser.add_argument("--print_config", action="store_true", help="Print out the saved config information then exit")
+    parser.add_argument(
+        "--print_config", action="store_true", help="Print out the saved config information then exit"
+    )
     parser.add_argument(
         "-s",
         "--save-config",
