@@ -1,7 +1,7 @@
 from __future__ import annotations
-from typing import NamedTuple, TYPE_CHECKING
 from datetime import datetime, timedelta
 from threading import Thread, RLock
+from typing import NamedTuple
 from pathlib import Path
 import argparse
 import time
@@ -12,9 +12,6 @@ import waitress
 
 from ._shared import ENCRYPTED_HEADER, WEB_VERSION, RequestParams, ErrorCode
 from ._version import __version__
-
-if TYPE_CHECKING:
-    from werkzeug.wrappers import Response as BaseResponse
 
 
 #
@@ -141,8 +138,16 @@ def _show_version() -> str:
     return __version__
 
 
+@app.route("/read")
+@app.route("/peek")
+@app.route("/write")
+@app.route("/clear")
+def _missing() -> Response:
+    return Response("Append /<channel> to your URL", status=404)
+
+
 @app.route("/clear/<channel>", methods=["DELETE"])
-def _clear(channel: str) -> BaseResponse:
+def _clear(channel: str) -> Response:
     with lock:
         if channel in data:
             del data[channel]
@@ -150,17 +155,17 @@ def _clear(channel: str) -> BaseResponse:
 
 
 @app.route("/peek/<channel>")
-def _peek(channel: str) -> BaseResponse:
+def _peek(channel: str) -> Response:
     return _get(channel, RequestParams.from_dict(request.args.to_dict()), False)
 
 
 @app.route("/read/<channel>")
-def _read(channel: str) -> BaseResponse:
+def _read(channel: str) -> Response:
     return _get(channel, RequestParams.from_dict(request.args.to_dict()), True)
 
 
 @app.route("/write/<channel>", methods=["POST"])
-def _write(channel: str) -> BaseResponse:
+def _write(channel: str) -> Response:
     args = RequestParams.from_dict(request.args.to_dict())
     if args.version != WEB_VERSION and (ret := _check_version(args.version)) is not None:
         return ret
