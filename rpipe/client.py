@@ -28,9 +28,6 @@ _ZLIB_LEVEL: int = 6
 _TIMEOUT: int = 60
 
 
-logging.basicConfig(level=logging.WARNING, format="%(message)s")
-
-
 #
 # Classes
 #
@@ -201,6 +198,7 @@ def _print_config() -> None:
     print(f"Config file: {CONFIG_FILE}")
     if not CONFIG_FILE.exists():
         print("No saved config")
+        return
     raw = CONFIG_FILE.read_text(encoding="utf-8")
     try:
         print(Config(**json.loads(raw)))
@@ -309,6 +307,7 @@ def main(prog: str, *args: str) -> None:
         help="Update the existing rpipe config then exit; allows incomplete configs to be saved",
     )
     ns = vars(parser.parse_args(args))
+    logging.basicConfig(level=logging.WARNING, format="%(message)s")
     if ns.pop("verbose"):
         logging.getLogger().setLevel(logging.DEBUG)
     keys = lambda x: (i.name for i in fields(x))
