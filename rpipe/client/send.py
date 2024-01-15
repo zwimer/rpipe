@@ -31,7 +31,7 @@ def _send_error(r: Response) -> None:
         case UploadErrorCode.wrong_version | UploadErrorCode.too_big | UploadErrorCode.forbidden | UploadErrorCode.stream_id:
             raise ReportThis(r.text)
         case _:
-            raise RuntimeError(f"Unexpected status code: {r.status_code}\nContent:", r.content)
+            raise RuntimeError(r)
 
 
 def _send_block(data: bytes, config: ValidConfig, params: UploadRequestParams) -> None:
@@ -58,6 +58,8 @@ def send(config: ValidConfig) -> None:
     # Open stream and get block size
     params = UploadRequestParams(version=version, final=False, encrypted=config.password is not None)
     r = request("POST", channel_url(config), params=params.to_dict(), data="")
+    if not r.ok:
+        raise RuntimeError(r)
     headers = UploadResponseHeaders.from_dict(dict(r.headers))
     block_size: int = headers.max_size
     log = getLogger(_LOG)

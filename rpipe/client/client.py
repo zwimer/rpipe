@@ -62,7 +62,7 @@ def rpipe(conf: Config, mode: Mode) -> None:
         log.debug("Requesting server version")
         r = request("GET", f"{conf.url}/version")
         if not r.ok:
-            raise RuntimeError(f"Unexpected status code: {r.status_code}\nContent:", r.content)
+            raise RuntimeError(f"Failed to get version: {r}")
         print(r.text)
         return
     # Check config
@@ -75,7 +75,7 @@ def rpipe(conf: Config, mode: Mode) -> None:
         getLogger(_LOG).debug("Clearing channel %s", valid_conf.channel)
         r = request("DELETE", channel_url(valid_conf))
         if not r.ok:
-            raise RuntimeError(f"Unexpected status code: {r.status_code}\nBody: {r.text}")
+            raise RuntimeError(r)
     elif mode.read:
         recv(valid_conf, mode.peek, mode.force)
     else:

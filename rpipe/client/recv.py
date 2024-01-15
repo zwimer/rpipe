@@ -47,7 +47,7 @@ def _recv_error(r: Response, config: ValidConfig, peek: bool, put: bool, waited:
         case DownloadErrorCode.forbidden:
             raise ReportThis("Attempt to read from stream with stream ID.")
         case _:
-            raise RuntimeError(f"Unexpected status code: {r.status_code}\nContent:", r.content)
+            raise RuntimeError(r)
 
 
 def recv(config: ValidConfig, peek: bool, force: bool) -> None:
