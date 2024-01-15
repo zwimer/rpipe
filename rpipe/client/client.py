@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from logging import getLogger
 
-from .util import REQUEST_TIMEOUT, channel_url, request_simple, request
+from .util import REQUEST_TIMEOUT, channel_url, request
 from .config import ConfigFile, Config
 from .errors import UsageError
 from .recv import recv
@@ -59,7 +59,11 @@ def rpipe(conf: Config, mode: Mode) -> None:
         log.debug("Mode: Server version")
         if conf.url is None:
             raise UsageError("URL unknown; try again with --url")
-        print(request_simple(conf.url, "version"))
+        log.debug("Requesting server version")
+        r = request("GET", f"{conf.url}/version")
+        if not r.ok:
+            raise RuntimeError(f"Unexpected status code: {r.status_code}\nContent:", r.content)
+        print(r.text)
         return
     # Check config
     if not (mode.encrypt or mode.plaintext or mode.read or mode.clear):

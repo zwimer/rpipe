@@ -25,11 +25,3 @@ def request(*args, **kwargs) -> Response:
         getLogger("request").debug("Preparing to send %d bytes of data", len(r.body))
     ret = Session().send(r, timeout=REQUEST_TIMEOUT)
     return ret
-
-
-def request_simple(url: str, what: str) -> str:
-    getLogger("request").debug("Requesting server %s", what)
-    r = request("GET", f"{url}/{what}")
-    if not r.ok:
-        raise RuntimeError(f"Unexpected status code: {r.status_code}\nContent:", r.content)
-    return r.text

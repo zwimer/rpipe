@@ -8,7 +8,7 @@ from flask import Flask, Response, request
 import waitress
 
 from ..version import __version__
-from .constants import MAX_SIZE_HARD, MAX_SIZE_SOFT
+from .constants import MAX_SIZE_HARD
 from .globals import lock, streams
 from .write import write
 from .read import read
@@ -35,11 +35,6 @@ def _help() -> str:
 @app.route("/version")
 def _show_version() -> str:
     return __version__
-
-
-@app.route("/max_size")
-def _max_size() -> str:
-    return str(MAX_SIZE_SOFT)
 
 
 @app.route("/c/<channel>", methods=["DELETE", "GET", "POST", "PUT", "CLEAR"])

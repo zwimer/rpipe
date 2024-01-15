@@ -51,7 +51,8 @@ def write(channel: str) -> Response:
                 upload_complete=args.final,
                 id_=sid,
             )
-        return Response(status=201, headers=UploadResponseHeaders(stream_id=sid).to_dict())
+        headers = UploadResponseHeaders(stream_id=sid, max_size=MAX_SIZE_SOFT)
+        return Response(status=201, headers=headers.to_dict())
     if args.stream_id is None:
         return Response("PUT request missing stream id", status=UploadErrorCode.stream_id)
     with lock:
@@ -62,4 +63,5 @@ def write(channel: str) -> Response:
         s.upload_complete = args.final
         if add:
             s.data.append(add)
-    return Response(status=202, headers=UploadResponseHeaders(stream_id=s.id_).to_dict())
+        headers = UploadResponseHeaders(stream_id=s.id_, max_size=MAX_SIZE_SOFT)
+    return Response(status=202, headers=headers.to_dict())

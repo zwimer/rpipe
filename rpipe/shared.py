@@ -129,13 +129,14 @@ class _ResponseHeaders:
 @dataclass(kw_only=True)
 class UploadResponseHeaders(_ResponseHeaders):
     stream_id: str
+    max_size: int
 
     def to_dict(self) -> dict[str, str]:
         return _to_dict(asdict(self))
 
     @classmethod
     def _from_dict(cls, d: dict[str, str]) -> UploadResponseHeaders:
-        return cls(stream_id=d["stream-id"])
+        return cls(stream_id=d["stream-id"], max_size=int(d["max-size"]))
 
 
 @dataclass(kw_only=True)

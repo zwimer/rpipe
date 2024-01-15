@@ -8,7 +8,7 @@ import os
 from ..version import version
 from ..shared import UploadRequestParams, UploadResponseHeaders, UploadErrorCode
 from .errors import MultipleClients, ReportThis, VersionError
-from .util import WAIT_DELAY_SEC, request, request_simple, channel_url
+from .util import WAIT_DELAY_SEC, request, channel_url
 from .crypt import encrypt
 
 if TYPE_CHECKING:
@@ -34,20 +34,15 @@ def _send_error(r: Response) -> None:
             raise RuntimeError(f"Unexpected status code: {r.status_code}\nContent:", r.content)
 
 
-def _send_block(data: bytes, config: ValidConfig, params: UploadRequestParams):
+def _send_block(data: bytes, config: ValidConfig, params: UploadRequestParams) -> None:
     """
     Upload the given block of data; updates params for next block
     """
     data = encrypt(data, config.password)
-    r = request(
-        "POST" if params.stream_id is None else "PUT",
-        channel_url(config),
-        params=params.to_dict(),
-        data=data,
-    )
+    r = request("PUT", channel_url(config), params=params.to_dict(), data=data)
     if r.ok:
         headers = UploadResponseHeaders.from_dict(dict(r.headers))
-        params.stream_id = headers.stream_id
+        assert params.stream_id == headers.stream_id
     elif r.status_code == UploadErrorCode.wait:
         getLogger(_LOG).debug("Pipe full, sleeping for %s seconds.", WAIT_DELAY_SEC)
         sleep(WAIT_DELAY_SEC)
@@ -60,14 +55,16 @@ def send(config: ValidConfig) -> None:
     """
     Send data to the remote pipe
     """
-    # Prep
+    # Open stream and get block size
+    params = UploadRequestParams(version=version, final=False, encrypted=config.password is not None)
+    r = request("POST", channel_url(config), params=params.to_dict(), data="")
+    headers = UploadResponseHeaders.from_dict(dict(r.headers))
+    block_size: int = headers.max_size
     log = getLogger(_LOG)
-    fd: int = sys.stdin.fileno()
-    block_size = int(request_simple(config.url, "max_size"))
     log.debug("Writing to channel %s with block size of %s", config.channel, block_size)
     # Send
-    params = UploadRequestParams(version=version, final=False, encrypted=config.password is not None)
-    _send_block(b"", config, params)  # Not strictly required, but useful
+    fd: int = sys.stdin.fileno()
+    params.stream_id = headers.stream_id
     while block := os.read(fd, block_size):
         _send_block(block, config, params)
     # Finalize
