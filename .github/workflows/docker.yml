@@ -1,9 +1,10 @@
 name: docker
 
 on:
-  push:
-    branches:
-      - 'master'
+  workflow_run:
+    workflows: ['pip']
+    types:
+      - completed
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
@@ -11,6 +12,7 @@ on:
 
 jobs:
   docker:
+    name: Release docker container
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
