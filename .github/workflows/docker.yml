@@ -15,6 +15,9 @@ jobs:
     name: Release docker container
     runs-on: ubuntu-latest
     steps:
+      - name: Sleep to allow pip package to be ready
+        run: sleep 200s
+        shell: bash
       - name: Checkout
         uses: actions/checkout@v2
       - name: Set up QEMU
