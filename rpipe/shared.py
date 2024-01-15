@@ -136,6 +136,7 @@ class UploadResponseHeaders(_ResponseHeaders):
 
     @classmethod
     def _from_dict(cls, d: dict[str, str]) -> UploadResponseHeaders:
+        d = {i.lower(): k for i, k in d.items()}
         return cls(stream_id=d["stream-id"], max_size=int(d["max-size"]))
 
 
@@ -150,6 +151,7 @@ class DownloadResponseHeaders(_ResponseHeaders):
 
     @classmethod
     def _from_dict(cls, d: dict[str, str]) -> DownloadResponseHeaders:
+        d = {i.lower(): k for i, k in d.items()}
         return cls(
             stream_id=d["stream-id"],
             final=d["final"] == "True",
