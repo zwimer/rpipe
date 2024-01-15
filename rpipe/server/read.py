@@ -1,12 +1,17 @@
 from __future__ import annotations
+from logging import getLogger
 from typing import cast
 
 from flask import Response, request
 
 from ..shared import WEB_VERSION, DownloadResponseHeaders, DownloadRequestParams, DownloadErrorCode
-from .constants import MIN_VERSION, PIPE_SIZE
+from .util import log_response, log_params, pipe_full
+from .constants import MIN_VERSION
 from .globals import streams, lock
 from .data import Stream
+
+
+_LOG: str = "read"
 
 
 def _check_if_aio(s: Stream, args: DownloadRequestParams) -> Response | None:
@@ -19,7 +24,7 @@ def _check_if_aio(s: Stream, args: DownloadRequestParams) -> Response | None:
                 "Another client has already connected to this pipe.", status=DownloadErrorCode.in_use
             )
         if not s.upload_complete:
-            if len(s.data) < PIPE_SIZE:
+            if pipe_full(s.data):
                 msg = f"Must wait until uploader completes upload when using {mode}"
                 return Response(msg, status=DownloadErrorCode.wait)
             msg = f"Too much data to read all at once: when using {mode}; data can only be read all at once."
@@ -59,6 +64,7 @@ def _read_error_check(s: Stream | None, args: DownloadRequestParams) -> Response
     return None
 
 
+@log_response(_LOG)
 def read(channel: str) -> Response:
     """
     Get the data from channel, delete it afterwards if required
@@ -66,6 +72,7 @@ def read(channel: str) -> Response:
     Otherwise: Version check
     """
     args = DownloadRequestParams.from_dict(request.args)
+    log_params(getLogger(_LOG), args)
     if args.version != WEB_VERSION and (args.version < MIN_VERSION or args.version.invalid()):
         return Response(f"Bad version. Requires >= {MIN_VERSION}", status=DownloadErrorCode.illegal_version)
     with lock:

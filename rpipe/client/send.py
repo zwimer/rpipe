@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 from logging import getLogger
 from time import sleep
 import sys
-import os
 
 from ..version import version
 from ..shared import UploadRequestParams, UploadResponseHeaders, UploadErrorCode
@@ -38,7 +37,6 @@ def _send_block(data: bytes, config: ValidConfig, params: UploadRequestParams) -
     """
     Upload the given block of data; updates params for next block
     """
-    data = encrypt(data, config.password)
     r = request("PUT", channel_url(config), params=params.to_dict(), data=data)
     if r.ok:
         headers = UploadResponseHeaders.from_dict(r.headers)
@@ -65,10 +63,9 @@ def send(config: ValidConfig) -> None:
     log = getLogger(_LOG)
     log.debug("Writing to channel %s with block size of %s", config.channel, block_size)
     # Send
-    fd: int = sys.stdin.fileno()
     params.stream_id = headers.stream_id
-    while block := os.read(fd, block_size):
-        _send_block(block, config, params)
+    while block := sys.stdin.buffer.read(block_size):
+        _send_block(encrypt(block, config.password), config, params)
     # Finalize
     params.final = True
     try:

@@ -1,5 +1,6 @@
 from collections import deque
 from datetime import datetime
+from logging import getLogger
 from typing import cast
 import random
 import string
@@ -7,12 +8,14 @@ import string
 from flask import Response, request
 
 from ..shared import WEB_VERSION, UploadResponseHeaders, UploadRequestParams, UploadErrorCode
-from .constants import MAX_SIZE_HARD, MAX_SIZE_SOFT, MIN_VERSION, PIPE_SIZE
+from .util import log_response, log_params, log_pipe_size, pipe_full
+from .constants import MAX_SIZE_HARD, MAX_SIZE_SOFT, MIN_VERSION
 from .globals import lock, streams
 from .data import Stream
 
 
 CHARSET = string.ascii_lowercase + string.ascii_uppercase + string.digits
+_LOG = "write"
 
 
 def _put_error_check(s: Stream | None, args: UploadRequestParams) -> Response | None:
@@ -23,14 +26,17 @@ def _put_error_check(s: Stream | None, args: UploadRequestParams) -> Response | 
     if args.version != s.version and not args.override:
         msg = f"Override = False. Version should be: {s.version}"
         return Response(msg, status=UploadErrorCode.wrong_version)
-    if sum(len(i) for i in s.data) >= PIPE_SIZE:
+    if pipe_full(s.data):
         return Response("Pipe full; wait for the downloader to download more.", status=UploadErrorCode.wait)
     return None
 
 
 # pylint: disable=too-many-return-statements
+@log_response(_LOG)
 def write(channel: str) -> Response:
     args = UploadRequestParams.from_dict(request.args)
+    log = getLogger(_LOG)
+    log_params(log, args)
     # Version and size check
     if args.version != WEB_VERSION and (args.version < MIN_VERSION or args.version.invalid()):
         return Response(f"Bad version. Requires >= {MIN_VERSION}", status=UploadErrorCode.illegal_version)
@@ -63,5 +69,6 @@ def write(channel: str) -> Response:
         s.upload_complete = args.final
         if add:
             s.data.append(add)
+            log_pipe_size(log, s.data)
         headers = UploadResponseHeaders(stream_id=s.id_, max_size=MAX_SIZE_SOFT)
     return Response(status=202, headers=headers.to_dict())
