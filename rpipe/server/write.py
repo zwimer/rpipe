@@ -30,7 +30,7 @@ def _put_error_check(s: Stream | None, args: UploadRequestParams) -> Response | 
 
 # pylint: disable=too-many-return-statements
 def write(channel: str) -> Response:
-    args = UploadRequestParams.from_dict(request.args.to_dict())
+    args = UploadRequestParams.from_dict(request.args)
     # Version and size check
     if args.version != WEB_VERSION and (args.version < MIN_VERSION or args.version.invalid()):
         return Response(f"Bad version. Requires >= {MIN_VERSION}", status=UploadErrorCode.illegal_version)

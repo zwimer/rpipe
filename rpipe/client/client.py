@@ -35,7 +35,7 @@ class Mode:
 def rpipe(conf: Config, mode: Mode) -> None:
     """
     rpipe: A remote piping tool
-    Assumse no UsageError's in mode that argparse would catch
+    Assumes no UsageError's in mode that argparse would catch
     """
     config_file = ConfigFile()
     log = getLogger(_LOG)

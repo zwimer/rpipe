@@ -41,7 +41,7 @@ def _send_block(data: bytes, config: ValidConfig, params: UploadRequestParams) -
     data = encrypt(data, config.password)
     r = request("PUT", channel_url(config), params=params.to_dict(), data=data)
     if r.ok:
-        headers = UploadResponseHeaders.from_dict(dict(r.headers))
+        headers = UploadResponseHeaders.from_dict(r.headers)
         assert params.stream_id == headers.stream_id
     elif r.status_code == UploadErrorCode.wait:
         getLogger(_LOG).debug("Pipe full, sleeping for %s seconds.", WAIT_DELAY_SEC)
@@ -60,7 +60,7 @@ def send(config: ValidConfig) -> None:
     r = request("POST", channel_url(config), params=params.to_dict(), data="")
     if not r.ok:
         raise RuntimeError(r)
-    headers = UploadResponseHeaders.from_dict(dict(r.headers))
+    headers = UploadResponseHeaders.from_dict(r.headers)
     block_size: int = headers.max_size
     log = getLogger(_LOG)
     log.debug("Writing to channel %s with block size of %s", config.channel, block_size)

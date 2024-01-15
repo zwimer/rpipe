@@ -1,17 +1,21 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING, TypeVar
 from dataclasses import dataclass, asdict
-from typing import TypeVar
 
 from .version import Version
+
+if TYPE_CHECKING:
+    from requests.structures import CaseInsensitiveDict
+    from werkzeug.datastructures import MultiDict
 
 
 WEB_VERSION = Version("0.0.0")
 assert not WEB_VERSION.invalid()
 
 
-def _to_dict(d: dict) -> dict[str, str]:
-    # Disallow _ b/c headers might now allow them
-    return {i.replace("_", "-"): str(k) for i, k in d.items() if k is not None}
+class _ToDict:
+    def to_dict(self) -> dict[str, str]:
+        return {i.replace("_", "-"): str(k) for i, k in asdict(self).items() if k is not None}  # type: ignore
 
 
 def _get_bool(d: dict[str, str], name: str, default: bool) -> bool:
@@ -58,18 +62,15 @@ class DownloadErrorCode:
 
 
 @dataclass(kw_only=True)
-class UploadRequestParams:
+class UploadRequestParams(_ToDict):
     version: Version
     encrypted: bool
     final: bool = False
     override: bool = False
     stream_id: str | None = None  # Not required for initial upload POST
 
-    def to_dict(self) -> dict[str, str]:
-        return _to_dict(asdict(self))
-
     @classmethod
-    def from_dict(cls, d: dict[str, str]) -> UploadRequestParams:
+    def from_dict(cls, d: MultiDict[str, str]) -> UploadRequestParams:
         return cls(
             version=Version(d.get("version", WEB_VERSION.str)),
             encrypted=_get_bool(d, "encrypted", False),
@@ -80,17 +81,14 @@ class UploadRequestParams:
 
 
 @dataclass(kw_only=True)
-class DownloadRequestParams:
+class DownloadRequestParams(_ToDict):
     version: Version
     delete: bool
     override: bool = False
     stream_id: str | None = None  # Not required for initial upload GET
 
-    def to_dict(self) -> dict[str, str]:
-        return _to_dict(asdict(self))
-
     @classmethod
-    def from_dict(cls, d: dict[str, str]) -> DownloadRequestParams:
+    def from_dict(cls, d: MultiDict[str, str]) -> DownloadRequestParams:
         return cls(
             version=Version(d.get("version", WEB_VERSION.str)),
             delete=_get_bool(d, "delete", False),
@@ -113,11 +111,11 @@ class BadHeaders(RuntimeError):
 _Self = TypeVar("_Self", bound="_ResponseHeaders")  # typing.Self in python3.11
 
 
-class _ResponseHeaders:
+class _ResponseHeaders(_ToDict):
     @classmethod
-    def from_dict(cls: type[_Self], d: dict[str, str]) -> _Self:
+    def from_dict(cls: type[_Self], d: CaseInsensitiveDict[str]) -> _Self:
         try:
-            return cls._from_dict(d)
+            return cls._from_dict(dict(d.lower_items()))
         except KeyError as e:
             raise BadHeaders("Missing headers") from e
 
@@ -131,12 +129,8 @@ class UploadResponseHeaders(_ResponseHeaders):
     stream_id: str
     max_size: int
 
-    def to_dict(self) -> dict[str, str]:
-        return _to_dict(asdict(self))
-
     @classmethod
     def _from_dict(cls, d: dict[str, str]) -> UploadResponseHeaders:
-        d = {i.lower(): k for i, k in d.items()}
         return cls(stream_id=d["stream-id"], max_size=int(d["max-size"]))
 
 
@@ -146,12 +140,8 @@ class DownloadResponseHeaders(_ResponseHeaders):
     final: bool
     encrypted: bool
 
-    def to_dict(self) -> dict[str, str]:
-        return _to_dict(asdict(self))
-
     @classmethod
     def _from_dict(cls, d: dict[str, str]) -> DownloadResponseHeaders:
-        d = {i.lower(): k for i, k in d.items()}
         return cls(
             stream_id=d["stream-id"],
             final=d["final"] == "True",

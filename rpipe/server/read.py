@@ -65,7 +65,7 @@ def read(channel: str) -> Response:
     If web version: Fail if not encrypted, bypass version checks
     Otherwise: Version check
     """
-    args = DownloadRequestParams.from_dict(request.args.to_dict())
+    args = DownloadRequestParams.from_dict(request.args)
     if args.version != WEB_VERSION and (args.version < MIN_VERSION or args.version.invalid()):
         return Response(f"Bad version. Requires >= {MIN_VERSION}", status=DownloadErrorCode.illegal_version)
     with lock:

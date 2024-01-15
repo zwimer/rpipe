@@ -62,7 +62,7 @@ def recv(config: ValidConfig, peek: bool, force: bool) -> None:
     while True:
         r = request("GET", url, params=params.to_dict())
         if r.ok:
-            headers = DownloadResponseHeaders.from_dict(dict(r.headers))
+            headers = DownloadResponseHeaders.from_dict(r.headers)
             sys.stdout.buffer.write(decrypt(r.content, config.password if headers.encrypted else None))
             sys.stdout.flush()
             if headers.final:
