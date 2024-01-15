@@ -9,6 +9,7 @@ from ..shared import UploadRequestParams, UploadResponseHeaders, UploadErrorCode
 from .errors import MultipleClients, ReportThis, VersionError
 from .util import WAIT_DELAY_SEC, request, channel_url
 from .crypt import encrypt
+from .io import IO
 
 if TYPE_CHECKING:
     from requests import Response
@@ -64,7 +65,8 @@ def send(config: ValidConfig) -> None:
     log.debug("Writing to channel %s with block size of %s", config.channel, block_size)
     # Send
     params.stream_id = headers.stream_id
-    while block := sys.stdin.buffer.read(block_size):
+    io = IO(sys.stdin.fileno(), block_size)
+    while block := io.read():
         _send_block(encrypt(block, config.password), config, params)
     # Finalize
     params.final = True
