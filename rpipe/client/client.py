@@ -63,7 +63,7 @@ def rpipe(conf: Config, mode: Mode) -> None:
         r = request("GET", f"{conf.url}/version")
         if not r.ok:
             raise RuntimeError(f"Failed to get version: {r}")
-        print(r.text)
+        print(f"rpipe_server {r.text}")
         return
     # Check config
     if not (mode.encrypt or mode.plaintext or mode.read or mode.clear):
