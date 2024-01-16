@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Sleep to allow pip package to be ready
-        run: sleep 200s
+        run: sleep 400s
         shell: bash
       - name: Checkout
         uses: actions/checkout@v2
