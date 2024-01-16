@@ -1,4 +1,3 @@
-from base64 import a85encode, a85decode
 import hashlib
 import zlib
 
@@ -7,7 +6,20 @@ from Cryptodome.Cipher import AES
 
 
 _ZLIB_LEVEL: int = 6
-_SEP = b"|"  # not in a85's lexicon
+
+
+def _merge(*args: bytes) -> bytes:
+    line1 = b" ".join(str(len(i)).encode() for i in args) + b"\n"
+    return b"".join([line1, *args])
+
+
+def _split(raw: bytes) -> list[bytes]:
+    ret = []
+    start = raw.index(b"\n") + 1
+    for i in (int(k.decode()) for k in raw[: start - 1].split(b" ")):
+        ret.append(raw[start : start + i])
+        start += i
+    return ret
 
 
 def _opts(password: str) -> dict:
@@ -20,12 +32,12 @@ def encrypt(data: bytes, password: str | None) -> bytes:
     salt = get_random_bytes(AES.block_size)
     conf = AES.new(hashlib.scrypt(salt=salt, **_opts(password)), AES.MODE_GCM)  # type: ignore
     text, tag = conf.encrypt_and_digest(zlib.compress(data, level=_ZLIB_LEVEL))
-    return _SEP.join(a85encode(i) for i in (text, salt, conf.nonce, tag))
+    return _merge(text, salt, conf.nonce, tag)
 
 
 def decrypt(data: bytes, password: str | None) -> bytes:
     if password is None or not data:
         return data
-    text, salt, nonce, tag = (a85decode(i) for i in data.split(_SEP))
+    text, salt, nonce, tag = _split(data)
     aes = AES.new(hashlib.scrypt(salt=salt, **_opts(password)), AES.MODE_GCM, nonce=nonce)  # type: ignore
     return zlib.decompress(aes.decrypt_and_verify(text, tag))
