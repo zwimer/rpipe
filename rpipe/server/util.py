@@ -6,7 +6,8 @@ from dataclasses import fields
 from .constants import PIPE_MAX_BYTES
 
 if TYPE_CHECKING:
-    from typing import Callable, TypeVar, Iterable
+    from typing import TypeVar
+    from collections.abc import Callable, Iterable
     from flask import Response
     from ..shared import UploadRequestParams, DownloadRequestParams
 
