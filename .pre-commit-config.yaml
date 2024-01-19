@@ -21,7 +21,7 @@ repos:
     -   id: pyupgrade
         args: [--py312-plus]
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.7.1
+    rev: v1.8.0
     hooks:
     -   id: mypy
         additional_dependencies: [types-all]
@@ -66,7 +66,7 @@ repos:
 
 # Last modifier: Coding Standard
 -   repo: https://github.com/psf/black
-    rev: 23.11.0
+    rev: 23.12.1
     hooks:
     -   id: black
 
@@ -86,6 +86,6 @@ repos:
     -   id: rst-inline-touching-normal
 
 -   repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.1.7
+    rev: v0.1.13
     hooks:
     - id: ruff
