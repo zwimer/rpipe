@@ -7,9 +7,6 @@ class Option(Generic[_T]):
     def __init__(self, val: _T | None = None) -> None:
         self._value: _T | None = val
 
-    def __repr__(self) -> str:
-        return f"Option({self._value})"
-
     def opt(self, val: _T | None) -> None:
         if self._value is None:
             self._value = val
