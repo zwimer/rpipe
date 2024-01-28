@@ -25,7 +25,7 @@ class StreamError(RuntimeError):
 
 class MultipleClients(StreamError):
     """
-    Raised when failure occurs due to an another user using the same channel
+    Raised when failure occurs due to another user using the same channel
     """
 
 

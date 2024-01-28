@@ -27,7 +27,7 @@ def _opts(password: str) -> dict:
 
 
 def encrypt(data: bytes, password: str | None) -> bytes:
-    if password is None or not data:
+    if not password or not data:
         return data
     salt = get_random_bytes(AES.block_size)
     conf = AES.new(hashlib.scrypt(salt=salt, **_opts(password)), AES.MODE_GCM)  # type: ignore
@@ -36,7 +36,7 @@ def encrypt(data: bytes, password: str | None) -> bytes:
 
 
 def decrypt(data: bytes, password: str | None) -> bytes:
-    if password is None or not data:
+    if not password or not data:
         return data
     text, salt, nonce, tag = _split(data)
     aes = AES.new(hashlib.scrypt(salt=salt, **_opts(password)), AES.MODE_GCM, nonce=nonce)  # type: ignore

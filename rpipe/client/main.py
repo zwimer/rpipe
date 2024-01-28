@@ -6,7 +6,7 @@ import sys
 
 from ..version import __version__
 from .client import rpipe, Mode
-from .config import PASSWORD_ENV, Config
+from .config import PASSWORD_ENV, PartialConfig, Option
 
 
 def main(prog: str, *args: str) -> None:
@@ -14,9 +14,10 @@ def main(prog: str, *args: str) -> None:
     Parses arguments then invokes rpipe
     """
     name = Path(prog).name
-    parser = argparse.ArgumentParser(prog=name)
-    parser.add_argument("--version", action="version", version=f"{name} {__version__}")
-    g1 = parser.add_mutually_exclusive_group()
+    parser = argparse.ArgumentParser(prog=name, add_help=False)
+    g1 = parser.add_argument_group(
+        "Read Mode Options", "Only available when reading"
+    ).add_mutually_exclusive_group()
     g1.add_argument("-p", "--peek", action="store_true", help="Read in 'peek' mode")
     g1.add_argument("--clear", action="store_true", help="Delete all entries in the channel")
     parser.add_argument(
@@ -27,16 +28,27 @@ def main(prog: str, *args: str) -> None:
     )
     parser.add_argument("--verbose", action="store_true", help="Be verbose")
     # Config options
-    parser.add_argument("-u", "--url", help="The pipe url to use")
-    parser.add_argument("-c", "--channel", help="The channel to use")
-    enc_mode = parser.add_mutually_exclusive_group()
-    enc_mode.add_argument(
+    config = parser.add_argument_group("Config Options", "Overrides saved config options")
+    config.add_argument("-u", "--url", help="The pipe url to use")
+    config.add_argument("-c", "--channel", help="The channel to use")
+    enc_g = config.add_argument_group("Encryption Mode").add_mutually_exclusive_group()
+    enc_g.add_argument(
         "--encrypt",
         action="store_true",
         help=f"Encrypt the data; uses {PASSWORD_ENV} as the password if set, otherwise uses saved password",
     )
-    enc_mode.add_argument("--plaintext", action="store_true", help="Do not encrypt the data")
-    priority_mode = parser.add_mutually_exclusive_group()
+    enc_g.add_argument("--plaintext", action="store_true", help="Do not encrypt the data")
+    # Warnings
+    ssl_g = config.add_argument_group("SSL Warning").add_mutually_exclusive_group()
+    ssl_g.add_argument("--ssl", action="store_true", help="Require host use https")
+    ssl_g.add_argument("--no-require-ssl", action="store_true", help="Do not require host use https")
+    # Modes
+    priority_mode = parser.add_argument_group(
+        "Alternative modes",
+        "If one of these is passed, the client will execute the desired action then exit.",
+    ).add_mutually_exclusive_group()
+    priority_mode.add_argument("-h", "--help", action="help", help="show this help message and exit")
+    priority_mode.add_argument("--version", action="version", version=f"{name} {__version__}")
     priority_mode.add_argument(
         "--print-config", action="store_true", help="Print out the saved config information then exit"
     )
@@ -54,12 +66,17 @@ def main(prog: str, *args: str) -> None:
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
     if ns.pop("verbose"):
         logging.getLogger().setLevel(logging.DEBUG)
-    keys = lambda x: (i.name for i in fields(x))
-    conf_d = {i: k for i, k in ns.items() if i in keys(Config)}
-    mode_d = {i: k for i, k in ns.items() if i in keys(Mode)}
-    assert set(ns) == set(conf_d) | set(mode_d)
-    conf_d["password"] = None
-    rpipe(Config(**conf_d), Mode(read=sys.stdin.isatty(), **mode_d))
+    opt = lambda a, b: Option(True if ns.pop(a) else (False if ns.pop(b) else None))
+    mode_d = {i: k for i, k in ns.items() if i in {i.name for i in fields(Mode) if i.name != "encrypt"}}
+    rpipe(
+        PartialConfig(
+            ssl=opt("ssl", "no_require_ssl"),
+            url=Option(ns.pop("url")),
+            channel=Option(ns.pop("channel")),
+            password=Option(),
+        ),
+        Mode(read=sys.stdin.isatty(), encrypt=opt("encrypt", "plaintext"), **mode_d),
+    )
 
 
 def cli() -> None:

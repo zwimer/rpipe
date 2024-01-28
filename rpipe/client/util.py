@@ -5,7 +5,7 @@ from logging import getLogger
 
 from requests import Session, Request
 
-from .config import ValidConfig
+from .config import Config
 
 if TYPE_CHECKING:
     from requests import Response
@@ -15,7 +15,7 @@ WAIT_DELAY_SEC: float = 0.25
 REQUEST_TIMEOUT: int = 60
 
 
-def channel_url(c: ValidConfig) -> str:
+def channel_url(c: Config) -> str:
     return f"{c.url}/c/{quote(c.channel)}"
 
 

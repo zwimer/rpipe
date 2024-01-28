@@ -13,7 +13,7 @@ from .io import IO
 
 if TYPE_CHECKING:
     from requests import Response
-    from .config import ValidConfig
+    from .config import Config
 
 
 _LOG = "send"
@@ -34,7 +34,7 @@ def _send_error(r: Response) -> None:
             raise RuntimeError(r)
 
 
-def _send_block(data: bytes, config: ValidConfig, params: UploadRequestParams) -> None:
+def _send_block(data: bytes, config: Config, params: UploadRequestParams) -> None:
     """
     Upload the given block of data; updates params for next block
     """
@@ -50,7 +50,7 @@ def _send_block(data: bytes, config: ValidConfig, params: UploadRequestParams) -
         _send_error(r)
 
 
-def send(config: ValidConfig) -> None:
+def send(config: Config) -> None:
     """
     Send data to the remote pipe
     """

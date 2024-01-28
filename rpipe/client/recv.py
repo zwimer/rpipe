@@ -8,18 +8,18 @@ from ..version import version
 from ..shared import DownloadRequestParams, DownloadResponseHeaders, DownloadErrorCode
 from .errors import MultipleClients, ReportThis, VersionError, StreamError, NoData
 from .util import WAIT_DELAY_SEC, request, channel_url
-from .config import ValidConfig
 from .crypt import decrypt
 
 if TYPE_CHECKING:
     from requests import Response
+    from .config import Config
 
 
 _LOG = "recv"
 
 
 # pylint: disable=too-many-arguments
-def _recv_error(r: Response, config: ValidConfig, peek: bool, put: bool, waited: bool) -> None:
+def _recv_error(r: Response, config: Config, peek: bool, put: bool, waited: bool) -> None:
     """
     Raise an exception according to the recv response error
     """
@@ -50,7 +50,7 @@ def _recv_error(r: Response, config: ValidConfig, peek: bool, put: bool, waited:
             raise RuntimeError(r)
 
 
-def recv(config: ValidConfig, peek: bool, force: bool) -> None:
+def recv(config: Config, peek: bool, force: bool) -> None:
     """
     Receive data from the remote pipe
     """
