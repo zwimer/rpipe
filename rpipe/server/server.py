@@ -26,7 +26,7 @@ def _help() -> str:
     return (
         "Write to /write, read from /read or /peek, clear with "
         "/clear; add a trailing /<channel> to specify the channel. "
-        "Note: Using the web version bypasses version consistenct checks "
+        "Note: Using the web version bypasses version consistent checks "
         "and may result in safe but unexpected behavior (such as failing "
         "an uploaded message; if possible use the rpipe CLI instead. "
         "Install the CLI via: pip install rpipe"
