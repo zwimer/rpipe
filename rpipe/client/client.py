@@ -47,8 +47,7 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
         return
     # Load pipe config and save is requested
     conf = config_file.load_onto(conf, mode.encrypt.is_false())
-    msg = "Loaded config with:\n  url = %s\n  channel = %s\n  has password: %s"
-    log.debug(msg, conf.url, conf.channel, bool(conf.password.get()))
+    log.debug("Loaded %s", conf)
     if mode.save_config:
         config_file.save(conf, mode.encrypt.is_true())
         return

@@ -17,6 +17,9 @@ class Option(Generic[_T]):
             raise RuntimeError("Option value is not set")
         return self._value
 
+    def __repr__(self) -> str:
+        return "<None>" if self.is_none() else str(self.value)
+
     def is_none(self) -> bool:
         return self._value is None
 

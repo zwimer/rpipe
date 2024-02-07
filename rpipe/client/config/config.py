@@ -26,6 +26,11 @@ class PartialConfig:
     channel: Option[str]
     password: Option[str]
 
+    def __repr__(self):
+        d = asdict(self)
+        d["password"] = not d["password"].is_none()
+        return "Config:\n  " + "\n  ".join(f"{i}: {k}" for i, k in d.items())
+
 
 @dataclass(kw_only=True, frozen=True)
 class Config:
