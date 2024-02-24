@@ -28,7 +28,7 @@ class PartialConfig:
 
     def __repr__(self):
         d = asdict(self)
-        d["password"] = not d["password"].is_none()
+        d["password"] = d["password"] is not None
         return "Config:\n  " + "\n  ".join(f"{i}: {k}" for i, k in d.items())
 
 
