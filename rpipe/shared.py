@@ -13,9 +13,10 @@ WEB_VERSION = Version("0.0.0")
 assert not WEB_VERSION.invalid()
 
 
+@dataclass
 class _ToDict:
     def to_dict(self) -> dict[str, str]:
-        return {i.replace("_", "-"): str(k) for i, k in asdict(self).items() if k is not None}  # type: ignore
+        return {i.replace("_", "-"): str(k) for i, k in asdict(self).items() if k is not None}
 
 
 def _get_bool(d: dict[str, str], name: str, default: bool) -> bool:

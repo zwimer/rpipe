@@ -32,22 +32,23 @@ class _EncryptedData(NamedTuple):
         return cls(*parts)
 
 
-def _opts(password: str) -> dict:
-    return {"password": password.encode(), "n": 2**14, "r": 8, "p": 1, "dklen": 32}
+def _aes(salt: bytes, password: str, nonce: bytes | None = None):
+    scrypt = hashlib.scrypt(salt=salt, password=password.encode(), n=2**14, r=8, p=1, dklen=32)
+    return AES.new(scrypt, AES.MODE_GCM, nonce=nonce)
 
 
 def encrypt(data: bytes, password: str | None) -> bytes:
     if not password or not data:
         return data
     salt = get_random_bytes(AES.block_size)
-    conf = AES.new(hashlib.scrypt(salt=salt, **_opts(password)), AES.MODE_GCM)  # type: ignore
-    text, tag = conf.encrypt_and_digest(zlib.compress(data, level=_ZLIB_LEVEL))
-    return _EncryptedData(text, salt, conf.nonce, tag).encode()
+    aes = _aes(salt, password)
+    text, tag = aes.encrypt_and_digest(zlib.compress(data, level=_ZLIB_LEVEL))
+    return _EncryptedData(text, salt, aes.nonce, tag).encode()
 
 
 def decrypt(data: bytes, password: str | None) -> bytes:
     if not password or not data:
         return data
     e = _EncryptedData.decode(data)
-    aes = AES.new(hashlib.scrypt(salt=e.salt, **_opts(password)), AES.MODE_GCM, nonce=e.nonce)  # type: ignore
+    aes = _aes(e.salt, password, e.nonce)
     return zlib.decompress(aes.decrypt_and_verify(e.text, e.tag))
