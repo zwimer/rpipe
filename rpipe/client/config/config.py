@@ -76,7 +76,7 @@ class ConfigFile:
 
     def print(self) -> None:
         self._log.debug("Mode: print-config")
-        print(f"Config file: {self.path}")
+        print(f"Path: {self.path}")
         if not self.path.exists():
             print("No saved config")
             return
