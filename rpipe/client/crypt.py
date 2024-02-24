@@ -1,4 +1,5 @@
-from typing import NamedTuple, Self
+from __future__ import annotations
+from typing import NamedTuple
 import hashlib
 import zlib
 
@@ -20,7 +21,7 @@ class _EncryptedData(NamedTuple):
         return line1 + b"".join(self)
 
     @classmethod
-    def decode(cls, raw: bytes) -> Self:
+    def decode(cls, raw: bytes) -> _EncryptedData:  # typing.Self in python3.11
         parts = []
         start = raw.index(b"\n") + 1
         for i in (int(k.decode()) for k in raw[: start - 1].split(b" ")):

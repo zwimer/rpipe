@@ -29,31 +29,31 @@ def _get_bool(d: dict[str, str], name: str, default: bool) -> bool:
 
 class UploadErrorCode:
     """
-    HTTP error codes the rpipe client may be sent
+    HTTP error codes the rpipe client may be send when uploading data
     """
 
-    wrong_version: int = 412  #   Upload: PUT: different version than initial POST
-    illegal_version: int = 426  # Upload: illegal version
-    stream_id: int = 422  #       Upload: POST: Has stream ID, should not; PUT: missing stream ID
-    too_big: int = 413  #         Upload: Too much data sent to server
-    conflict: int = 409  #        Upload: Stream ID indicates a different stream than exists
-    wait: int = 425  #            Upload: Try again in a bit, waiting on the other end of the pipe
-    forbidden: int = 403  #       Upload: Writing to finalized stream
+    wrong_version: int = 412  #    PUT: different version than initial POST
+    illegal_version: int = 426  #  Illegal version
+    stream_id: int = 422  #        POST: Has stream ID, should not; PUT: missing stream ID
+    too_big: int = 413  #          Too much data sent to server
+    conflict: int = 409  #         Stream ID indicates a different stream than exists
+    wait: int = 425  #             Try again in a bit, waiting on the other end of the pipe
+    forbidden: int = 403  #        Writing to finalized stream
 
 
 class DownloadErrorCode:
     """
-    HTTP error codes the rpipe client may be sent
+    HTTP error codes the rpipe client may be send when downloading data
     """
 
-    wrong_version: int = 412  #   Download: GET: bad version
-    illegal_version: int = 426  # Download: illegal version
-    no_data: int = 410  #         Download: no data on this channel; takes priority over stream_id error
-    conflict: int = 409  #        Download: Stream ID indicates a different stream than exists
-    wait: int = 425  #            Download: Try again in a bit, waiting on the other end of the pipe
-    forbidden: int = 403  #       Download: StreamID passed for new stream or while peeking
-    cannot_peek: int = 452  #     Download: Cannot peek, too much data
-    in_use: int = 453  #          Download: Someone else is reading from the pipe
+    wrong_version: int = 412  #    GET: bad version
+    illegal_version: int = 426  #  Illegal version
+    no_data: int = 410  #          No data on this channel; takes priority over stream_id error
+    conflict: int = 409  #         Stream ID indicates a different stream than exists
+    wait: int = 425  #             Try again in a bit, waiting on the other end of the pipe
+    forbidden: int = 403  #        StreamID passed for new stream or while peeking
+    cannot_peek: int = 452  #      Cannot peek, too much data
+    in_use: int = 453  #           Someone else is reading from the pipe
 
 
 #
