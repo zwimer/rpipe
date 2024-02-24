@@ -48,12 +48,12 @@ class ConfigFile:
     _log = getLogger("ConfigFile")
 
     def __init__(self):
-        self.fname = Path(os.environ.get(CONFIG_FILE_ENV, _DEFAULT))
+        self.path = Path(os.environ.get(CONFIG_FILE_ENV, _DEFAULT))
 
     def load_onto(self, conf: PartialConfig, plaintext: bool) -> PartialConfig:
         self._log.debug("Generating config...")
         ret = deepcopy(conf)
-        raw = json.loads(self.fname.read_text(encoding="utf-8")) if self.fname.exists() else {}
+        raw = json.loads(self.path.read_text(encoding="utf-8")) if self.path.exists() else {}
         ret.ssl.opt(raw.get("ssl", True))
         ret.url.opt(raw.get("url", None))
         ret.channel.opt(raw.get("channel", None))
@@ -66,21 +66,21 @@ class ConfigFile:
         self._log.debug("Mode: save-config")
         if encrypt and os.environ.get(PASSWORD_ENV, None) is None:
             raise UsageError(f"--save-config --encrypt requires {PASSWORD_ENV} be set")
-        parent = self.fname.parent
+        parent = self.path.parent
         if not parent.exists():
             self._log.debug("Creating directory %s", parent)
             parent.mkdir(exist_ok=True)
         self._log.debug("Saving config %s", conf)
-        self.fname.write_text(json.dumps({i: k.get() for i, k in asdict(conf).items()}), encoding="utf-8")
+        self.path.write_text(json.dumps({i: k.get() for i, k in asdict(conf).items()}), encoding="utf-8")
         self._log.info("Config saved")
 
     def print(self) -> None:
         self._log.debug("Mode: print-config")
-        print(f"Config file: {self.fname}")
-        if not self.fname.exists():
+        print(f"Config file: {self.path}")
+        if not self.path.exists():
             print("No saved config")
             return
-        raw = self.fname.read_text(encoding="utf-8")
+        raw = self.path.read_text(encoding="utf-8")
         try:
             print(PartialConfig(**json.loads(raw)))
         except TypeError:

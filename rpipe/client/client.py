@@ -37,7 +37,7 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
     """
     config_file = ConfigFile()
     log = getLogger(_LOG)
-    log.debug("Config file: %s", config_file.fname)
+    log.debug("Config file: %s", config_file.path)
     if not mode.read and mode.clear:
         raise UsageError("--clear may not be used when writing data to the pipe")
     if not mode.read and mode.peek:
