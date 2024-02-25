@@ -1,4 +1,4 @@
-# RPipe
+# rpipe
 A little python remote pipe server and client.
 
 # Install
