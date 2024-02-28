@@ -18,6 +18,7 @@ def main(prog, *args) -> None:
         version=f"rpipe>={MIN_VERSION}",
         help="Print the minimum supported client version then exit",
     )
+    parser.add_argument("--dir", type=Path, help="The save state directory, if desired")
     parser.add_argument("port", type=int, help="The port waitress will listen on")
     parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
     parser.add_argument("--debug", action="store_true", help="Run in debug mode")

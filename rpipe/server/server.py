@@ -1,17 +1,24 @@
 from __future__ import annotations
 from logging import basicConfig, getLogger, WARNING, DEBUG
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 from threading import Thread
+from os import environ
 import time
 
 from flask import Flask, Response, request
 import waitress
 
 from ..version import __version__
+from .shutdown_handler import ShutdownHandler
+from .globals import lock, streams, shutdown
 from .constants import MAX_SIZE_HARD
-from .globals import lock, streams
 from .write import write
 from .read import read
+from . import save_state
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 PRUNE_DELAY: int = 5
@@ -67,6 +74,8 @@ def _periodic_prune() -> None:
     while True:
         old: datetime = datetime.now() - prune_age
         with lock:
+            if shutdown:
+                return
             for i, k in streams.items():
                 if k.when < old:
                     log.debug("Pruning channel %s", i)
@@ -74,12 +83,27 @@ def _periodic_prune() -> None:
         time.sleep(60)
 
 
-def start(host: str, port: int, debug: bool) -> None:
+def start(host: str, port: int, debug: bool, dir: Path | None) -> None:
     basicConfig(level=DEBUG if debug else WARNING, format="%(message)s")
-    print(f"Starting server on {host}:{port}")
-    getLogger(_LOG).debug("Setting max packet size: %s", MAX_SIZE_HARD)
+    log = getLogger(_LOG)
+    log.debug("Setting max packet size: %s", MAX_SIZE_HARD)
     app.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
     app.url_map.strict_slashes = False
+    # Load state
+    if dir is not None:
+        if not dir.exists():
+            raise RuntimeError(f"Directory {dir} does not exist")
+        # Do not run on first load when in debug mode b / c of flask reloader
+        if debug and environ.get("WERKZEUG_RUN_MAIN") != "true":
+            msg = "Not loading state or installing shutdown handler during initial flask load on debug mode"
+            log.info(msg)
+        else:
+            save_dir = dir / "save"
+            if save_dir.exists():
+                save_state.load(save_dir)
+            ShutdownHandler(save_dir)
+    # Start
+    print(f"Starting server on {host}:{port}")
     Thread(target=_periodic_prune, daemon=True).start()
     if debug:
         app.run(host=host, port=port, debug=True)

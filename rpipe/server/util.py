@@ -2,17 +2,48 @@ from __future__ import annotations
 from logging import getLogger, Logger, DEBUG
 from typing import TYPE_CHECKING
 from dataclasses import fields
+from threading import RLock
 
 from .constants import PIPE_MAX_BYTES
 
 if TYPE_CHECKING:
-    from typing import TypeVar
+    from typing import TypeVar, Any
     from collections.abc import Callable, Iterable
     from flask import Response
     from ..shared import UploadRequestParams, DownloadRequestParams
 
 if TYPE_CHECKING:
     ArgsT = TypeVar("ArgsT", bound=Callable)
+
+
+class Boolean:
+    """
+    A mutable boolean
+    """
+
+    def __init__(self, value: bool):
+        self.value = value
+
+    def __bool__(self) -> bool:
+        return self.value
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class Singleton(type):
+    """
+    A metaclass that makes a class a singleton
+    """
+
+    _instances: dict[type, Any] = {}
+    _lock = RLock()
+
+    def __call__(cls, *args, **kwargs):
+        with cls._lock:
+            if cls not in cls._instances:
+                cls._instances[cls] = super().__call__(*args, **kwargs)
+            return cls._instances[cls]
 
 
 def hsize(n: int) -> str:
