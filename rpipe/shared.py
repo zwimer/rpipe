@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, TypeVar
 from dataclasses import dataclass, asdict
-from enum import Enum, unique
 
 from .version import Version
 
@@ -29,10 +28,9 @@ def _get_bool(d: dict[str, str], name: str, default: bool) -> bool:
 #
 
 
-@unique
-class UploadErrorCode(Enum):
+class UploadErrorCode:
     """
-    HTTP error codes the rpipe client may be send when uploading data
+    HTTP error codes the rpipe client may be sent when uploading data
     """
 
     wrong_version: int = 412  #    PUT: different version than initial POST
@@ -44,10 +42,9 @@ class UploadErrorCode(Enum):
     forbidden: int = 403  #        Writing to finalized stream
 
 
-@unique
-class DownloadErrorCode(Enum):
+class DownloadErrorCode:
     """
-    HTTP error codes the rpipe client may be send when downloading data
+    HTTP error codes the rpipe client may be sent when downloading data
     """
 
     wrong_version: int = 412  #    GET: bad version

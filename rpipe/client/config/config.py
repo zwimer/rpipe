@@ -60,6 +60,7 @@ class ConfigFile:
         if not plaintext:
             ret.password.opt(os.getenv(PASSWORD_ENV))
             ret.password.opt(raw.get("password", ""))
+        ret.password.opt("")
         return ret
 
     def save(self, conf: PartialConfig, encrypt: bool) -> None:
