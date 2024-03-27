@@ -23,7 +23,7 @@ def _send_error(r: Response) -> None:
     """
     Raise an exception according to the send response error
     """
-    match r.status_code:
+    match UploadErrorCode(r.status_code):
         case UploadErrorCode.illegal_version:
             raise VersionError(f"Server requires version >= {r.text}")
         case UploadErrorCode.conflict:
@@ -42,7 +42,7 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams) -> Non
     if r.ok:
         headers = UploadResponseHeaders.from_dict(r.headers)
         assert params.stream_id == headers.stream_id
-    elif r.status_code == UploadErrorCode.wait:
+    elif r.status_code == UploadErrorCode.wait.value:
         getLogger(_LOG).debug("Pipe full, sleeping for %s seconds.", WAIT_DELAY_SEC)
         sleep(WAIT_DELAY_SEC)
         _send_block(data, config, params)

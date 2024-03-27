@@ -6,19 +6,21 @@ from threading import Thread
 from os import environ
 import time
 
-from flask import Flask, Response, request
+from flask import Flask, request
 import waitress
 
 from ..version import __version__
 from .shutdown_handler import ShutdownHandler
 from .globals import lock, streams, shutdown
 from .constants import MAX_SIZE_HARD
+from .util import plaintext
 from .write import write
 from .read import read
 from . import save_state
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from flask import Response
 
 
 PRUNE_DELAY: int = 5
@@ -29,23 +31,27 @@ app = Flask(__name__)
 
 @app.route("/")
 @app.route("/help")
-def _help() -> str:
-    return (
-        "Write to /write, read from /read or /peek, clear with "
-        "/clear; add a trailing /<channel> to specify the channel. "
+def _help() -> Response:
+    msg = (
+        "Welcome to the web UI of rpipe. "
+        "To interact with a given channel, use the path /c/<channel>. "
+        "To read a message from a given channel, use a GET request. "
+        "To write a message to a given channel, use PUT and POST requests. "
+        "To clear a channel, use a DELETE request. "
         "Note: Using the web version bypasses version consistent checks "
         "and may result in safe but unexpected behavior (such as failing "
-        "an uploaded message; if possible use the rpipe CLI instead. "
+        "an uploaded message; if possible use the rpipe client CLI instead. "
         "Install the CLI via: pip install rpipe"
     )
+    return plaintext(msg)
 
 
 @app.route("/version")
-def _show_version() -> str:
-    return __version__
+def _show_version() -> Response:
+    return plaintext(__version__)
 
 
-@app.route("/c/<channel>", methods=["DELETE", "GET", "POST", "PUT", "CLEAR"])
+@app.route("/c/<channel>", methods=["DELETE", "GET", "POST", "PUT"])
 def _channel(channel: str) -> Response:
     log = getLogger(_LOG)
     match request.method:
@@ -54,14 +60,14 @@ def _channel(channel: str) -> Response:
                 if channel in streams:
                     log.debug("Deleting channel %s", channel)
                     del streams[channel]
-            return Response("Cleared", status=202)
+            return plaintext("Cleared", status=202)
         case "GET":
             return read(channel)
         case "POST" | "PUT":
             return write(channel)
         case _:
             log.debug("404: bad method: %s", request.method)
-            return Response(status=404)
+            return plaintext(f"Unknown method: {request.method}", status=404)
 
 
 def _periodic_prune() -> None:

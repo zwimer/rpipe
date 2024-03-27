@@ -23,7 +23,7 @@ def _recv_error(r: Response, config: Config, peek: bool, put: bool, waited: bool
     """
     Raise an exception according to the recv response error
     """
-    match r.status_code:
+    match DownloadErrorCode(r.status_code):
         case DownloadErrorCode.wrong_version:
             v = r.text.split(":")[-1].strip()
             raise VersionError(f"Version mismatch; uploader version = {v}; force a read with --force")
@@ -69,7 +69,7 @@ def recv(config: Config, peek: bool, force: bool) -> None:
                 log.debug("Stream complete")
                 return
             params.stream_id = headers.stream_id
-        elif r.status_code == DownloadErrorCode.wait:
+        elif r.status_code == DownloadErrorCode.wait.value:
             log.debug("No data available yet, sleeping for %s seconds.", WAIT_DELAY_SEC)
             sleep(WAIT_DELAY_SEC)
             waited = True

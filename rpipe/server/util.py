@@ -6,10 +6,12 @@ from threading import RLock
 
 from .constants import PIPE_MAX_BYTES
 
+from flask import Response
+
 if TYPE_CHECKING:
+    from enum import Enum
     from typing import TypeVar, Any
     from collections.abc import Callable, Iterable
-    from flask import Response
     from ..shared import UploadRequestParams, DownloadRequestParams
 
 if TYPE_CHECKING:
@@ -46,6 +48,14 @@ class Singleton(type):
             return cls._instances[cls]
 
 
+def plaintext(msg: str, status: Enum | int = 200, **kwargs) -> Response:
+    """
+    Return a plain text Response containing the arguments
+    """
+    code: int = status if isinstance(status, int) else status.value
+    return Response(msg, status=code, mimetype="text/plain", **kwargs)
+
+
 def hsize(n: int) -> str:
     """
     Convert n (number of bytes) into a string such as: 12.3 MiB
@@ -68,7 +78,8 @@ def log_pipe_size(log: Logger, data: Iterable[bytes]) -> None:
     if not log.isEnabledFor(DEBUG):
         return
     n = sum(len(i) for i in data)
-    log.debug("Pipe now has %s/%s (%.2f%%) bytes.", hsize(n), hsize(PIPE_MAX_BYTES), 100 * n / PIPE_MAX_BYTES)
+    msg = "Pipe now contains %s/%s bytes. It is %.2f%% full."
+    log.debug(msg, hsize(n), hsize(PIPE_MAX_BYTES), 100 * n / PIPE_MAX_BYTES)
 
 
 def log_params(log: Logger, p: UploadRequestParams | DownloadRequestParams) -> None:
