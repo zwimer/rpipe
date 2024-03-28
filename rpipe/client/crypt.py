@@ -21,15 +21,20 @@ class _EncryptedData(NamedTuple):
         return line1 + b"".join(self)
 
     @classmethod
-    def decode(cls, raw: bytes) -> _EncryptedData:  # typing.Self in python3.11
-        parts = []
-        start = raw.index(b"\n") + 1
-        for i in (int(k.decode()) for k in raw[: start - 1].split(b" ")):
-            parts.append(raw[start : start + i])
-            start += i
-        if len(parts) != len(cls._fields):
-            raise RuntimeError("Bad encrypted data")
-        return cls(*parts)
+    def decode(cls, raw: bytes) -> list[_EncryptedData]:  # typing.Self in python3.11
+        ret: list[_EncryptedData] = []  # python3.11 typing.Self
+        end: int = 0
+        while end < len(raw):  # We use this loop to avoid constantly slicing big data
+            parts: list[bytes] = []
+            start = raw.index(b"\n", end) + 1
+            for i in (int(k.decode()) for k in raw[end : start - 1].split(b" ")):
+                end = start + i
+                parts.append(raw[start:end])
+                start += i
+            if len(parts) != len(cls._fields):
+                raise RuntimeError("Bad encrypted data")
+            ret.append(cls(*parts))
+        return ret
 
 
 def _aes(salt: bytes, password: str, nonce: bytes | None = None):
@@ -49,6 +54,6 @@ def encrypt(data: bytes, password: str | None) -> bytes:
 def decrypt(data: bytes, password: str | None) -> bytes:
     if not password or not data:
         return data
-    e = _EncryptedData.decode(data)
-    aes = _aes(e.salt, password, e.nonce)
-    return zlib.decompress(aes.decrypt_and_verify(e.text, e.tag))
+    es = _EncryptedData.decode(data)
+    r = [zlib.decompress(_aes(e.salt, password, e.nonce).decrypt_and_verify(e.text, e.tag)) for e in es]
+    return r[0] if len(r) == 1 else b"".join(r)
