@@ -3,8 +3,6 @@ from typing import TYPE_CHECKING, cast
 from collections import deque
 from datetime import datetime
 from logging import getLogger
-import random
-import string
 
 from flask import request
 
@@ -18,7 +16,6 @@ if TYPE_CHECKING:
     from flask import Response
 
 
-CHARSET = string.ascii_lowercase + string.ascii_uppercase + string.digits
 _LOG = "write"
 
 
@@ -51,16 +48,15 @@ def write(channel: str) -> Response:
         if args.stream_id is not None:
             return plaintext("POST request should not have a stream_id", UploadErrorCode.stream_id)
         with lock:
-            sid = "".join(random.choices(CHARSET, k=32))
-            streams[channel] = Stream(
+            new = Stream(
                 data=deque([] if not add else [add]),
                 when=datetime.now(),
                 encrypted=args.encrypted,
                 version=args.version,
                 upload_complete=args.final,
-                id_=sid,
             )
-        headers = UploadResponseHeaders(stream_id=sid, max_size=MAX_SIZE_SOFT)
+            streams[channel] = new
+            headers = UploadResponseHeaders(stream_id=new.id_, max_size=MAX_SIZE_SOFT)
         return plaintext("", 201, headers=headers.to_dict())
     if args.stream_id is None:
         return plaintext("PUT request missing stream id", UploadErrorCode.stream_id)
