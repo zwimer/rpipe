@@ -82,10 +82,13 @@ def _periodic_prune() -> None:
         with lock:
             if shutdown:
                 return
+            expired = []
             for i, k in streams.items():
                 if k.when < old:
                     log.debug("Pruning channel %s", i)
-                    del streams[i]
+                    expired.append(i)
+            for i in expired:
+                del streams[i]
         time.sleep(60)
 
 
