@@ -45,7 +45,7 @@ def _read_error_check(s: Stream | None, args: DownloadRequestParams) -> Response
     if args.stream_id is None and s.new is False:
         return plaintext("Another client has already connected to this pipe.", DownloadErrorCode.in_use)
     if args.stream_id is not None and args.stream_id != s.id_:
-        return plaintext("Stream ID mistmatch", DownloadErrorCode.conflict)
+        return plaintext("Stream ID mismatch", DownloadErrorCode.conflict)
     # Web version cannot handle encryption
     if args.version == WEB_VERSION and s.encrypted:
         return plaintext("Web version cannot read encrypted data. Use the CLI: pip install rpipe", 422)
