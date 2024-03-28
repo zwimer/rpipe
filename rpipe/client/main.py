@@ -18,7 +18,12 @@ def main(prog: str, *args: str) -> None:
     g1 = parser.add_argument_group(
         "Read Mode Options", "Only available when reading"
     ).add_mutually_exclusive_group()
-    g1.add_argument("-p", "--peek", action="store_true", help="Read in 'peek' mode")
+    g1.add_argument(
+        "-p",
+        "--peek",
+        action="store_true",
+        help="Read in 'peek' mode; this will only grab currently available data, it will not construct a persistent pipe like a normal read.",
+    )
     g1.add_argument("--clear", action="store_true", help="Delete all entries in the channel")
     parser.add_argument(
         "-f",

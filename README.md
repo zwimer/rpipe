@@ -27,11 +27,13 @@ rpipe -c foo # Read data from the channel "foo"
 rpipe --peek # Read the data but do not remove it from the server
 ```
 
-Additional options can be found via `rpipe --help`
+Additional options can be found via `rpipe --help`.
+Note that peeking will only show the data presently available, it will not construct a persistent pipe like reading will.
 
 ### Web Version
 
-While discouraged and lacking support for encryption, users can forgo usage of the `rpipe` client and connect directly to an `rpipe` with simple `GET`/`POST` requests. Visit the server's URL `/help` for more details.
+While discouraged and lacking support for encryption, users can forgo usage of the `rpipe` client and connect directly to an `rpipe` with simple `GET`/`POST` requests.
+Visit the server's URL `/help` for more details.
 
 ### Custom URL or channel
 Both sending and receiving support the command line options `-c`/`--channel` and `-u`/`--url` to use a different channel or URL than is saved.

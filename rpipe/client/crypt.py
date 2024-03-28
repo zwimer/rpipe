@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import NamedTuple
+from logging import getLogger
 import hashlib
 import zlib
 
@@ -54,6 +55,11 @@ def encrypt(data: bytes, password: str | None) -> bytes:
 def decrypt(data: bytes, password: str | None) -> bytes:
     if not password or not data:
         return data
+    log = getLogger("decrypt")
+    log.debug("Extracting chunks from %d bytes of data", len(data))
     es = _EncryptedData.decode(data)
+    log.debug("Decrypting and decompressing %d chunk%s", len(es), "s" if len(es) != 1 else "")
     r = [zlib.decompress(_aes(e.salt, password, e.nonce).decrypt_and_verify(e.text, e.tag)) for e in es]
+    if len(es) > 1:
+        log.debug("Merging chunks")
     return r[0] if len(r) == 1 else b"".join(r)
