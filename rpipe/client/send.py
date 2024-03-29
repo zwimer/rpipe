@@ -28,7 +28,12 @@ def _send_error(r: Response) -> None:
             raise VersionError(f"Server requires version >= {r.text}")
         case UploadErrorCode.conflict:
             raise MultipleClients("The stream ID changed mid-upload; maybe the channel was cleared?")
-        case UploadErrorCode.wrong_version | UploadErrorCode.too_big | UploadErrorCode.forbidden | UploadErrorCode.stream_id:
+        case (
+            UploadErrorCode.wrong_version
+            | UploadErrorCode.too_big
+            | UploadErrorCode.forbidden
+            | UploadErrorCode.stream_id
+        ):
             raise ReportThis(r.text)
         case _:
             raise RuntimeError(r)

@@ -48,7 +48,7 @@ version = {attr = "rpipe.__version__"}
 
 [tool.black]
 line-length = 110
-target-version = ["py310"]
+target-version = ["py310", "py311", "py312"]
 
 [tool.ruff]
 ignore=["E731"]
