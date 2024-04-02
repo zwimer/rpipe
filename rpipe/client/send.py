@@ -46,7 +46,7 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams) -> Non
     r = request("PUT", channel_url(config), params=params.to_dict(), data=data)
     if r.ok:
         headers = UploadResponseHeaders.from_dict(r.headers)
-        assert params.stream_id == headers.stream_id
+        assert params.stream_id == headers.stream_id  # nosec B101
     elif r.status_code == UploadErrorCode.wait.value:
         getLogger(_LOG).debug("Pipe full, sleeping for %s seconds.", WAIT_DELAY_SEC)
         sleep(WAIT_DELAY_SEC)

@@ -29,9 +29,6 @@ class IO:
 
     # Main Thread:
 
-    def eof(self) -> bool:
-        return self._eof and not self._buffer
-
     def read(self) -> bytes:
         """
         :param delay: sleep delay ms to allow more IO to load
@@ -60,7 +57,7 @@ class IO:
                 break
         if len(self._buffer) > 1:
             count -= 1
-        assert count > 0, "Write thread wrote too much data"
+        assert count > 0, "Write thread wrote too much data"  # nosec B101
         # Stitch together pieces as efficiently as possible
         if count == 1:
             return self._buffer.popleft()

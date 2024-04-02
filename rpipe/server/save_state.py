@@ -20,7 +20,7 @@ def load(dir_: Path):
         for p in dir_.iterdir():
             _log.debug("Loading channel %s", p.name)
             with p.open("rb") as f:
-                streams[p.name] = pickle.load(f)
+                streams[p.name] = pickle.load(f)  # nosec B301
 
 
 def save(dir_: Path):

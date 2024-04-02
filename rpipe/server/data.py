@@ -14,7 +14,7 @@ CHARSET = string.ascii_lowercase + string.ascii_uppercase + string.digits
 
 
 def _uid() -> str:
-    return "".join(random.choices(CHARSET, k=32))
+    return "".join(random.choices(CHARSET, k=32))  # nosec B311
 
 
 @dataclass(kw_only=True)

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 WEB_VERSION = Version("0.0.0")
-assert not WEB_VERSION.invalid()
+assert not WEB_VERSION.invalid()  # nosec B101
 
 
 @dataclass

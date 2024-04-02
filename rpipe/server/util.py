@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from ..shared import UploadRequestParams, DownloadRequestParams
 
 if TYPE_CHECKING:
-    ArgsT = TypeVar("ArgsT", bound=Callable)
+    _ArgsT = TypeVar("_ArgsT", bound=Callable)
 
 
 class Boolean:
@@ -105,7 +105,7 @@ def log_response(log_name: str = "util"):
     A decorator that logs the returned flask Responses to the log log_name
     """
 
-    def decorator(func: Callable[[ArgsT], Response]) -> Callable[[ArgsT], Response]:
+    def decorator(func: Callable[[_ArgsT], Response]) -> Callable[[_ArgsT], Response]:
         def inner(*args, **kwargs) -> Response:
             ret: Response = func(*args, **kwargs)
             _log_response(getLogger(log_name), ret)
