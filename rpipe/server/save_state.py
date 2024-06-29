@@ -21,6 +21,7 @@ def load(dir_: Path):
             _log.debug("Loading channel %s", p.name)
             with p.open("rb") as f:
                 streams[p.name] = pickle.load(f)  # nosec B301
+        # TODO: increase expiration dates of items
 
 
 def save(dir_: Path):
@@ -28,6 +29,7 @@ def save(dir_: Path):
     Save the program state
     Do not call this unless the server is shutdown!
     """
+    # TODO: save TOD
     if not shutdown:
         raise RuntimeError("Do save state before shutdown")
     _log.debug("Purging old program state...")

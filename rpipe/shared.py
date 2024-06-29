@@ -24,6 +24,16 @@ def _get_bool(d: dict[str, str], name: str, default: bool) -> bool:
     return d.get(name, str(default)) == "True"
 
 
+def _get_int_or_none(d: dict[str, str], name: str) -> int | None:
+    got: str | None = d.get(name, None)
+    if isinstance(got, str):
+        try:
+            return int(got)  # If we can't convert to an int, we'll just return None
+        except ValueError:
+            pass
+    return None
+
+
 #
 # Error Codes
 #
@@ -72,6 +82,7 @@ class UploadRequestParams(_ToDict):
     final: bool = False
     override: bool = False
     stream_id: str | None = None  # Not required for initial upload POST
+    ttl: int | None = None  # Use None if not provided (only read during initial upload POST)
 
     @classmethod
     def from_dict(cls, d: MultiDict[str, str]) -> UploadRequestParams:
@@ -81,6 +92,7 @@ class UploadRequestParams(_ToDict):
             final=_get_bool(d, "final", False),
             override=_get_bool(d, "override", False),
             stream_id=d.get("stream-id", None),
+            ttl=_get_int_or_none(d, "ttl"),
         )
 
 

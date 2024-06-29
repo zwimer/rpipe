@@ -24,7 +24,7 @@ class Stream:
     """
 
     data: deque[bytes]
-    when: datetime
+    expire: datetime
     encrypted: bool
     version: Version
     upload_complete: bool  # If more data will be added

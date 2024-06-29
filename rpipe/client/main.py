@@ -31,6 +31,12 @@ def main(prog: str, *args: str) -> None:
         action="store_true",
         help="Attempt to read data even if this is a upload/download client version mismatch",
     )
+    parser.add_argument(
+        "--ttl",
+        type=int,
+        default=None,
+        help="The number of seconds to keep the pipe alive; use server default if not passed. Only available while writing.",
+    )
     parser.add_argument("--verbose", action="store_true", help="Be verbose")
     # Config options
     config = parser.add_argument_group("Config Options", "Overrides saved config options")

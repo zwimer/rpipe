@@ -28,6 +28,8 @@ class Mode:
     peek: bool
     force: bool
     clear: bool
+    # Other options
+    ttl: int | None
 
 
 def rpipe(conf: PartialConfig, mode: Mode) -> None:
@@ -62,6 +64,9 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
             raise RuntimeError(f"Failed to get version: {r}")
         print(f"rpipe_server {r.text}")
         return
+    # Check ttl usage
+    if mode.ttl and (mode.clear or mode.read):
+        raise UsageError("--ttl may only be used when writing")
     # Check config
     if not (mode.encrypt.is_none() or mode.read or mode.clear):
         log.info("Write mode: No password found, falling back to plaintext mode")
@@ -76,4 +81,4 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
     elif mode.read:
         recv(full_conf, mode.peek, mode.force)
     else:
-        send(full_conf)
+        send(full_conf, mode.ttl)

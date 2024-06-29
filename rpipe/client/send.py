@@ -55,12 +55,12 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams) -> Non
         _send_error(r)
 
 
-def send(config: Config) -> None:
+def send(config: Config, ttl: int | None) -> None:
     """
     Send data to the remote pipe
     """
     # Open stream and get block size
-    params = UploadRequestParams(version=version, final=False, encrypted=config.password is not None)
+    params = UploadRequestParams(version=version, final=False, ttl=ttl, encrypted=config.password is not None)
     r = request("POST", channel_url(config), params=params.to_dict(), data="")
     if not r.ok:
         raise RuntimeError(r)

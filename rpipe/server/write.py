@@ -1,7 +1,7 @@
 from __future__ import annotations
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 from collections import deque
-from datetime import datetime
 from logging import getLogger
 
 from flask import request
@@ -18,10 +18,12 @@ if TYPE_CHECKING:
 
 _LOG = "write"
 
+DEFAULT_TTL: int = 300
+
 
 def _put_error_check(s: Stream | None, args: UploadRequestParams) -> Response | None:
     if s is None or s.id_ != args.stream_id:
-        return plaintext("Stream ID mistmatch.", UploadErrorCode.conflict)
+        return plaintext("Stream ID mismatch.", UploadErrorCode.conflict)
     if s.upload_complete:
         return plaintext("Cannot write to a completed stream.", UploadErrorCode.forbidden)
     if args.version != s.version and not args.override:
@@ -50,7 +52,7 @@ def write(channel: str) -> Response:
         with lock:
             new = Stream(
                 data=deque([] if not add else [add]),
-                when=datetime.now(),
+                expire=datetime.now() + timedelta(seconds=DEFAULT_TTL if args.ttl is None else args.ttl),
                 encrypted=args.encrypted,
                 version=args.version,
                 upload_complete=args.final,

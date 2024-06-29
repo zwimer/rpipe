@@ -1,7 +1,7 @@
 from __future__ import annotations
 from logging import basicConfig, getLogger, WARNING, DEBUG
-from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
+from datetime import datetime
 from threading import Thread
 from os import environ
 import time
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
     from flask import Response
 
 
-PRUNE_DELAY: int = 5
 _LOG: str = "server"
 
 app = Flask(__name__)
@@ -74,22 +73,22 @@ def _periodic_prune() -> None:
     """
     Remove items added to rpipe too long ago
     """
-    prune_age = timedelta(minutes=PRUNE_DELAY)
     log = getLogger("Prune Thread")
-    log.debug("Starting prune loop with prune age of %s", prune_age)
+    log.debug("Starting prune loop")
     while True:
-        old: datetime = datetime.now() - prune_age
+        now: datetime = datetime.now()
         with lock:
             if shutdown:
                 return
             expired = []
             for i, k in streams.items():
-                if k.when < old:
+                if k.expire < now:
+                    print(k.expire, now)
                     log.debug("Pruning channel %s", i)
                     expired.append(i)
             for i in expired:
                 del streams[i]
-        time.sleep(60)
+        time.sleep(5)  # Wait a few seconds before checking again
 
 
 def start(host: str, port: int, debug: bool, dir: Path | None) -> None:
@@ -102,7 +101,7 @@ def start(host: str, port: int, debug: bool, dir: Path | None) -> None:
     if dir is not None:
         if not dir.exists():
             raise RuntimeError(f"Directory {dir} does not exist")
-        # Do not run on first load when in debug mode b / c of flask reloader
+        # Do not run on first load when in debug mode b/c of flask reloader
         if debug and environ.get("WERKZEUG_RUN_MAIN") != "true":
             msg = "Not loading state or installing shutdown handler during initial flask load on debug mode"
             log.info(msg)
