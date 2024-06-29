@@ -42,7 +42,6 @@ def save(dir_: Path):
     Save the program state
     Do not call this unless the server is shutdown!
     """
-    # TODO: save TOD
     if not shutdown:
         raise RuntimeError("Do save state before shutdown")
     _log.debug("Purging old program state...")
