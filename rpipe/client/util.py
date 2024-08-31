@@ -28,6 +28,6 @@ def _session() -> Session:
 def request(*args, **kwargs) -> Response:
     r = Request(*args, **kwargs).prepare()
     if r.body:
-        getLogger("request").debug("Preparing to send %d bytes of data", len(r.body))
+        getLogger("request").debug("Sending %d bytes of data", len(r.body))
     ret = _session().send(r, timeout=REQUEST_TIMEOUT)
     return ret

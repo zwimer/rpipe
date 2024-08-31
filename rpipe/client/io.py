@@ -4,9 +4,6 @@ from logging import getLogger
 import os
 
 
-_LOG = "IO"
-
-
 class IO:
     """
     A better version of stdin.read that doesn't hang as often
@@ -16,7 +13,7 @@ class IO:
     """
 
     def __init__(self, fd: int, n: int) -> None:
-        self._log = getLogger(_LOG)
+        self._log = getLogger("IO Main")
         self._log.debug("Constructed IO on fd %d with n=%d", fd, n)
         self._buffer: deque[bytes] = deque()
         self._cond = Condition()
@@ -66,13 +63,16 @@ class IO:
     # Worker thread
 
     def __call__(self) -> None:
+        log = getLogger("IO Thread")
         until = lambda: sum(len(i) for i in self._buffer) < self._n
         while data := os.read(self._fd, self._n):  # Can read in small bursts
             with self._cond:
                 self._cond.wait_for(until)
                 self._buffer.append(data)
                 self._cond.notify()
+            log.debug("Loaded %d bytes of data from input", len(data))
         with self._cond:
             self._eof = True
             self._cond.notify()
+        log.debug("Data loading complete.")
         self._log.debug("IO has terminated successfully")

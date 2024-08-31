@@ -46,6 +46,7 @@ def _aes(salt: bytes, password: str, nonce: bytes | None = None):
 def encrypt(data: bytes, password: str | None) -> bytes:
     if not password or not data:
         return data
+    getLogger("encrypt").debug("Encrypting %d byte chunk", len(data))
     salt = get_random_bytes(AES.block_size)
     aes = _aes(salt, password)
     text, tag = aes.encrypt_and_digest(zlib.compress(data, level=_ZLIB_LEVEL))
