@@ -74,9 +74,9 @@ def main(prog: str, *args: str) -> None:
         "--server-version", action="store_true", help="Print the server version then exit"
     )
     ns = vars(parser.parse_args(args))
-    logging.basicConfig(level=logging.WARNING, format="%(message)s")
-    if ns.pop("verbose"):
-        logging.getLogger().setLevel(logging.DEBUG)
+    level: int = logging.DEBUG if ns["verbose"] else logging.WARNING
+    format: str = "%(asctime)s - %(levelname)-8s - %(message)s" if ns.pop("verbose") else "%(message)s"
+    logging.basicConfig(level=level, format=format)
     opt = lambda a, b: Option(True if ns.pop(a) else (False if ns.pop(b) else None))
     mode_d = {i: k for i, k in ns.items() if i in {i.name for i in fields(Mode) if i.name != "encrypt"}}
     rpipe(

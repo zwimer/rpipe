@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 from logging import getLogger
+from functools import cache
 
 from requests import Session, Request
 
@@ -19,9 +20,14 @@ def channel_url(c: Config) -> str:
     return f"{c.url}/c/{quote(c.channel)}"
 
 
+@cache
+def _session() -> Session:
+    return Session()
+
+
 def request(*args, **kwargs) -> Response:
     r = Request(*args, **kwargs).prepare()
     if r.body:
         getLogger("request").debug("Preparing to send %d bytes of data", len(r.body))
-    ret = Session().send(r, timeout=REQUEST_TIMEOUT)
+    ret = _session().send(r, timeout=REQUEST_TIMEOUT)
     return ret
