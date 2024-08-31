@@ -60,6 +60,7 @@ def write(channel: str) -> Response:
             streams[channel] = new
             headers = UploadResponseHeaders(stream_id=new.id_, max_size=MAX_SIZE_SOFT)
         return plaintext("", 201, headers=headers.to_dict())
+    # Continuing an existing stream, stream ID should be present
     if args.stream_id is None:
         return plaintext("PUT request missing stream id", UploadErrorCode.stream_id)
     with lock:

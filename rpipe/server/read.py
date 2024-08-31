@@ -61,7 +61,7 @@ def _read_error_check(s: Stream | None, args: DownloadRequestParams) -> Response
 @log_response(_LOG)
 def read(channel: str) -> Response:
     """
-    Get the data from channel, delete it afterwards if required
+    Get the data from channel, delete it afterward if required
     If web version: Fail if not encrypted, bypass version checks
     Otherwise: Version check
     """

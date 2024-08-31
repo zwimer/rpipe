@@ -5,6 +5,12 @@ __version__: str = "6.4.1"  # Must be "<major>.<minor>.<patch>", all numbers
 
 
 class Version:
+    """
+    A class to represent a version number
+    Implements comparison, equality, and str operators
+    Allows invalid versions but marks them as such
+    """
+
     _invalid = (-1, -1, -1)
 
     def __init__(self, v: str):
