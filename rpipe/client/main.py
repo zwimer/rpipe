@@ -42,7 +42,7 @@ def main(prog: str, *args: str) -> None:
     config = parser.add_argument_group("Config Options", "Overrides saved config options")
     config.add_argument("-u", "--url", help="The pipe url to use")
     config.add_argument("-c", "--channel", help="The channel to use")
-    enc_g = config.add_argument_group("Encryption Mode").add_mutually_exclusive_group()
+    enc_g = config.add_mutually_exclusive_group()
     enc_g.add_argument(
         "--encrypt",
         action="store_true",
@@ -50,7 +50,7 @@ def main(prog: str, *args: str) -> None:
     )
     enc_g.add_argument("--plaintext", action="store_true", help="Do not encrypt the data")
     # Warnings
-    ssl_g = config.add_argument_group("SSL Warning").add_mutually_exclusive_group()
+    ssl_g = config.add_mutually_exclusive_group()
     ssl_g.add_argument("--ssl", action="store_true", help="Require host use https")
     ssl_g.add_argument("--no-require-ssl", action="store_true", help="Do not require host use https")
     # Modes
