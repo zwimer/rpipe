@@ -9,6 +9,7 @@ from ..shared import UploadRequestParams, UploadResponseHeaders, UploadErrorCode
 from .errors import MultipleClients, ReportThis, VersionError
 from .util import WAIT_DELAY_SEC, request, channel_url
 from .crypt import encrypt
+from .pbar import PBar
 from .io import IO
 
 if TYPE_CHECKING:
@@ -55,7 +56,7 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams) -> Non
         _send_error(r)
 
 
-def send(config: Config, ttl: int | None) -> None:
+def send(config: Config, ttl: int | None, progress: bool | int) -> None:
     """
     Send data to the remote pipe
     """
@@ -71,8 +72,10 @@ def send(config: Config, ttl: int | None) -> None:
     # Send
     params.stream_id = headers.stream_id
     io = IO(sys.stdin.fileno(), block_size)
-    while block := io.read():
-        _send_block(encrypt(block, config.password), config, params)
+    with PBar(progress) as pbar:
+        while block := io.read():
+            pbar.update(len(block))
+            _send_block(encrypt(block, config.password), config, params)
     # Finalize
     params.final = True
     try:

@@ -22,7 +22,7 @@ def main(prog: str, *args: str) -> None:
         "-p",
         "--peek",
         action="store_true",
-        help="Read in 'peek' mode; this will only grab currently available data, it will not construct a persistent pipe like a normal read.",
+        help="Read pipe without emptying it; will not construct a persistent pipe like a normal read.",
     )
     g1.add_argument("--clear", action="store_true", help="Delete all entries in the channel")
     parser.add_argument(
@@ -35,9 +35,17 @@ def main(prog: str, *args: str) -> None:
         "--ttl",
         type=int,
         default=None,
-        help="The number of seconds to keep the pipe alive; use server default if not passed. Only available while writing.",
+        help="Pipe TTL in seconds; use server default if not passed. Only available while writing.",
     )
-    parser.add_argument("--verbose", action="store_true", help="Be verbose")
+    parser.add_argument("--verbose", action="store_true", help="Increase log verbosity")
+    parser.add_argument(
+        "--progress",
+        type=int,
+        const=True,
+        nargs="?",
+        help="Show a progress bar, if a value is passed, assume that's the number"
+        + " of bytes to be passed. Only valid while sending or receiving data.",
+    )
     # Config options
     config = parser.add_argument_group("Config Options", "Overrides saved config options")
     config.add_argument("-u", "--url", help="The pipe url to use")
@@ -81,6 +89,8 @@ def main(prog: str, *args: str) -> None:
     )
     opt = lambda a, b: Option(True if ns.pop(a) else (False if ns.pop(b) else None))
     mode_d = {i: k for i, k in ns.items() if i in {i.name for i in fields(Mode) if i.name != "encrypt"}}
+    if mode_d["progress"] is None:
+        mode_d["progress"] = False
     rpipe(
         PartialConfig(
             ssl=opt("ssl", "no_require_ssl"),

@@ -9,6 +9,7 @@ from ..shared import DownloadRequestParams, DownloadResponseHeaders, DownloadErr
 from .errors import MultipleClients, ReportThis, VersionError, StreamError, NoData
 from .util import WAIT_DELAY_SEC, request, channel_url
 from .crypt import decrypt
+from .pbar import PBar
 
 if TYPE_CHECKING:
     from requests import Response
@@ -50,7 +51,7 @@ def _recv_error(r: Response, config: Config, peek: bool, put: bool, waited: bool
             raise RuntimeError(r)
 
 
-def recv(config: Config, peek: bool, force: bool) -> None:
+def recv(config: Config, peek: bool, force: bool, progress: bool | int) -> None:
     """
     Receive data from the remote pipe
     """
@@ -59,19 +60,22 @@ def recv(config: Config, peek: bool, force: bool) -> None:
     log.debug("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
     params = DownloadRequestParams(version=version, override=force, delete=not peek)
     waited: bool = False
-    while True:
-        r = request("GET", url, params=params.to_dict())
-        if r.ok:
-            headers = DownloadResponseHeaders.from_dict(r.headers)
-            sys.stdout.buffer.write(decrypt(r.content, config.password if headers.encrypted else None))
-            sys.stdout.flush()
-            if headers.final:
-                log.debug("Stream complete")
-                return
-            params.stream_id = headers.stream_id
-        elif r.status_code == DownloadErrorCode.wait.value:
-            log.debug("No data available yet, sleeping for %s seconds.", WAIT_DELAY_SEC)
-            sleep(WAIT_DELAY_SEC)
-            waited = True
-        else:
-            _recv_error(r, config, peek, params.stream_id is not None, waited)
+    with PBar(progress) as pbar:
+        while True:
+            r = request("GET", url, params=params.to_dict())
+            if r.ok:
+                headers = DownloadResponseHeaders.from_dict(r.headers)
+                got: bytes = decrypt(r.content, config.password if headers.encrypted else None)
+                sys.stdout.buffer.write(got)
+                sys.stdout.flush()
+                pbar.update(len(got))
+                if headers.final:
+                    log.debug("Stream complete")
+                    return
+                params.stream_id = headers.stream_id
+            elif r.status_code == DownloadErrorCode.wait.value:
+                log.debug("No data available yet, sleeping for %s seconds.", WAIT_DELAY_SEC)
+                sleep(WAIT_DELAY_SEC)
+                waited = True
+            else:
+                _recv_error(r, config, peek, params.stream_id is not None, waited)

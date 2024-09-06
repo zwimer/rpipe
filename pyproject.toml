@@ -19,6 +19,7 @@ dependencies = [
     # Client
     "pycryptodomex",
     "requests",
+    "tqdm",
     # Server
     "waitress",
     "flask",
