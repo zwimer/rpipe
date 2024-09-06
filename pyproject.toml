@@ -65,4 +65,5 @@ skips = ["B201", "B104", "B403", "B301"]
 
 [tool.vulture]
 ignore_names = ["cli", "_help", "_show_version", "_channel", "strict_slashes"]
+min_confidence = 70
 paths = ["rpipe"]

@@ -6,7 +6,7 @@ from functools import cache
 
 from requests import Session, Request
 
-from .config import Config
+from ..config import Config
 
 if TYPE_CHECKING:
     from requests import Response

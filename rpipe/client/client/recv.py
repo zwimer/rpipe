@@ -4,8 +4,8 @@ from logging import getLogger
 from time import sleep
 import sys
 
-from ..version import version
-from ..shared import DownloadRequestParams, DownloadResponseHeaders, DownloadErrorCode
+from ...version import version
+from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadErrorCode
 from .errors import MultipleClients, ReportThis, VersionError, StreamError, NoData
 from .util import WAIT_DELAY_SEC, request, channel_url
 from .crypt import decrypt

@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from dataclasses import fields
 from pathlib import Path
 import argparse
@@ -5,8 +7,35 @@ import logging
 import sys
 
 from ..version import __version__
-from .client import rpipe, Mode
 from .config import PASSWORD_ENV, PartialConfig, Option
+from .client import rpipe, Mode
+from .admin import Admin
+
+if TYPE_CHECKING:
+    from argparse import Namespace
+
+
+def _admin(ns: Namespace):
+    if ns.channels:
+        Admin().channels(url=ns.url, key_file=ns.key_file)
+
+
+def _main(raw_ns: Namespace):
+    ns = vars(raw_ns)
+    opt = lambda a, b: Option(True if ns.pop(a) else (False if ns.pop(b) else None))
+    mode_d = {i: k for i, k in ns.items() if i in {i.name for i in fields(Mode) if i.name != "encrypt"}}
+    if mode_d["progress"] is None:
+        mode_d["progress"] = False
+    rpipe(
+        PartialConfig(
+            ssl=opt("ssl", "no_require_ssl"),
+            url=Option(ns.pop("url")),
+            channel=Option(ns.pop("channel")),
+            password=Option(),
+            key_file=Option(ns.pop("key_file")),
+        ),
+        Mode(read=sys.stdin.isatty(), encrypt=opt("encrypt", "plaintext"), **mode_d),
+    )
 
 
 def main(prog: str, *args: str) -> None:
@@ -15,6 +44,7 @@ def main(prog: str, *args: str) -> None:
     """
     name = Path(prog).name
     parser = argparse.ArgumentParser(prog=name, add_help=False)
+    parser.set_defaults(func=_main)
     g1 = parser.add_argument_group(
         "Read Mode Options", "Only available when reading"
     ).add_mutually_exclusive_group()
@@ -50,6 +80,12 @@ def main(prog: str, *args: str) -> None:
     config = parser.add_argument_group("Config Options", "Overrides saved config options")
     config.add_argument("-u", "--url", help="The pipe url to use")
     config.add_argument("-c", "--channel", help="The channel to use")
+    config.add_argument(
+        "--key-file",
+        default=None,
+        type=Path,
+        help="SSH ed25519 private key file used to signed admin requests",
+    )
     enc_g = config.add_mutually_exclusive_group()
     enc_g.add_argument(
         "--encrypt",
@@ -81,25 +117,24 @@ def main(prog: str, *args: str) -> None:
     priority_mode.add_argument(
         "--server-version", action="store_true", help="Print the server version then exit"
     )
-    ns = vars(parser.parse_args(args))
+    # Subparsers
+    subparsers = parser.add_subparsers()
+    admin = subparsers.add_parser(
+        "admin",
+        help="Admins commands. All arguments except --verbose, --url, and --key-file are ignored with admin commands",
+    )
+    admin.set_defaults(func=_admin)
+    admin_commands = admin.add_mutually_exclusive_group(required=True)
+    admin_commands.add_argument("--channels", action="store_true", help="List all channels with stats")
+    # Invoke func
+    parsed = parser.parse_args(args)
     logging.basicConfig(
-        level=logging.DEBUG if ns.pop("verbose") else logging.WARNING,
-        format="%(asctime)s.%(msecs)03d - %(levelname)-5s - %(name)-10s - %(message)s",
+        level=logging.DEBUG if parsed.verbose else logging.WARNING,
+        format="%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)-10s - %(message)s",
         datefmt="%H:%M:%S",
     )
-    opt = lambda a, b: Option(True if ns.pop(a) else (False if ns.pop(b) else None))
-    mode_d = {i: k for i, k in ns.items() if i in {i.name for i in fields(Mode) if i.name != "encrypt"}}
-    if mode_d["progress"] is None:
-        mode_d["progress"] = False
-    rpipe(
-        PartialConfig(
-            ssl=opt("ssl", "no_require_ssl"),
-            url=Option(ns.pop("url")),
-            channel=Option(ns.pop("channel")),
-            password=Option(),
-        ),
-        Mode(read=sys.stdin.isatty(), encrypt=opt("encrypt", "plaintext"), **mode_d),
-    )
+    del parsed.verbose
+    parsed.func(parsed)
 
 
 def cli() -> None:

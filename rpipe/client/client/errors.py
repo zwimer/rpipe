@@ -1,7 +1,4 @@
-class UsageError(ValueError):
-    """
-    Raised when the user used the client incorrectly (ex. CLI args)
-    """
+from ..config import UsageError
 
 
 class VersionError(UsageError):

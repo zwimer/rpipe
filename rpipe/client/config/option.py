@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Generic, TypeVar
 
 _T = TypeVar("_T")
@@ -7,14 +8,15 @@ class Option(Generic[_T]):
     def __init__(self, val: _T | None = None) -> None:
         self._value: _T | None = val
 
-    def opt(self, val: _T | None) -> None:
+    def opt(self, val: _T | None) -> Option:
         if self._value is None:
             self._value = val
+        return self
 
     @property
     def value(self) -> _T:
         if self._value is None:
-            raise RuntimeError("Option value is not set")
+            raise ValueError("Option value is not set")
         return self._value
 
     def __repr__(self) -> str:

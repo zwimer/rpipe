@@ -8,6 +8,7 @@ from .version import Version
 if TYPE_CHECKING:
     from requests.structures import CaseInsensitiveDict
     from werkzeug.datastructures import MultiDict
+    from datetime import datetime
 
 
 WEB_VERSION = Version("0.0.0")
@@ -163,3 +164,17 @@ class DownloadResponseHeaders(_ResponseHeaders):
             final=d["final"] == "True",
             encrypted=d["encrypted"] == "True",
         )
+
+
+#
+# Admin types
+#
+
+
+@dataclass(kw_only=True)
+class ChannelInfo:
+    version: Version
+    packets: int
+    size: int
+    encrypted: bool
+    expire: datetime

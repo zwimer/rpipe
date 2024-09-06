@@ -1,21 +1,25 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
 from logging import getLogger
 from pathlib import Path
 import atexit
 import signal
 import sys
 
-from .save_state import save
-from .util import Singleton
-from . import globals
+from ..util import Singleton
+from .state import ServerShutdown
+
+if TYPE_CHECKING:
+    from .state import State
 
 
 _LOG = "ShutdownHandler"
 
 
 class ShutdownHandler(metaclass=Singleton):
-    def __init__(self, dir_: Path):
-        self.dir_: Path = dir_
+    def __init__(self, state: State, file: Path):
+        self._state = state
+        self.file: Path = file
         self._log = getLogger(_LOG)
         self._log.info("Installing signal handlers so that atexit catches these.")
         signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
@@ -23,8 +27,8 @@ class ShutdownHandler(metaclass=Singleton):
         atexit.register(self._shutdown)
 
     def _shutdown(self):
-        if globals.shutdown:
-            return
-        globals.shutdown.value = True  # The only place in the program this may be changed
-        with globals.lock:
-            save(self.dir_)
+        with self._state as state:
+            if state.shutdown:
+                raise ServerShutdown()
+            state.shutdown = True
+            state.save(self.file)

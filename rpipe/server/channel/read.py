@@ -1,14 +1,16 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING, cast
 from logging import getLogger
-from typing import cast
 
 from flask import Response, request
 
-from ..shared import WEB_VERSION, DownloadResponseHeaders, DownloadRequestParams, DownloadErrorCode
-from .util import plaintext, log_response, log_params, pipe_full
-from .constants import MIN_VERSION
-from .globals import streams, lock
-from .data import Stream
+from ...shared import WEB_VERSION, DownloadResponseHeaders, DownloadRequestParams, DownloadErrorCode
+from ..util import MIN_VERSION, plaintext
+from .util import log_response, log_params
+
+if TYPE_CHECKING:
+    from ..server import Stream
+    from ..server import State
 
 
 _LOG: str = "read"
@@ -22,7 +24,7 @@ def _check_if_aio(s: Stream, args: DownloadRequestParams) -> Response | None:
         if not s.new:
             return plaintext("Another client has already connected to this pipe.", DownloadErrorCode.in_use)
         if not s.upload_complete:
-            if pipe_full(s.data):
+            if s.full():
                 msg = f"Must wait until uploader completes upload when using {mode}"
                 return plaintext(msg, DownloadErrorCode.wait)
             msg = f"Too much data to read all at once: when using {mode}; data can only be read all at once."
@@ -59,7 +61,7 @@ def _read_error_check(s: Stream | None, args: DownloadRequestParams) -> Response
 
 
 @log_response(_LOG)
-def read(channel: str) -> Response:
+def read(state: State, channel: str) -> Response:
     """
     Get the data from channel, delete it afterward if required
     If web version: Fail if not encrypted, bypass version checks
@@ -69,11 +71,12 @@ def read(channel: str) -> Response:
     log_params(getLogger(_LOG), args)
     if args.version != WEB_VERSION and (args.version < MIN_VERSION or args.version.invalid()):
         return plaintext(f"Bad version. Requires >= {MIN_VERSION}", DownloadErrorCode.illegal_version)
-    with lock:
-        s: Stream | None = streams.get(channel, None)
+    with state as rw_state:
+        s: Stream | None = rw_state.streams.get(channel, None)
         if (err := _read_error_check(s, args)) is not None:
             return err
-        s = cast(Stream, s)  # For type checker
+        if TYPE_CHECKING:
+            s = cast(Stream, s)  # For type checker
         # Read all at once if required
         if not args.delete or args.version == WEB_VERSION:
             final = True
@@ -84,6 +87,6 @@ def read(channel: str) -> Response:
             s.new = False
             final = s.upload_complete and not s.data
         if args.delete and final:
-            del streams[channel]
+            del rw_state.streams[channel]
     headers = DownloadResponseHeaders(encrypted=s.encrypted, stream_id=s.id_, final=final).to_dict()
     return Response(rdata, mimetype="application/octet-stream", headers=headers)

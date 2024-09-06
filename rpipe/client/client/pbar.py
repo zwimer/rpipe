@@ -17,6 +17,9 @@ class _Wraps:
 
 
 class PBar:
+    """
+    A small tqdm wrapper that is only enabled when requested
+    """
 
     def __init__(self, progress: bool | int):
         self.total: int | None = None if isinstance(progress, bool) else progress

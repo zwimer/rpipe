@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from logging import getLogger
 
+from ..config import ConfigFile, Option, PartialConfig
 from .util import REQUEST_TIMEOUT, channel_url, request
-from .config import ConfigFile, Option, PartialConfig
 from .errors import UsageError
 from .recv import recv
 from .send import send

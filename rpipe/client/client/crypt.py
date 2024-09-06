@@ -33,7 +33,7 @@ class _EncryptedData(NamedTuple):
                 parts.append(raw[start:end])
                 start += i
             if len(parts) != len(cls._fields):
-                raise RuntimeError("Bad encrypted data")
+                raise ValueError("Bad encrypted data")
             ret.append(cls(*parts))
         return ret
 
