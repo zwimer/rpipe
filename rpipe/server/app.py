@@ -1,6 +1,6 @@
 from __future__ import annotations
+from logging import WARNING, DEBUG, getLogger, basicConfig
 from typing import TYPE_CHECKING
-from logging import getLogger
 
 from flask import Flask
 import waitress
@@ -54,6 +54,16 @@ def _channel(channel: str) -> Response:
 # Admin routes
 
 
+@app.route("/admin/uid")
+def _admin_uid() -> Response:
+    """
+    Get a few UIDSs needed to sign admin requests
+    The exact number is up to the server, if you need more, request more
+    These UIDs will expire after a short period of time
+    """
+    return admin.uids()
+
+
 @app.route("/admin/debug", methods=["POST"])
 def _admin_debug() -> Response:
     return admin.debug(server.state)
@@ -68,6 +78,10 @@ def _admin_channels() -> Response:
 
 
 def serve(host: str, port: int, debug: bool, state_file: Path | None, key_files: list[Path]) -> None:
+    basicConfig(
+        level=DEBUG if debug else WARNING,
+        format="%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)-10s - %(message)s",
+    )
     log = getLogger(_LOG)
     log.debug("Setting max packet size: %s", MAX_SIZE_HARD)
     app.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD

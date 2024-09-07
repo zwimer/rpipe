@@ -16,8 +16,7 @@ if TYPE_CHECKING:
 
 
 def _admin(ns: Namespace):
-    if ns.channels:
-        Admin().channels(url=ns.url, key_file=ns.key_file)
+    getattr(Admin(), ns.method)(url=ns.url, key_file=ns.key_file)
 
 
 def _main(raw_ns: Namespace):
@@ -73,8 +72,10 @@ def main(prog: str, *args: str) -> None:
         type=int,
         const=True,
         nargs="?",
-        help="Show a progress bar, if a value is passed, assume that's the number"
-        + " of bytes to be passed. Only valid while sending or receiving data.",
+        help=(
+            "Show a progress bar, if a value is passed, assume that's the number"
+            " of bytes to be passed. Only valid while sending or receiving data."
+        ),
     )
     # Config options
     config = parser.add_argument_group("Config Options", "Overrides saved config options")
@@ -117,15 +118,22 @@ def main(prog: str, *args: str) -> None:
     priority_mode.add_argument(
         "--server-version", action="store_true", help="Print the server version then exit"
     )
-    # Subparsers
+    # Admin commands
     subparsers = parser.add_subparsers()
-    admin = subparsers.add_parser(
+    admin_parser = subparsers.add_parser(
         "admin",
-        help="Admins commands. All arguments except --verbose, --url, and --key-file are ignored with admin commands",
+        help="Admins commands.",
+        description=(
+            "All arguments except --verbose, --url, and --key-file are ignored with admin commands."
+            "Server must be configured to accept messages signed by your selected key file"
+        ),
     )
-    admin.set_defaults(func=_admin)
-    admin_commands = admin.add_mutually_exclusive_group(required=True)
-    admin_commands.add_argument("--channels", action="store_true", help="List all channels with stats")
+    admin_parser.set_defaults(func=_admin)
+    admin = admin_parser.add_subparsers(required=True, title="Admin commands")
+    server_debug = admin.add_parser("debug", help="Check if the server is running in debug mode")
+    server_debug.set_defaults(method="debug")
+    channels = admin.add_parser("channels", help="List all channels with stats")
+    channels.set_defaults(method="channels")
     # Invoke func
     parsed = parser.parse_args(args)
     logging.basicConfig(

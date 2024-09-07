@@ -1,6 +1,5 @@
 from pathlib import Path
 import argparse
-import logging
 import sys
 
 from ..version import __version__
@@ -29,7 +28,6 @@ def main(prog, *args) -> None:
     parser.add_argument("port", type=int, help="The port waitress will listen on")
     parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
     parser.add_argument("--debug", action="store_true", help="Run the server in debug mode")
-    logging.basicConfig(level=logging.WARNING, format="%(message)s")
     serve(**vars(parser.parse_args(args)))
 
 

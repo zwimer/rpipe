@@ -19,9 +19,6 @@ class Server(metaclass=Singleton):
         self.state = State()
 
     def start(self, debug: bool, state_file: Path | None) -> None:
-        if debug:
-            logging.getLogger().setLevel(logging.DEBUG)
-            self._log.debug("root logger level set to DEBUG")
         with self.state as s:
             s.debug = debug
         self._log.debug("Initializing server")

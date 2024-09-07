@@ -1,6 +1,6 @@
 from __future__ import annotations
+from dataclasses import dataclass, asdict, astuple, field
 from typing import TYPE_CHECKING, TypeVar
-from dataclasses import dataclass, asdict
 from enum import Enum, unique
 
 from .version import Version
@@ -169,6 +169,32 @@ class DownloadResponseHeaders(_ResponseHeaders):
 #
 # Admin types
 #
+
+
+@dataclass(kw_only=True, frozen=True)
+class AdminMessage:
+    args: dict[str, str] = field(default_factory=dict)
+    path: str
+    uid: str
+
+    def bytes(self) -> bytes:
+        return str(astuple(self)).encode()
+
+
+@dataclass(kw_only=True, frozen=True)
+class AdminPost:
+    signature: bytes
+    uid: str
+
+    @classmethod
+    def from_json(cls, d: dict[str, str]) -> AdminPost:
+        s = bytes.fromhex(d.pop("signature"))
+        return cls(signature=s, **d)
+
+    def json(self) -> dict[str, str]:
+        ret = asdict(self)
+        ret["signature"] = self.signature.hex()
+        return ret
 
 
 @dataclass(kw_only=True)
