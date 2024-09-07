@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING
 from dataclasses import dataclass
 from datetime import datetime
 from collections import deque
@@ -64,7 +64,6 @@ class Methods:
         self._log = getLogger(_LOG)
         self._gen_uid = UIDGenerator()
 
-    @override
     def __getattribute__(self, item: str) -> Any:
         """
         If a pulic methods is prefixed with _VERIFY_SSL, require SSL
@@ -187,7 +186,6 @@ class Admin:
 
         return wrapper
 
-    @override
     def __getattribute__(self, item: str) -> Any:
         """
         Override the getattribute method to expose all methods of Methods

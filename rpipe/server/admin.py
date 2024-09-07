@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING
 from datetime import datetime, timedelta
 from dataclasses import asdict
 from threading import RLock
@@ -135,7 +135,6 @@ class Admin:
         self._verifiers = tuple(i for i in (self._load_verifier(k) for k in key_files) if i)
         self._log.debug("Signing key load complete")
 
-    @override
     def __getattribute__(self, item: str) -> Any:
         """
         Override the getattribute method to expose all methods of _Methods and protect them with signature verification
