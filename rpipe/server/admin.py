@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 from dataclasses import asdict
 from threading import RLock
 from time import sleep
@@ -12,7 +12,8 @@ from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from flask import Response, request
 
-from ..shared import ChannelInfo, AdminMessage, AdminPost
+from ..shared import ChannelInfo, AdminMessage, AdminPOST
+from ..version import Version
 from .util import plaintext
 
 if TYPE_CHECKING:
@@ -22,40 +23,16 @@ if TYPE_CHECKING:
     from .server import State
 
 
+MIN_VERSION = Version("7.1.5")
+
+
 if TYPE_CHECKING:
 
     class _Verifier(Protocol):
         def __call__(self, signature: bytes, *, data: bytes) -> None: ...
 
 
-class _Methods:
-    """
-    A list of admin methods that normal users should not be able to access
-    These methods must be protected externally
-    """
-
-    def debug(self, state: State) -> Response:
-        with state as s:
-            debug = s.debug
-        return plaintext(str(debug))
-
-    def channels(self, state: State) -> Response:
-        """
-        Return a list of the server's current channels and stats
-        """
-        ci = lambda x: ChannelInfo(
-            version=x.version,
-            packets=len(x.data),
-            size=len(x),
-            encrypted=x.encrypted,
-            expire=x.expire,
-        )
-        with state as s:
-            output = {i: asdict(ci(k)) for i, k in s.streams.items()}
-        return Response(json.dumps(output, default=str), status=200, mimetype="application/json")
-
-
-class _UIDS:
+class _UID:
     """
     A class to manage UIDs that are used for signature verification
     """
@@ -89,6 +66,33 @@ class _UIDS:
         return True
 
 
+class _Methods:
+    """
+    A list of admin methods that normal users should not be able to access
+    These methods must be protected externally
+    """
+
+    def debug(self, state: State) -> Response:
+        with state as s:
+            debug = s.debug
+        return plaintext(str(debug))
+
+    def channels(self, state: State) -> Response:
+        """
+        Return a list of the server's current channels and stats
+        """
+        ci = lambda x: ChannelInfo(
+            version=x.version,
+            packets=len(x.data),
+            size=len(x),
+            encrypted=x.encrypted,
+            expire=x.expire,
+        )
+        with state as s:
+            output = {i: asdict(ci(k)) for i, k in s.streams.items()}
+        return Response(json.dumps(output, default=str), status=200, mimetype="application/json")
+
+
 class Admin:
     """
     Admin class that protects the server from unauthorized access
@@ -103,7 +107,7 @@ class Admin:
         self._log = logging.getLogger("Admin")
         self._verifiers: tuple[_Verifier, ...] = ()
         self._methods: _Methods = _Methods()
-        self._uids = _UIDS()
+        self._uids = _UID()
 
     def uids(self) -> Response:
         """
@@ -162,10 +166,12 @@ class Admin:
             try:
                 self._log.debug("Extracting request signature and message")
                 try:
-                    pm = AdminPost.from_json(request.get_json())
+                    pm = AdminPOST.from_json(request.get_json())
                 except Exception as e:  # pylint: disable=broad-except
                     logging.error(e, exc_info=True)
                     return Response("Failed to parse POST body", status=400)
+                if Version(pm.version) < MIN_VERSION:
+                    return Response(f"Minimum supported client version: {MIN_VERSION}", status=426)
                 if not self._uids.verify(pm.uid):
                     self._log.warning("Rejecting request due to invalid UID: %s", pm.uid)
                     return Response(status=401)

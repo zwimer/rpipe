@@ -182,12 +182,13 @@ class AdminMessage:
 
 
 @dataclass(kw_only=True, frozen=True)
-class AdminPost:
+class AdminPOST:
     signature: bytes
+    version: str
     uid: str
 
     @classmethod
-    def from_json(cls, d: dict[str, str]) -> AdminPost:
+    def from_json(cls, d: dict[str, str]) -> AdminPOST:
         s = bytes.fromhex(d.pop("signature"))
         return cls(signature=s, **d)
 

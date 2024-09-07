@@ -12,7 +12,8 @@ from cryptography.hazmat.primitives.serialization import load_ssh_private_key
 from cryptography.exceptions import UnsupportedAlgorithm
 from requests import Session
 
-from ..shared import ChannelInfo, AdminMessage, AdminPost
+from ..version import version
+from ..shared import ChannelInfo, AdminMessage, AdminPOST
 from .config import ConfigFile, UsageError, Option
 
 if TYPE_CHECKING:
@@ -24,6 +25,27 @@ if TYPE_CHECKING:
 ADMIN_REQUEST_TIMEOUT: int = 60
 _VERIFY_SSL: str = "_VERIFY_SSL_"
 _LOG = "admin"
+
+#
+# Exceptions
+#
+
+
+class AccessDenied(RuntimeError):
+    """
+    Raised when the server denies an admin request
+    """
+
+
+class IllegalVersion(UsageError):
+    """
+    Raised when the server is running a version that is not supported
+    """
+
+
+#
+# Helper Classes
+#
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -52,7 +74,12 @@ class UIDGenerator:
         return self._uids.popleft()
 
 
-class Methods:
+#
+# Main Classes
+#
+
+
+class _Methods:
     """
     Methods that can be called by the Admin class
     These methods may return sensitive data and should only be used with SSL
@@ -88,8 +115,16 @@ class Methods:
         uid: str = self._gen_uid(conf)
         self._log.debug("Signing request for path=%s with args=%s", path, args)
         signature: bytes = conf.sign(AdminMessage(path=path, args=args, uid=uid).bytes())
-        data = AdminPost(signature=signature, uid=uid).json()
-        return conf.session.post(f"{conf.url}{path}", json=data, timeout=ADMIN_REQUEST_TIMEOUT)
+        data = AdminPOST(signature=signature, uid=uid, version=str(version)).json()
+        ret = conf.session.post(f"{conf.url}{path}", json=data, timeout=ADMIN_REQUEST_TIMEOUT)
+        match ret.status_code:
+            case 401:
+                self._log.critical("Admin access denied")
+                raise AccessDenied()
+            case 426:
+                raise IllegalVersion(ret.text, log=self._log.critical)
+            case _:
+                return ret
 
     def _debug(self, conf: Conf) -> bool:
         """
@@ -118,14 +153,13 @@ class Methods:
             case 200:
                 raw = r.json()
             case 400:
-                self._log.critical(r.text)
-                return
-            case 401:
-                self._log.critical("Admin access denied")
-                return
+                msg = f"Bad Request 400: {r.text}"
+                self._log.critical(msg)
+                raise RuntimeError(msg)
             case _:
-                self._log.error("Unknown error: %s", r.status_code)
-                return
+                msg = f"Error {r.status_code}: {r.text}"
+                self._log.critical(msg)
+                raise RuntimeError(msg)
         if not raw:
             print("Server is empty")
             return
@@ -143,7 +177,7 @@ class Admin:
 
     def __init__(self):
         self._log = getLogger(_LOG)
-        self._methods = Methods()
+        self._methods = _Methods()
 
     def _load_ssh_key_file(self, key_file: Path) -> Callable[[bytes], bytes]:
         if not key_file.exists():
