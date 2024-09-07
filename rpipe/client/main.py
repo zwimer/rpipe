@@ -125,7 +125,7 @@ def main(prog: str, *args: str) -> None:
         help="Admins commands.",
         description=(
             "All arguments except --verbose, --url, and --key-file are ignored with admin commands."
-            "Server must be configured to accept messages signed by your selected key file"
+            " Server must be configured to accept messages signed by your selected private key file"
         ),
     )
     admin_parser.set_defaults(func=_admin)
