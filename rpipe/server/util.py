@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-MIN_VERSION = Version("6.3.0")
+MIN_VERSION = Version("7.1.1")
 MAX_SIZE_SOFT: int = 64 * (2**20)
 MAX_SIZE_HARD: int = 2 * MAX_SIZE_SOFT + 0x100
 
