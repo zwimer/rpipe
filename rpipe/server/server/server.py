@@ -4,7 +4,6 @@ from os import environ
 import logging
 
 from ..util import Singleton
-from .shutdown_handler import ShutdownHandler
 from .prune_thread import PruneThread
 from .state import State
 
@@ -29,12 +28,9 @@ class Server(metaclass=Singleton):
                 msg = "State loading and shutdown handling disable on initial flask load on debug mode"
                 self._log.info(msg)
             else:
-                if state_file.exists():
-                    self._log.debug("Detected state file %s", state_file)
-                    with self.state as state:
-                        state.load(state_file)
-                self._log.debug("Installing shutdown handler")
-                ShutdownHandler(self.state, state_file)
+                with self.state as ustate:
+                    ustate.load(state_file)
+                self.state.install_shutdown_handler(state_file)
         self._log.debug("Starting prune thread")
         PruneThread(self.state).start()
         self._log.debug("Server initialization complete")

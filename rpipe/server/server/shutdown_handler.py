@@ -7,7 +7,6 @@ import signal
 import sys
 
 from ..util import Singleton
-from .state import ServerShutdown
 
 if TYPE_CHECKING:
     from .state import State
@@ -28,7 +27,5 @@ class ShutdownHandler(metaclass=Singleton):
 
     def _shutdown(self):
         with self._state as state:
-            if state.shutdown:
-                raise ServerShutdown()
             state.shutdown = True
             state.save(self.file)

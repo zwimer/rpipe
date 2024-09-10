@@ -102,6 +102,14 @@ class State:
         self._log = getLogger("State")
         self._state = UnlockedState()
 
+    def install_shutdown_handler(self, state_file: Path) -> None:
+        with self._lock:
+            if self._shutdown_handler is not None:
+                self._log.error("Shutdown handler already installed")
+                raise RuntimeError("Shutdown handler already installed")
+            self._log.debug("Installing shutdown handler")
+            self._shutdown_handler = ShutdownHandler(self, state_file)
+
     def __enter__(self) -> UnlockedState:
         """
         Acquire the lock and return the state; will fail if the server is shutdown
