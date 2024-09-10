@@ -7,7 +7,7 @@ import sys
 from ...version import version
 from ...shared import UploadRequestParams, UploadResponseHeaders, UploadErrorCode
 from .errors import MultipleClients, ReportThis, VersionError
-from .util import WAIT_DELAY_SEC, request, channel_url
+from .util import wait_delay_sec, request, channel_url
 from .crypt import encrypt
 from .pbar import PBar
 from .io import IO
@@ -40,7 +40,7 @@ def _send_error(r: Response) -> None:
             raise RuntimeError(r)
 
 
-def _send_block(data: bytes, config: Config, params: UploadRequestParams) -> None:
+def _send_block(data: bytes, config: Config, params: UploadRequestParams, lvl: int = 0) -> None:
     """
     Upload the given block of data; updates params for next block
     """
@@ -49,9 +49,10 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams) -> Non
         headers = UploadResponseHeaders.from_dict(r.headers)
         assert params.stream_id == headers.stream_id  # nosec B101
     elif r.status_code == UploadErrorCode.wait.value:
-        getLogger(_LOG).debug("Pipe full, sleeping for %s seconds.", WAIT_DELAY_SEC)
-        sleep(WAIT_DELAY_SEC)
-        _send_block(data, config, params)
+        delay = wait_delay_sec(lvl)
+        getLogger(_LOG).debug("Pipe full, sleeping for %s second(s).", delay)
+        sleep(delay)
+        _send_block(data, config, params, lvl + 1)
     else:
         _send_error(r)
 

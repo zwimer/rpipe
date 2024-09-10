@@ -7,7 +7,7 @@ import sys
 from ...version import version
 from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadErrorCode
 from .errors import MultipleClients, ReportThis, VersionError, StreamError, NoData
-from .util import WAIT_DELAY_SEC, request, channel_url
+from .util import wait_delay_sec, request, channel_url
 from .crypt import decrypt
 from .pbar import PBar
 
@@ -59,7 +59,7 @@ def recv(config: Config, peek: bool, force: bool, progress: bool | int) -> None:
     log = getLogger(_LOG)
     log.debug("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
     params = DownloadRequestParams(version=version, override=force, delete=not peek)
-    waited: bool = False
+    lvl: int = 0
     with PBar(progress) as pbar:
         while True:
             r = request("GET", url, params=params.to_dict())
@@ -73,9 +73,11 @@ def recv(config: Config, peek: bool, force: bool, progress: bool | int) -> None:
                     log.debug("Stream complete")
                     return
                 params.stream_id = headers.stream_id
+                lvl = 0
             elif r.status_code == DownloadErrorCode.wait.value:
-                log.debug("No data available yet, sleeping for %s seconds.", WAIT_DELAY_SEC)
-                sleep(WAIT_DELAY_SEC)
-                waited = True
+                delay = wait_delay_sec(lvl)
+                log.debug("No data available yet, sleeping for %s second(s).", delay)
+                sleep(delay)
+                lvl += 1
             else:
-                _recv_error(r, config, peek, params.stream_id is not None, waited)
+                _recv_error(r, config, peek, params.stream_id is not None, lvl != 0)

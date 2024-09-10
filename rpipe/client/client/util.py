@@ -12,8 +12,14 @@ if TYPE_CHECKING:
     from requests import Response
 
 
-WAIT_DELAY_SEC: float = 0.25
 REQUEST_TIMEOUT: int = 60
+_WAIT_DELAY_SEC: dict[int, float] = {0: 0.25, 1: 0.5, 5: 1.0, 60: 2.0, 300: 5.0}
+
+
+def wait_delay_sec(lvl: int) -> float:
+    if lvl < 0:
+        raise ValueError("Invalid level")
+    return _WAIT_DELAY_SEC[max(i for i in _WAIT_DELAY_SEC if i <= lvl)]
 
 
 def channel_url(c: Config) -> str:
