@@ -12,8 +12,8 @@ if TYPE_CHECKING:
 
 
 MIN_VERSION = Version("6.3.0")
-MAX_SIZE_SOFT: int = 64 * (2**20)
-MAX_SIZE_HARD: int = 2 * MAX_SIZE_SOFT + 0x100
+MAX_SIZE_SOFT: int = 32 * (2**20)
+MAX_SIZE_HARD: int = 2 * MAX_SIZE_SOFT + 0x200
 
 
 class Singleton(type):
