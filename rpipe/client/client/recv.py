@@ -13,7 +13,7 @@ from .pbar import PBar
 
 if TYPE_CHECKING:
     from requests import Response
-    from .config import Config
+    from ..config import Config
 
 
 _LOG = "recv"

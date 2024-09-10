@@ -1,13 +1,18 @@
 from __future__ import annotations
 from logging import getLogger, DEBUG
 from typing import TYPE_CHECKING
-from datetime import datetime
 from threading import RLock
 import pickle
+
+from ...version import Version, version
+from .shutdown_handler import ShutdownHandler
 
 if TYPE_CHECKING:
     from .stream import Stream
     from pathlib import Path
+
+
+MIN_SAVE_STATE_VERSION = Version("7.3.0")
 
 
 class ServerShutdown(RuntimeError):
@@ -22,7 +27,7 @@ class UnlockedState:
     This class is not thread safe and access to it should be protected by a lock
     """
 
-    _log = getLogger("server_state")
+    _log = getLogger("UnlockedState")
 
     def __init__(self) -> None:
         self.streams: dict[str, Stream] = {}
@@ -34,15 +39,18 @@ class UnlockedState:
         Save the state of the server
         """
         if len(self.streams):
+            self._log.error("Existing state detected; will not overwrite")
             raise RuntimeError("Do not load a state on top of an existing state")
+        if not file.exists():
+            self._log.warning("State file %s not found. State is set to empty", file)
+            return
         self._log.debug("Loading %s", file)
         with file.open("rb") as f:
-            timestamp, self.streams = pickle.load(f)
-        # Extend TTLs by the amount of time since the last save
-        offset = datetime.now() - timestamp
-        self._log.debug("Extending saved TTLs by %s to account for server downtime...", offset)
-        for i in self.streams.values():
-            i.expire += offset
+            if (ver := Version(f.readline().strip())) < MIN_SAVE_STATE_VERSION:
+                self._log.error("State version too old: %s", ver)
+                self._log.warning("Failed to load saved state. State is set to empty.")
+                return
+            self.streams = pickle.load(f)
         self._log.debug("State loaded successfully")
 
     def save(self, file: Path) -> None:
@@ -60,8 +68,9 @@ class UnlockedState:
         if not self.streams:
             return
         self._log.debug("Saving state to: %s", file)
-        with file.open("wb") as f:  # Save timestamp so we can extend TTLs on load
-            pickle.dump((datetime.now(), self.streams), f)
+        with file.open("wb") as f:
+            f.write(bytes(version) + b"\n")
+            pickle.dump(self.streams, f)
         if self._log.isEnabledFor(DEBUG):
             self._log.debug("Channels saved: %s", ", ".join(self.streams.keys()))
         self._log.debug("State saved successfully")
@@ -87,16 +96,24 @@ class State:
     A thread safe wrapper for ServerState
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._lock = RLock()
+        self._shutdown_handler: ShutdownHandler | None = None
+        self._log = getLogger("State")
         self._state = UnlockedState()
 
     def __enter__(self) -> UnlockedState:
+        """
+        Acquire the lock and return the state; will fail if the server is shutdown
+        """
+        self._log.debug("Acquiring State lock")
         self._lock.acquire()
         if self._state.shutdown:
+            self._log.error("Lock acquired, but server is shut down")
             self._lock.release()
             raise ServerShutdown()
         return self._state
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self._log.debug("Releasing State lock")
         self._lock.release()

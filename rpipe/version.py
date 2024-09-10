@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-__version__: str = "7.2.0"  # Must be "<major>.<minor>.<patch>", all numbers
+__version__: str = "7.3.0"  # Must be "<major>.<minor>.<patch>", all numbers
 
 
 class Version:
@@ -12,13 +12,15 @@ class Version:
     """
 
     _invalid = (-1, -1, -1)
+    _invalid_str = "Unable to parse version"
 
-    def __init__(self, v: str):
-        self.str = v
+    def __init__(self, v: str | bytes):
         try:
+            self.str: str = v if isinstance(v, str) else v.decode()
             tup = tuple(int(i) for i in self.str.split("."))
             self.tuple = tup if len(tup) == 3 else self._invalid
         except ValueError:
+            self.str = self._invalid_str
             self.tuple = self._invalid
 
     def invalid(self) -> bool:
@@ -26,6 +28,9 @@ class Version:
 
     def __str__(self) -> str:
         return self.str
+
+    def __bytes__(self):
+        return self.str.encode()
 
     def __lt__(self, other: Version):
         return self.tuple < other.tuple

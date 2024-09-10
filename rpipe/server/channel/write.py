@@ -1,5 +1,4 @@
 from __future__ import annotations
-from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 from collections import deque
 import logging
@@ -70,7 +69,7 @@ def write(state: State, channel: str) -> Response:
         with state as rw_state:
             new = Stream(
                 data=deque([] if not add else [add]),
-                expire=datetime.now() + timedelta(seconds=DEFAULT_TTL if args.ttl is None else args.ttl),
+                ttl=DEFAULT_TTL if args.ttl is None else args.ttl,
                 encrypted=args.encrypted,
                 version=args.version,
                 upload_complete=args.final,
@@ -91,5 +90,7 @@ def write(state: State, channel: str) -> Response:
         if add:
             s.data.append(add)
             _log_pipe_size(log, s)
+        if args.ttl is not None:
+            s.ttl = args.ttl
         headers = UploadResponseHeaders(stream_id=s.id_, max_size=MAX_SIZE_SOFT)
     return plaintext("", 202, headers=headers.to_dict())

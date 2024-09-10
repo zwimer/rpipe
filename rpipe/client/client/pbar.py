@@ -28,7 +28,15 @@ class PBar:
 
     def __enter__(self):
         if self.enable:
-            self._wraps = _Wraps(tqdm=tqdm.tqdm(total=self.total), redirect=logging_redirect_tqdm())
+            real = tqdm.tqdm(
+                total=self.total,
+                dynamic_ncols=True,
+                leave=False,
+                unit_divisor=1000,
+                unit_scale=True,
+                unit="B",
+            )
+            self._wraps = _Wraps(tqdm=real, redirect=logging_redirect_tqdm())
             self._wraps.redirect.__enter__()
             self._wraps.tqdm.__enter__()
         return self

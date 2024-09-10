@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from datetime import datetime
 from logging import getLogger
 from threading import Thread
 from time import sleep
@@ -22,15 +21,13 @@ class PruneThread(Thread):
         log = getLogger("Prune Thread")
         log.debug("Starting prune loop")
         while True:
-            now: datetime = datetime.now()
             with self._state as rw_state:
                 if rw_state.shutdown:
                     return
                 expired = []
                 for i, k in rw_state.streams.items():
-                    if k.expire < now:
-                        print(k.expire, now)
-                        log.debug("Pruning channel %s", i)
+                    if k.expired():
+                        log.debug("Pruning expired channel %s", i)
                         expired.append(i)
                 for i in expired:
                     del rw_state.streams[i]
