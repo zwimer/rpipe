@@ -87,7 +87,8 @@ def send(config: Config, ttl: int | None, progress: bool | int) -> None:
         except MultipleClients:  # We might have hung after sending our data until the program closed
             log.warning("Received MultipleClients error on final PUT")
         log.info("Stream complete")
-    except KeyboardInterrupt:
-        log.warning("Caught KeyboardInterrupt; clearing channel")
+    # pylint: disable=duplicate-code
+    except (KeyboardInterrupt, Exception) as e:
+        log.warning("Caught %s; clearing channel", type(e))
         clear(config)
-        raise
+        raise e

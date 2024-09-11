@@ -17,6 +17,9 @@ _WAIT_DELAY_SEC: dict[int, float] = {0: 0.3, 1: 0.5, 5: 1.0, 60: 2.0, 300: 5.0}
 
 
 def wait_delay_sec(lvl: int) -> float:
+    """
+    :return: The number of seconds to wait before retrying a request
+    """
     if lvl < 0:
         raise ValueError("Invalid level")
     return _WAIT_DELAY_SEC[max(i for i in _WAIT_DELAY_SEC if i <= lvl)]

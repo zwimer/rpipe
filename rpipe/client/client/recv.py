@@ -67,7 +67,7 @@ def _recv_error(*args, **kwargs) -> None:
 
 def _recv_body(
     config: Config, peek: bool, url: str, params: DownloadRequestParams, pbar: PBar, lvl: int
-) -> None:
+) -> int | None:
     log = getLogger(_LOG)
     r = request("GET", url, params=params.to_dict())
     if r.ok:
@@ -78,33 +78,36 @@ def _recv_body(
         sys.stdout.flush()
         pbar.update(len(got))
         if headers.final:
-            log.info("Stream complete")
-            return
+            return None  # Stream complete
         params.stream_id = headers.stream_id
-        lvl = 0
+        return 0
     elif r.status_code == DownloadErrorCode.wait.value:
         delay = wait_delay_sec(lvl)
         log.info("No data available yet, sleeping for %s second(s)", delay)
         sleep(delay)
-        lvl += 1
+        return lvl + 1
     else:
         log.error("Error reading from channel %s. Status Code: %s", config.channel, r.status_code)
         _recv_error(r, config, peek, params.stream_id is not None, lvl != 0)
+        raise NotImplementedError("Unreachable code")
 
 
 def recv(config: Config, peek: bool, force: bool, progress: bool | int) -> None:
     """
     Receive data from the remote pipe
     """
+    log = getLogger(_LOG)
     url = channel_url(config)
-    getLogger(_LOG).info("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
+    log.info("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
     params = DownloadRequestParams(version=version, override=force, delete=not peek)
-    lvl: int = 0
+    lvl: int | None = 0
     try:
         with PBar(progress) as pbar:
-            while True:
-                _recv_body(config, peek, url, params, pbar, lvl)
-    except KeyboardInterrupt:
-        getLogger(_LOG).warning("Caught KeyboardInterrupt; clearing channel")
+            while lvl is not None:
+                lvl = _recv_body(config, peek, url, params, pbar, lvl)
+        log.info("Stream complete")
+    # pylint: disable=duplicate-code
+    except (KeyboardInterrupt, Exception) as e:
+        log.warning("Caught %s; clearing channel", type(e))
         clear(config)
-        raise
+        raise e
