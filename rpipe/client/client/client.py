@@ -2,8 +2,9 @@ from dataclasses import dataclass
 from logging import getLogger
 
 from ..config import ConfigFile, Option, PartialConfig
-from .util import REQUEST_TIMEOUT, channel_url, request
+from .util import REQUEST_TIMEOUT, request
 from .errors import UsageError
+from .clear import clear
 from .recv import recv
 from .send import send
 
@@ -82,10 +83,7 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
     # Invoke mode
     log.info("HTTP timeout set to %d seconds", REQUEST_TIMEOUT)
     if mode.clear:
-        log.info("Clearing channel %s", full_conf.channel)
-        r = request("DELETE", channel_url(full_conf))
-        if not r.ok:
-            raise RuntimeError(r)
+        clear(full_conf)
     elif mode.read:
         recv(full_conf, mode.peek, mode.force, mode.progress)
     else:

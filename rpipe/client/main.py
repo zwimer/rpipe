@@ -71,6 +71,7 @@ def main(prog: str, *args: str) -> None:
         "-v",
         "--verbose",
         action="count",
+        default=0,
         help="Increase Log verbosity, pass more than once to increase verbosity",
     )
     parser.add_argument(

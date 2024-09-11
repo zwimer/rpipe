@@ -111,7 +111,6 @@ class State:
         """
         Acquire the lock and return the state; will fail if the server is shutdown
         """
-        self._log.debug("Acquiring State lock")
         self._lock.acquire()
         if self._state.shutdown:
             self._log.error("Lock acquired, but server is shut down")
@@ -120,5 +119,4 @@ class State:
         return self._state
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._log.debug("Releasing State lock")
         self._lock.release()
