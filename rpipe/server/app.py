@@ -1,6 +1,6 @@
 from __future__ import annotations
-from logging import WARNING, DEBUG, getLogger, basicConfig
 from typing import TYPE_CHECKING
+from logging import getLogger
 
 from flask import Flask
 import waitress
@@ -25,7 +25,7 @@ _LOG = "app"
 @app.route("/")
 @app.route("/help")
 def _help() -> Response:
-    getLogger(_LOG).debug("Request for /help")
+    getLogger(_LOG).info("Request for /help")
     msg = (
         "Welcome to the web UI of rpipe. "
         "To interact with a given channel, use the path /c/<channel>. "
@@ -42,7 +42,7 @@ def _help() -> Response:
 
 @app.route("/version")
 def _show_version() -> Response:
-    getLogger(_LOG).debug("Request for /version")
+    getLogger(_LOG).info("Request for /version")
     return plaintext(__version__)
 
 
@@ -78,12 +78,8 @@ def _admin_channels() -> Response:
 
 
 def serve(host: str, port: int, debug: bool, state_file: Path | None, key_files: list[Path]) -> None:
-    basicConfig(
-        level=DEBUG if debug else WARNING,
-        format="%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)-10s - %(message)s",
-    )
     log = getLogger(_LOG)
-    log.debug("Setting max packet size: %s", MAX_SIZE_HARD)
+    log.info("Setting max packet size: %s", MAX_SIZE_HARD)
     app.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
     app.url_map.strict_slashes = False
     server.start(debug, state_file)

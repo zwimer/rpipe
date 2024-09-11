@@ -50,11 +50,11 @@ class _UID:
         with self._lock:
             eol = datetime.now() + timedelta(seconds=self._UID_EXPIRE)
             self._uids.update({i: eol for i in ret})
-        self._log.debug("Generated %s new UIDs", n)
+        self._log.info("Generated %s new UIDs", n)
         return ret
 
     def verify(self, uid: str) -> bool:
-        self._log.debug("Verifying UID: %s", uid)
+        self._log.info("Verifying UID: %s", uid)
         with self._lock:
             if uid not in self._uids:
                 self._log.error("UID not found: %s", uid)
@@ -62,7 +62,7 @@ class _UID:
             if datetime.now() > self._uids.pop(uid):
                 self._log.warning("UID expired: %s", uid)
                 return False
-            self._log.debug("UID verified.")
+            self._log.info("UID verified.")
         return True
 
 
@@ -135,9 +135,9 @@ class Admin:
         """
         Load the public key files that are used for signature verification
         """
-        self._log.debug("Loading allowed signing keys")
+        self._log.info("Loading allowed signing keys")
         self._verifiers = tuple(i for i in (self._load_verifier(k) for k in key_files) if i)
-        self._log.debug("Signing key load complete")
+        self._log.info("Signing key load complete")
 
     def __getattribute__(self, item: str) -> Any:
         """
@@ -148,7 +148,7 @@ class Admin:
         return self._verify_wrap(getattr(self._methods, item))
 
     def _verify_signature(self, signature: bytes, *, msg: bytes) -> bool:
-        self._log.debug("Verifying signature of message: %s", msg)
+        self._log.info("Verifying signature of message: %s", msg)
         for fn in self._verifiers:
             try:
                 fn(signature, data=msg)
@@ -164,7 +164,7 @@ class Admin:
 
         def _verify(*args, **kwargs) -> Response:
             try:
-                self._log.debug("Extracting request signature and message")
+                self._log.info("Extracting request signature and message")
                 try:
                     pm = AdminPOST.from_json(request.get_json())
                 except Exception as e:  # pylint: disable=broad-except
@@ -180,8 +180,7 @@ class Admin:
                 if not self._verify_signature(pm.signature, msg=msg):
                     self._log.warning("Signature verification failed.")
                     return Response(status=401)
-                self._log.debug("Signature verified.")
-                self._log.info("Executing %s", request.full_path)
+                self._log.info("Signature verified. Executing %s", request.full_path)
                 return func(*args, **kwargs)
             except Exception as e:  # pylint: disable=broad-except
                 self._log.error(e, exc_info=True)

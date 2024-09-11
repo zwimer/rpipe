@@ -50,7 +50,7 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams, lvl: i
         assert params.stream_id == headers.stream_id  # nosec B101
     elif r.status_code == UploadErrorCode.wait.value:
         delay = wait_delay_sec(lvl)
-        getLogger(_LOG).debug("Pipe full, sleeping for %s second(s).", delay)
+        getLogger(_LOG).info("Pipe full, sleeping for %s second(s).", delay)
         sleep(delay)
         _send_block(data, config, params, lvl + 1)
     else:
@@ -69,18 +69,19 @@ def send(config: Config, ttl: int | None, progress: bool | int) -> None:
     headers = UploadResponseHeaders.from_dict(r.headers)
     block_size: int = headers.max_size
     log = getLogger(_LOG)
-    log.debug("Writing to channel %s with block size of %s", config.channel, block_size)
+    log.info("Writing to channel %s with block size of %s", config.channel, block_size)
     # Send
     params.stream_id = headers.stream_id
     io = IO(sys.stdin.fileno(), block_size)
     with PBar(progress) as pbar:
         while block := io.read():
-            pbar.update(len(block))
+            log.info("Processing block of %s bytes", len(block))
             _send_block(encrypt(block, config.password), config, params)
+            pbar.update(len(block))
     # Finalize
     params.final = True
     try:
         _send_block(b"", config, params)
     except MultipleClients:  # We might have hung after sending our data until the program closed
-        log.debug("Received MultipleClients error on final PUT")
-    log.debug("Stream complete")
+        log.warning("Received MultipleClients error on final PUT")
+    log.info("Stream complete")

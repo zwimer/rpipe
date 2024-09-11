@@ -19,13 +19,13 @@ class IO:
         :param chunk: The number of bytes to keep preloaded whenever possible
         """
         self._thread = Thread(target=self, daemon=True)  # Construct first
-        self._log.debug("Constructed IO on fd %d with chunk size: %d", fd, chunk)
+        self._log.info("Constructed IO on fd %d with chunk size: %d", fd, chunk)
         self._buffer: deque[bytes] = deque()
         self._cond = Condition()
         self._eof: bool = False
         self._fd: int = fd
         self._chunk: int = chunk
-        self._log.debug("Starting up IO thread.")
+        self._log.info("Starting up IO thread.")
         self._thread.start()
 
     @property
@@ -50,7 +50,7 @@ class IO:
         if ret:
             self._log.debug("Read %d bytes of data", len(ret))
             return ret
-        self._log.debug("Read EOF")
+        self._log.info("Read EOF")
         return b""
 
     def _read(self, n: int) -> bytes:
@@ -98,4 +98,4 @@ class IO:
         with self._cond:
             self._eof = True
             self._cond.notify()
-        self._log.debug("Data loading complete. IO thread terminating.")
+        self._log.info("Data loading complete. IO thread terminating.")

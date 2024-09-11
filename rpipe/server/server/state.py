@@ -1,5 +1,5 @@
 from __future__ import annotations
-from logging import getLogger, DEBUG
+from logging import getLogger, INFO
 from typing import TYPE_CHECKING
 from threading import RLock
 import pickle
@@ -44,14 +44,14 @@ class UnlockedState:
         if not file.exists():
             self._log.warning("State file %s not found. State is set to empty", file)
             return
-        self._log.debug("Loading %s", file)
+        self._log.info("Loading %s", file)
         with file.open("rb") as f:
             if (ver := Version(f.readline().strip())) < MIN_SAVE_STATE_VERSION:
                 self._log.error("State version too old: %s", ver)
                 self._log.warning("Failed to load saved state. State is set to empty.")
                 return
             self.streams = pickle.load(f)
-        self._log.debug("State loaded successfully")
+        self._log.info("State loaded successfully")
 
     def save(self, file: Path) -> None:
         """
@@ -62,18 +62,15 @@ class UnlockedState:
         if not self.shutdown:
             raise RuntimeError("Do save state before shutdown")
         if file.exists():
-            self._log.debug("Purging old program state...")
+            self._log.info("Purging old program state...")
             file.unlink()
-        self._log.info("Saving program state...")
-        if not self.streams:
-            return
-        self._log.debug("Saving state to: %s", file)
+        self._log.info("Saving state to: %s", file)
         with file.open("wb") as f:
             f.write(bytes(version) + b"\n")
             pickle.dump(self.streams, f)
-        if self._log.isEnabledFor(DEBUG):
-            self._log.debug("Channels saved: %s", ", ".join(self.streams.keys()))
-        self._log.debug("State saved successfully")
+        if self._log.isEnabledFor(INFO):
+            self._log.info("Channels saved: %s", ", ".join(self.streams.keys()))
+        self._log.info("State saved successfully")
 
     @property
     def debug(self):
@@ -107,7 +104,7 @@ class State:
             if self._shutdown_handler is not None:
                 self._log.error("Shutdown handler already installed")
                 raise RuntimeError("Shutdown handler already installed")
-            self._log.debug("Installing shutdown handler")
+            self._log.info("Installing shutdown handler")
             self._shutdown_handler = ShutdownHandler(self, state_file)
 
     def __enter__(self) -> UnlockedState:

@@ -19,7 +19,7 @@ class PruneThread(Thread):
 
     def _periodic_prune(self) -> None:
         log = getLogger("Prune Thread")
-        log.debug("Starting prune loop")
+        log.info("Starting prune loop")
         while True:
             with self._state as rw_state:
                 if rw_state.shutdown:
@@ -27,7 +27,7 @@ class PruneThread(Thread):
                 expired = []
                 for i, k in rw_state.streams.items():
                     if k.expired():
-                        log.debug("Pruning expired channel %s", i)
+                        log.info("Pruning expired channel %s", i)
                         expired.append(i)
                 for i in expired:
                     del rw_state.streams[i]

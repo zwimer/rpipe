@@ -17,12 +17,12 @@ if TYPE_CHECKING:
 def channel_handler(state: State, channel: str) -> Response:
     log = getLogger("channel")
     try:
-        log.debug("Invoking channel command %s", request.method)
+        log.info("Invoking channel command %s", request.method)
         match request.method:
             case "DELETE":
                 with state as rw_state:
                     if channel in rw_state.streams:
-                        log.debug("Deleting channel %s", channel)
+                        log.info("Deleting channel %s", channel)
                         del rw_state.streams[channel]
                 return plaintext("Cleared", status=202)
             case "GET":
@@ -30,7 +30,7 @@ def channel_handler(state: State, channel: str) -> Response:
             case "POST" | "PUT":
                 return write(state, channel)
             case _:
-                log.debug("404: bad method: %s", request.method)
+                log.info("404: bad method: %s", request.method)
                 return plaintext(f"Unknown method: {request.method}", status=404)
     except ServerShutdown:
         return plaintext("Server is shutting down", status=503)

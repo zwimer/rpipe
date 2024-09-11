@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging import basicConfig, getLogger, getLevelName, WARNING, INFO, DEBUG
 from dataclasses import dataclass, asdict, astuple, field
 from typing import TYPE_CHECKING, TypeVar
 from enum import Enum, unique
@@ -13,6 +14,14 @@ if TYPE_CHECKING:
 
 WEB_VERSION = Version("0.0.0")
 assert not WEB_VERSION.invalid()  # nosec B101
+_LOG_VERBOSITY: dict[int, int] = {0: WARNING, 1: INFO, 2: DEBUG}
+
+
+def config_log(verbosity: int) -> None:
+    lvl = _LOG_VERBOSITY[max(i for i in _LOG_VERBOSITY if i <= verbosity)]
+    fmt = "%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)-10s - %(message)s"
+    basicConfig(level=lvl, datefmt="%H:%M:%S", format=fmt)
+    getLogger("shared").info("Logging level set to %s", getLevelName(lvl))
 
 
 @dataclass

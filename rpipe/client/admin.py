@@ -113,7 +113,7 @@ class _Methods:
         """
         args = {} if args is None else args
         uid: str = self._gen_uid(conf)
-        self._log.debug("Signing request for path=%s with args=%s", path, args)
+        self._log.info("Signing request for path=%s with args=%s", path, args)
         signature: bytes = conf.sign(AdminMessage(path=path, args=args, uid=uid).bytes())
         data = AdminPOST(signature=signature, uid=uid, version=str(version)).json()
         ret = conf.session.post(f"{conf.url}{path}", json=data, timeout=ADMIN_REQUEST_TIMEOUT)
@@ -198,18 +198,18 @@ class Admin:
         Extract a Conf from the given arguments and existing config file
         Saves the config internally
         """
-        self._log.debug("Determining Conf; defaults: url=%s, key_file=%s", raw_url, raw_key_file)
+        self._log.info("Determining Conf; defaults: url=%s, key_file=%s", raw_url, raw_key_file)
         # Load data from config file
         try:
             path = ConfigFile().path
-            self._log.debug("Querying config file %s if it exists", path)
+            self._log.info("Querying config file %s if it exists", path)
             raw = loads(path.read_text(encoding="utf-8")) if path.exists() else {}
             key_file = Path(Option(raw_key_file).opt(raw.get("key_file", None)).value)
             url: str = Option(raw_url).opt(raw.get("url", None)).value
         except Exception as e:
             msg = "Admin mode requires a URL and key file to be set or provided via the CLI"
             raise UsageError(msg, log=self._log.critical) from e
-        self._log.debug("Found key file: %s, extracting private key", key_file)
+        self._log.info("Found key file: %s, extracting private key", key_file)
         # Load ssh key
         return Conf(sign=self._load_ssh_key_file(key_file), url=url, session=Session())
 

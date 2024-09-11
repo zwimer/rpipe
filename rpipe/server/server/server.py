@@ -20,7 +20,7 @@ class Server(metaclass=Singleton):
     def start(self, debug: bool, state_file: Path | None) -> None:
         with self.state as s:
             s.debug = debug
-        self._log.debug("Initializing server")
+        self._log.info("Initializing server")
         # Load state
         if state_file is not None:
             # Do not run on first load when in debug mode b/c of flask reloader
@@ -31,6 +31,6 @@ class Server(metaclass=Singleton):
                 with self.state as ustate:
                     ustate.load(state_file)
                 self.state.install_shutdown_handler(state_file)
-        self._log.debug("Starting prune thread")
+        self._log.info("Starting prune thread")
         PruneThread(self.state).start()
-        self._log.debug("Server initialization complete")
+        self._log.info("Server initialization complete")

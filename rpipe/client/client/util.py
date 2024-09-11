@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 REQUEST_TIMEOUT: int = 60
-_WAIT_DELAY_SEC: dict[int, float] = {0: 0.25, 1: 0.5, 5: 1.0, 60: 2.0, 300: 5.0}
+_WAIT_DELAY_SEC: dict[int, float] = {0: 0.3, 1: 0.5, 5: 1.0, 60: 2.0, 300: 5.0}
 
 
 def wait_delay_sec(lvl: int) -> float:
@@ -34,6 +34,6 @@ def _session() -> Session:
 def request(*args, **kwargs) -> Response:
     r = Request(*args, **kwargs).prepare()
     if r.body:
-        getLogger("request").debug("Sending %d bytes of data", len(r.body))
+        getLogger("request").debug("Making %s request with %d bytes of data", r.method, len(r.body))
     ret = _session().send(r, timeout=REQUEST_TIMEOUT)
     return ret

@@ -22,7 +22,7 @@ class ShutdownHandler(metaclass=Singleton):
         self._log = getLogger(_LOG)
         self._log.info("Installing signal handlers so that atexit catches these.")
         signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
-        self._log.debug("Installing atexit shutdown handler")
+        self._log.info("Installing atexit shutdown handler")
         atexit.register(self._shutdown)
 
     def _shutdown(self):

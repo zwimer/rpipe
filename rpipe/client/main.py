@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING
 from dataclasses import fields
 from pathlib import Path
 import argparse
-import logging
 import sys
 
 from ..version import __version__
+from ..shared import config_log
 from .config import PASSWORD_ENV, PartialConfig, Option
 from .client import rpipe, Mode
 from .admin import Admin
@@ -66,7 +66,13 @@ def main(prog: str, *args: str) -> None:
         default=None,
         help="Pipe TTL in seconds; use server default if not passed. Only available while writing.",
     )
-    parser.add_argument("--verbose", action="store_true", help="Increase log verbosity")
+    # pylint: disable=duplicate-code
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        help="Increase Log verbosity, pass more than once to increase verbosity",
+    )
     parser.add_argument(
         "--progress",
         type=int,
@@ -136,11 +142,7 @@ def main(prog: str, *args: str) -> None:
     channels.set_defaults(method="channels")
     # Invoke func
     parsed = parser.parse_args(args)
-    logging.basicConfig(
-        level=logging.DEBUG if parsed.verbose else logging.WARNING,
-        format="%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)-10s - %(message)s",
-        datefmt="%H:%M:%S",
-    )
+    config_log(parsed.verbose)
     del parsed.verbose
     parsed.func(parsed)
 

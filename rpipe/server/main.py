@@ -3,6 +3,7 @@ import argparse
 import sys
 
 from ..version import __version__
+from ..shared import config_log
 from .util import MIN_VERSION
 from .app import serve
 
@@ -27,8 +28,19 @@ def main(prog, *args) -> None:
     parser.add_argument("--state-file", type=Path, help="The save state file, if desired")
     parser.add_argument("port", type=int, help="The port waitress will listen on")
     parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
+    # pylint: disable=duplicate-code
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase Log verbosity, pass more than once to increase verbosity",
+    )
     parser.add_argument("--debug", action="store_true", help="Run the server in debug mode")
-    serve(**vars(parser.parse_args(args)))
+    parsed = parser.parse_args(args)
+    config_log(parsed.verbose)
+    del parsed.verbose
+    serve(**vars(parsed))
 
 
 def cli() -> None:

@@ -41,7 +41,7 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
     """
     config_file = ConfigFile()
     log = getLogger(_LOG)
-    log.debug("Config file: %s", config_file.path)
+    log.info("Config file: %s", config_file.path)
     write = not (mode.read or mode.clear)
     if not mode.read and mode.clear:
         raise UsageError("--clear may not be used when writing data to the pipe")
@@ -57,16 +57,16 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
         return
     # Load pipe config and save is requested
     conf = config_file.load_onto(conf, mode.encrypt.is_false())
-    log.debug("Loaded %s", conf)
+    log.info("Loaded %s", conf)
     if mode.save_config:
         config_file.save(conf, mode.encrypt.is_true())
         return
     # Print server version if requested
     if mode.server_version:
-        log.debug("Mode: Server version")
+        log.info("Mode: Server version")
         if conf.url is None:
             raise UsageError("URL unknown; try again with --url")
-        log.debug("Requesting server version")
+        log.info("Requesting server version...")
         r = request("GET", f"{conf.url.value}/version")
         if not r.ok:
             raise RuntimeError(f"Failed to get version: {r}")
@@ -80,9 +80,9 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
         log.info("Write mode: No password found, falling back to plaintext mode")
     full_conf = config_file.verify(conf, mode.encrypt.is_true())
     # Invoke mode
-    log.debug("HTTP timeout set to %d seconds", REQUEST_TIMEOUT)
+    log.info("HTTP timeout set to %d seconds", REQUEST_TIMEOUT)
     if mode.clear:
-        getLogger(_LOG).debug("Clearing channel %s", full_conf.channel)
+        log.info("Clearing channel %s", full_conf.channel)
         r = request("DELETE", channel_url(full_conf))
         if not r.ok:
             raise RuntimeError(r)
