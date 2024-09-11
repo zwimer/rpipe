@@ -8,7 +8,7 @@ from ...version import version
 from ...shared import UploadRequestParams, UploadResponseHeaders, UploadErrorCode
 from .errors import MultipleClients, ReportThis, VersionError
 from .util import wait_delay_sec, request, channel_url
-from .clear import clear
+from .clear import clear_on_fail
 from .crypt import encrypt
 from .pbar import PBar
 from .io import IO
@@ -72,7 +72,7 @@ def send(config: Config, ttl: int | None, progress: bool | int) -> None:
     log = getLogger(_LOG)
     log.info("Writing to channel %s with block size of %s", config.channel, block_size)
     # Send
-    try:
+    with clear_on_fail(config):
         params.stream_id = headers.stream_id
         io = IO(sys.stdin.fileno(), block_size)
         with PBar(progress) as pbar:
@@ -86,9 +86,4 @@ def send(config: Config, ttl: int | None, progress: bool | int) -> None:
             _send_block(b"", config, params)
         except MultipleClients:  # We might have hung after sending our data until the program closed
             log.warning("Received MultipleClients error on final PUT")
-        log.info("Stream complete")
-    # pylint: disable=duplicate-code
-    except (KeyboardInterrupt, Exception) as e:
-        log.warning("Caught %s; clearing channel", type(e))
-        clear(config)
-        raise e
+    log.info("Stream complete")

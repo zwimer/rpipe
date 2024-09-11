@@ -1,4 +1,5 @@
 from __future__ import annotations
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from logging import getLogger
 
@@ -16,3 +17,17 @@ def clear(full_conf: Config) -> None:
     r = request("DELETE", channel_url(full_conf))
     if not r.ok:
         raise RuntimeError(r)
+
+
+@contextmanager
+def clear_on_fail(config: Config):
+    """
+    Context manager that clears the channel on failure
+    """
+    log = getLogger("DeleteOnFail")
+    try:
+        yield
+    except (KeyboardInterrupt, Exception) as e:
+        log.warning("Caught %s; clearing channel", type(e))
+        clear(config)
+        raise

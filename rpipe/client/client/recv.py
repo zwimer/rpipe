@@ -8,8 +8,8 @@ from ...version import version
 from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadErrorCode
 from .errors import MultipleClients, ReportThis, VersionError, StreamError, NoData
 from .util import wait_delay_sec, request, channel_url
+from .clear import clear_on_fail
 from .crypt import decrypt
-from .clear import clear
 from .pbar import PBar
 
 if TYPE_CHECKING:
@@ -101,13 +101,8 @@ def recv(config: Config, peek: bool, force: bool, progress: bool | int) -> None:
     log.info("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
     params = DownloadRequestParams(version=version, override=force, delete=not peek)
     lvl: int | None = 0
-    try:
+    with clear_on_fail(config):
         with PBar(progress) as pbar:
             while lvl is not None:
                 lvl = _recv_body(config, peek, url, params, pbar, lvl)
-        log.info("Stream complete")
-    # pylint: disable=duplicate-code
-    except (KeyboardInterrupt, Exception) as e:
-        log.warning("Caught %s; clearing channel", type(e))
-        clear(config)
-        raise e
+    log.info("Stream complete")
