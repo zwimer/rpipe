@@ -9,25 +9,25 @@ if TYPE_CHECKING:
     from ..config import Config
 
 
-def clear(full_conf: Config) -> None:
+def delete(full_conf: Config) -> None:
     """
-    Clear the channel
+    Delete the channel
     """
-    getLogger("clear").info("Clearing channel %s", full_conf.channel)
+    getLogger("delete").info("Deleting channel %s", full_conf.channel)
     r = request("DELETE", channel_url(full_conf))
     if not r.ok:
         raise RuntimeError(r)
 
 
 @contextmanager
-def clear_on_fail(config: Config):
+def delete_on_fail(config: Config):
     """
-    Context manager that clears the channel on failure
+    Context manager that deletes the channel on failure
     """
     log = getLogger("DeleteOnFail")
     try:
         yield
     except (KeyboardInterrupt, Exception) as e:
-        log.warning("Caught %s; clearing channel", type(e))
-        clear(config)
+        log.warning("Caught %s; deleting channel", type(e))
+        delete(config)
         raise

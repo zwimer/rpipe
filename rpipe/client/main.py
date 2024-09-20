@@ -53,7 +53,7 @@ def main(prog: str, *args: str) -> None:
         action="store_true",
         help="Read pipe without emptying it; will not construct a persistent pipe like a normal read.",
     )
-    g1.add_argument("--clear", action="store_true", help="Delete all entries in the channel")
+    g1.add_argument("-d", "--delete", action="store_true", help="Delete all entries in the channel")
     parser.add_argument(
         "-f",
         "--force",

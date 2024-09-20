@@ -8,7 +8,7 @@ from ...version import version
 from ...shared import UploadRequestParams, UploadResponseHeaders, UploadErrorCode
 from .errors import MultipleClients, ReportThis, VersionError
 from .util import wait_delay_sec, request, channel_url
-from .clear import clear_on_fail
+from .delete import delete_on_fail
 from .crypt import encrypt
 from .pbar import PBar
 from .io import IO
@@ -72,7 +72,7 @@ def send(config: Config, ttl: int | None, progress: bool | int) -> None:
     log = getLogger(_LOG)
     log.info("Writing to channel %s with block size of %s", config.channel, block_size)
     # Send
-    with clear_on_fail(config):
+    with delete_on_fail(config):
         params.stream_id = headers.stream_id
         io = IO(sys.stdin.fileno(), block_size)
         with PBar(progress) as pbar:

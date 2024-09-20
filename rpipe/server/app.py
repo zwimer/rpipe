@@ -31,7 +31,7 @@ def _help() -> Response:
         "To interact with a given channel, use the path /c/<channel>. "
         "To read a message from a given channel, use a GET request. "
         "To write a message to a given channel, use PUT and POST requests. "
-        "To clear a channel, use a DELETE request. "
+        "To delete a channel, use a DELETE request. "
         "Note: Using the web version bypasses version consistent checks "
         "and may result in safe but unexpected behavior (such as failing "
         "an uploaded message; if possible use the rpipe client CLI instead. "

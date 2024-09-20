@@ -4,7 +4,7 @@ from logging import getLogger
 from ..config import ConfigFile, Option, PartialConfig
 from .util import REQUEST_TIMEOUT, request
 from .errors import UsageError
-from .clear import clear
+from .delete import delete
 from .recv import recv
 from .send import send
 
@@ -24,10 +24,10 @@ class Mode:
     server_version: bool
     # Whether the user *explicitly* requested encryption or plaintext
     encrypt: Option[bool]
-    # Read/Write/Clear modes
+    # Read/Write/Delete modes
     read: bool
     peek: bool
-    clear: bool
+    delete: bool
     # Other options
     progress: bool | int
     ttl: int | None
@@ -43,16 +43,16 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
     config_file = ConfigFile()
     log = getLogger(_LOG)
     log.info("Config file: %s", config_file.path)
-    write = not (mode.read or mode.clear)
-    if not mode.read and mode.clear:
-        raise UsageError("--clear may not be used when writing data to the pipe")
+    write = not (mode.read or mode.delete)
+    if not mode.read and mode.delete:
+        raise UsageError("--delete may not be used when writing data to the pipe")
     if not mode.read and mode.peek:
         raise UsageError("--peek may not be used when writing data to the pipe")
     if mode.progress is not False:
         if mode.progress <= 0:
             raise UsageError("--progress may not be passed a non-positive number of bytes")
-        if mode.clear:
-            raise UsageError("--progress may not be used when clearing the pipe")
+        if mode.delete:
+            log.warning("Ignoring --progress; no data will be transferred")
     if mode.print_config:
         config_file.print()
         return
@@ -82,8 +82,8 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
     full_conf = config_file.verify(conf, mode.encrypt.is_true())
     # Invoke mode
     log.info("HTTP timeout set to %d seconds", REQUEST_TIMEOUT)
-    if mode.clear:
-        clear(full_conf)
+    if mode.delete:
+        delete(full_conf)
     elif mode.read:
         recv(full_conf, mode.peek, mode.force, mode.progress)
     else:

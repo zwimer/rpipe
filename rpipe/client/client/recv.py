@@ -8,7 +8,7 @@ from ...version import version
 from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadErrorCode
 from .errors import MultipleClients, ReportThis, VersionError, StreamError, NoData
 from .util import wait_delay_sec, request, channel_url
-from .clear import clear_on_fail
+from .delete import delete_on_fail
 from .crypt import decrypt
 from .pbar import PBar
 
@@ -39,7 +39,7 @@ def _recv_error_helper(r: Response, config: Config, peek: bool, put: bool, waite
             raise NoData(f"The channel {config.channel} is empty.")
         case DownloadErrorCode.conflict:
             if put:
-                raise MultipleClients("This data stream no longer exists; maybe the channel was cleared?")
+                raise MultipleClients("This data stream no longer exists; maybe the channel was deleted?")
             raise ReportThis(r.text)
         case DownloadErrorCode.cannot_peek:
             msg = "Too much data to peek; data is being streamed and does not all exist on server."
@@ -101,7 +101,7 @@ def recv(config: Config, peek: bool, force: bool, progress: bool | int) -> None:
     log.info("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
     params = DownloadRequestParams(version=version, override=force, delete=not peek)
     lvl: int | None = 0
-    with clear_on_fail(config):
+    with delete_on_fail(config):
         with PBar(progress) as pbar:
             while lvl is not None:
                 lvl = _recv_body(config, peek, url, params, pbar, lvl)

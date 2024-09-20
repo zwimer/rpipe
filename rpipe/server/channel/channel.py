@@ -24,7 +24,7 @@ def channel_handler(state: State, channel: str) -> Response:
                     if channel in rw_state.streams:
                         log.info("Deleting channel %s", channel)
                         del rw_state.streams[channel]
-                return plaintext("Cleared", status=202)
+                return plaintext("Deleted", status=202)
             case "GET":
                 return read(state, channel)
             case "POST" | "PUT":
