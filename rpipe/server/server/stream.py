@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 CHARSET = string.ascii_lowercase + string.ascii_uppercase + string.digits
-_PIPE_MAX_BYTES: int = 2**30
+_PIPE_MAX_BYTES: int = 10**9
 
 
 def _uid() -> str:

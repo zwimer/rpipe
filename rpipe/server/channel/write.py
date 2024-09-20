@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, cast
 from collections import deque
 import logging
 
+from human_readable import file_size
 from flask import request
 
 from ...shared import WEB_VERSION, UploadResponseHeaders, UploadRequestParams, UploadErrorCode
@@ -20,22 +21,11 @@ DEFAULT_TTL: int = 300
 _LOG = "write"
 
 
-def _hsize(n: int) -> str:
-    """
-    Convert n (number of bytes) into a string such as: 12.3 MiB
-    """
-    sizes = (("GiB", 2**30), ("MiB", 2**20), ("KiB", 2**10))
-    for i, k in sizes:
-        if n > k:
-            return f"{n/k:.2f} {i}"
-    return f"{n} B"
-
-
 def _log_pipe_size(log: Logger, s: Stream) -> None:
     if log.isEnabledFor(logging.DEBUG):
         n = len(s)
         msg = "Pipe now contains %s/%s bytes. It is %.2f%% full."
-        log.debug(msg, _hsize(n), _hsize(s.capacity), 100 * n / s.capacity)
+        log.debug(msg, file_size(n), file_size(s.capacity), 100 * n / s.capacity)
 
 
 def _put_error_check(s: Stream | None, args: UploadRequestParams) -> Response | None:
