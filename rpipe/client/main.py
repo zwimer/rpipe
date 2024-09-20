@@ -61,6 +61,7 @@ def main(prog: str, *args: str) -> None:
         help="Attempt to read data even if this is a upload/download client version mismatch",
     )
     parser.add_argument(
+        "-t",
         "--ttl",
         type=int,
         default=None,
@@ -75,6 +76,7 @@ def main(prog: str, *args: str) -> None:
         help="Increase Log verbosity, pass more than once to increase verbosity",
     )
     parser.add_argument(
+        "-P",
         "--progress",
         type=int,
         const=True,
@@ -89,6 +91,7 @@ def main(prog: str, *args: str) -> None:
     config.add_argument("-u", "--url", help="The pipe url to use")
     config.add_argument("-c", "--channel", help="The channel to use")
     config.add_argument(
+        "-k",
         "--key-file",
         default=None,
         type=Path,
@@ -96,6 +99,7 @@ def main(prog: str, *args: str) -> None:
     )
     enc_g = config.add_mutually_exclusive_group()
     enc_g.add_argument(
+        "-e",
         "--encrypt",
         action="store_true",
         help=f"Encrypt the data; uses {PASSWORD_ENV} as the password if set, otherwise uses saved password",
@@ -103,7 +107,7 @@ def main(prog: str, *args: str) -> None:
     enc_g.add_argument("--plaintext", action="store_true", help="Do not encrypt the data")
     # Warnings
     ssl_g = config.add_mutually_exclusive_group()
-    ssl_g.add_argument("--ssl", action="store_true", help="Require host use https")
+    ssl_g.add_argument("-s", "--ssl", action="store_true", help="Require host use https")
     ssl_g.add_argument("--no-require-ssl", action="store_true", help="Do not require host use https")
     # Modes
     priority_mode = parser.add_argument_group(
@@ -111,19 +115,19 @@ def main(prog: str, *args: str) -> None:
         "If one of these is passed, the client will execute the desired action then exit.",
     ).add_mutually_exclusive_group()
     priority_mode.add_argument("-h", "--help", action="help", help="show this help message and exit")
-    priority_mode.add_argument("--version", action="version", version=f"{name} {__version__}")
+    priority_mode.add_argument("-V", "--version", action="version", version=f"{name} {__version__}")
     priority_mode.add_argument(
-        "--print-config", action="store_true", help="Print out the saved config information then exit"
+        "-X", "--print-config", action="store_true", help="Print out the saved config information then exit"
     )
     priority_mode.add_argument(
-        "-s",
+        "-S",
         "--save-config",
         action="store_true",
         help="Update the existing rpipe config then exit; allows incomplete configs to be saved",
     )
     # Other modes
     priority_mode.add_argument(
-        "--server-version", action="store_true", help="Print the server version then exit"
+        "-Q", "--server-version", action="store_true", help="Print the server version then exit"
     )
     # Admin commands
     subparsers = parser.add_subparsers()
