@@ -5,8 +5,7 @@ from pathlib import Path
 import argparse
 import sys
 
-from ..version import __version__
-from ..shared import config_log
+from ..shared import config_log, __version__
 from .config import PASSWORD_ENV, PartialConfig, Option
 from .client import rpipe, Mode
 from .admin import Admin

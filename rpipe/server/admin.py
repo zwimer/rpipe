@@ -12,8 +12,7 @@ from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from flask import Response, request
 
-from ..shared import ChannelInfo, AdminMessage, AdminPOST
-from ..version import Version
+from ..shared import ChannelInfo, AdminMessage, AdminPOST, Version
 from .util import plaintext
 
 if TYPE_CHECKING:

@@ -2,8 +2,7 @@ from pathlib import Path
 import argparse
 import sys
 
-from ..version import __version__
-from ..shared import config_log
+from ..shared import config_log, __version__
 from .util import MIN_VERSION
 from .app import serve
 

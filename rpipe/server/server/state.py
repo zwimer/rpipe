@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from threading import RLock
 import pickle
 
-from ...version import Version, version
+from ...shared import Version, version
 from .shutdown_handler import ShutdownHandler
 
 if TYPE_CHECKING:

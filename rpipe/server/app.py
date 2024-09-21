@@ -5,7 +5,7 @@ from logging import getLogger
 from flask import Flask
 import waitress
 
-from ..version import __version__
+from ..shared import __version__
 from .util import MAX_SIZE_HARD, plaintext
 from .channel import channel_handler
 from .server import Server

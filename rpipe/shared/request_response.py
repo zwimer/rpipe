@@ -1,27 +1,12 @@
 from __future__ import annotations
-from logging import basicConfig, getLogger, getLevelName, WARNING, INFO, DEBUG
-from dataclasses import dataclass, asdict, astuple, field
+from dataclasses import dataclass, asdict
 from typing import TYPE_CHECKING, TypeVar
-from enum import Enum, unique
 
-from .version import Version
+from .version_ import Version, WEB_VERSION
 
 if TYPE_CHECKING:
     from requests.structures import CaseInsensitiveDict
     from werkzeug.datastructures import MultiDict
-    from datetime import datetime
-
-
-WEB_VERSION = Version("0.0.0")
-assert not WEB_VERSION.invalid()  # nosec B101
-_LOG_VERBOSITY: dict[int, int] = {0: WARNING, 1: INFO, 2: DEBUG}
-
-
-def config_log(verbosity: int) -> None:
-    lvl = _LOG_VERBOSITY[max(i for i in _LOG_VERBOSITY if i <= verbosity)]
-    fmt = "%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)-10s - %(message)s"
-    basicConfig(level=lvl, datefmt="%H:%M:%S", format=fmt)
-    getLogger("shared").info("Logging level set to %s", getLevelName(lvl))
 
 
 @dataclass
@@ -42,42 +27,6 @@ def _get_int_or_none(d: dict[str, str], name: str) -> int | None:
         except ValueError:
             pass
     return None
-
-
-#
-# Error Codes
-#
-
-
-@unique
-class UploadErrorCode(Enum):
-    """
-    HTTP error codes the rpipe client may be sent when uploading data
-    """
-
-    wrong_version: int = 412  #    PUT: different version than initial POST
-    illegal_version: int = 426  #  Illegal version
-    stream_id: int = 422  #        POST: Has stream ID, should not; PUT: missing stream ID
-    too_big: int = 413  #          Too much data sent to server
-    conflict: int = 409  #         Stream ID indicates a different stream than exists
-    wait: int = 425  #             Try again in a bit, waiting on the other end of the pipe
-    forbidden: int = 403  #        Writing to finalized stream
-
-
-@unique
-class DownloadErrorCode(Enum):
-    """
-    HTTP error codes the rpipe client may be sent when downloading data
-    """
-
-    wrong_version: int = 412  #    GET: bad version
-    illegal_version: int = 426  #  Illegal version
-    no_data: int = 410  #          No data on this channel; takes priority over stream_id error
-    conflict: int = 409  #         Stream ID indicates a different stream than exists
-    wait: int = 425  #             Try again in a bit, waiting on the other end of the pipe
-    forbidden: int = 403  #        StreamID passed for new stream or while peeking
-    cannot_peek: int = 452  #      Cannot peek, too much data
-    in_use: int = 453  #           Someone else is reading from the pipe
 
 
 #
@@ -173,44 +122,3 @@ class DownloadResponseHeaders(_ResponseHeaders):
             final=d["final"] == "True",
             encrypted=d["encrypted"] == "True",
         )
-
-
-#
-# Admin types
-#
-
-
-@dataclass(kw_only=True, frozen=True)
-class AdminMessage:
-    args: dict[str, str] = field(default_factory=dict)
-    path: str
-    uid: str
-
-    def bytes(self) -> bytes:
-        return str(astuple(self)).encode()
-
-
-@dataclass(kw_only=True, frozen=True)
-class AdminPOST:
-    signature: bytes
-    version: str
-    uid: str
-
-    @classmethod
-    def from_json(cls, d: dict[str, str]) -> AdminPOST:
-        s = bytes.fromhex(d.pop("signature"))
-        return cls(signature=s, **d)
-
-    def json(self) -> dict[str, str]:
-        ret = asdict(self)
-        ret["signature"] = self.signature.hex()
-        return ret
-
-
-@dataclass(kw_only=True)
-class ChannelInfo:
-    version: Version
-    packets: int
-    size: int
-    encrypted: bool
-    expire: datetime

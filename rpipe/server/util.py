@@ -4,7 +4,7 @@ from threading import RLock
 
 from flask import Response
 
-from ..version import Version
+from ..shared import Version
 
 if TYPE_CHECKING:
     from enum import Enum

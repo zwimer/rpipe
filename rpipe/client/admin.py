@@ -12,8 +12,7 @@ from cryptography.hazmat.primitives.serialization import load_ssh_private_key
 from cryptography.exceptions import UnsupportedAlgorithm
 from requests import Session
 
-from ..version import version
-from ..shared import ChannelInfo, AdminMessage, AdminPOST
+from ..shared import ChannelInfo, AdminMessage, AdminPOST, version
 from .config import ConfigFile, UsageError, Option
 
 if TYPE_CHECKING:

@@ -1,1 +1,1 @@
-from .version import __version__
+from .shared import __version__
