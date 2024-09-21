@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-MIN_SAVE_STATE_VERSION = Version("7.3.0")
+MIN_SAVE_STATE_VERSION = Version("8.0.0")
 
 
 class ServerShutdown(RuntimeError):
