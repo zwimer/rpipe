@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from collections import deque
 from logging import getLogger
+from json import loads, dumps
 from functools import cache
 from pathlib import Path
-from json import loads
 
 from cryptography.hazmat.primitives.serialization import load_ssh_private_key
 from cryptography.exceptions import UnsupportedAlgorithm
@@ -143,22 +143,27 @@ class _Methods:
         """
         print(f"Server is running in {'DEBUG' if self._debug(conf) else 'RELEASE'} mode")
 
+    def stats(self, conf: Conf) -> None:
+        """
+        Give the client a bunch of stats about the server
+        """
+        r = self._request(conf, "/admin/stats")
+        if not r.ok:
+            msg = f"Error {r.status_code}: {r.text}"
+            self._log.critical(msg)
+            raise RuntimeError(msg)
+        print(dumps(loads(r.text), indent=4))
+
     def channels(self, conf: Conf) -> None:
         """
         Request information about the channels the server has
         """
         r = self._request(conf, "/admin/channels")
-        match r.status_code:
-            case 200:
-                raw = r.json()
-            case 400:
-                msg = f"Bad Request 400: {r.text}"
-                self._log.critical(msg)
-                raise RuntimeError(msg)
-            case _:
-                msg = f"Error {r.status_code}: {r.text}"
-                self._log.critical(msg)
-                raise RuntimeError(msg)
+        if not r.ok:
+            msg = f"Error {r.status_code}: {r.text}"
+            self._log.critical(msg)
+            raise RuntimeError(msg)
+        raw = r.json()
         if not raw:
             print("Server is empty")
             return

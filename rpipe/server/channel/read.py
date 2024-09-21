@@ -71,22 +71,26 @@ def read(state: State, channel: str) -> Response:
     log_params(getLogger(_LOG), args)
     if args.version != WEB_VERSION and (args.version < MIN_VERSION or args.version.invalid()):
         return plaintext(f"Bad version. Requires >= {MIN_VERSION}", DownloadErrorCode.illegal_version)
-    with state as rw_state:
-        s: Stream | None = rw_state.streams.get(channel, None)
+    with state as u:
+        s: Stream | None = u.streams.get(channel, None)
         if (err := _read_error_check(s, args)) is not None:
             return err
         if TYPE_CHECKING:
             s = cast(Stream, s)  # For type checker
         # Read all at once if required
         if not args.delete or args.version == WEB_VERSION:
-            final = True
+            if not args.delete:  # Peeking
+                u.stats.read(channel)
             rdata = b"".join(s.data)
+            final = True
         # Read mode
         else:
+            if s.new:
+                s.new = False
+                u.stats.read(channel)
             rdata = s.data.popleft()
-            s.new = False
             final = s.upload_complete and not s.data
         if args.delete and final:
-            del rw_state.streams[channel]
+            del u.streams[channel]
     headers = DownloadResponseHeaders(encrypted=s.encrypted, stream_id=s.id_, final=final).to_dict()
     return Response(rdata, mimetype="application/octet-stream", headers=headers)

@@ -20,10 +20,11 @@ def channel_handler(state: State, channel: str) -> Response:
         log.info("Invoking channel command %s", request.method)
         match request.method:
             case "DELETE":
-                with state as rw_state:
-                    if channel in rw_state.streams:
+                with state as u:
+                    u.stats.delete(channel)
+                    if channel in u.streams:
                         log.info("Deleting channel %s", channel)
-                        del rw_state.streams[channel]
+                        del u.streams[channel]
                 return plaintext("Deleted", status=202)
             case "GET":
                 return read(state, channel)

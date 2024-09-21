@@ -56,22 +56,23 @@ def write(state: State, channel: str) -> Response:
     if request.method == "POST":
         if args.stream_id is not None:
             return plaintext("POST request should not have a stream_id", UploadErrorCode.stream_id)
-        with state as rw_state:
-            new = Stream(
-                data=deque([] if not add else [add]),
-                ttl=DEFAULT_TTL if args.ttl is None else args.ttl,
-                encrypted=args.encrypted,
-                version=args.version,
-                upload_complete=args.final,
-            )
-            rw_state.streams[channel] = new
-            headers = UploadResponseHeaders(stream_id=new.id_, max_size=MAX_SIZE_SOFT)
+        new = Stream(
+            data=deque([] if not add else [add]),
+            ttl=DEFAULT_TTL if args.ttl is None else args.ttl,
+            encrypted=args.encrypted,
+            version=args.version,
+            upload_complete=args.final,
+        )
+        headers = UploadResponseHeaders(stream_id=new.id_, max_size=MAX_SIZE_SOFT)
+        with state as u:
+            u.streams[channel] = new
+            u.stats.write(channel)
         return plaintext("", 201, headers=headers.to_dict())
     # Continuing an existing stream, stream ID should be present
     if args.stream_id is None:
         return plaintext("PUT request missing stream id", UploadErrorCode.stream_id)
-    with state as rw_state:
-        s: Stream | None = rw_state.streams.get(channel, None)
+    with state as unlocked:
+        s: Stream | None = unlocked.streams.get(channel, None)
         if (err := _put_error_check(s, args)) is not None:
             return err
         if TYPE_CHECKING:

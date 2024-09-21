@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from threading import RLock
 import pickle
 
-from ...shared import Version, version
+from ...shared import Stats, Version, version
 from .shutdown_handler import ShutdownHandler
 
 if TYPE_CHECKING:
@@ -33,10 +33,11 @@ class UnlockedState:
         self.streams: dict[str, Stream] = {}
         self.shutdown: bool = False
         self._debug: bool = False
+        self.stats = Stats()
 
     def load(self, file: Path) -> None:
         """
-        Save the state of the server
+        Save the state of the server (does not load stats)
         """
         if len(self.streams):
             self._log.error("Existing state detected; will not overwrite")
@@ -51,11 +52,14 @@ class UnlockedState:
                 self._log.warning("Failed to load saved state. State is set to empty.")
                 return
             self.streams = pickle.load(f)
+        self._log.debug("Creating server Stats")
+        self.stats = Stats()
+        _ = tuple(self.stats.channels[i] for i in self.streams)
         self._log.info("State loaded successfully")
 
     def save(self, file: Path) -> None:
         """
-        Save the program state
+        Save the program state (does not save stats)
         Do not call this unless the server is shutdown!
         Assumes self.RLock is acquired
         """

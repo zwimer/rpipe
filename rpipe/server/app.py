@@ -74,6 +74,11 @@ def _admin_channels() -> Response:
     return admin.channels(server.state)
 
 
+@app.route("/admin/stats", methods=["POST"])
+def _admin_stats() -> Response:
+    return admin.stats(server.state)
+
+
 # Serve
 
 

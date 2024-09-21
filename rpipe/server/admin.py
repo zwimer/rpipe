@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from dataclasses import asdict
 from threading import RLock
 from time import sleep
@@ -12,12 +12,12 @@ from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from flask import Response, request
 
-from ..shared import ChannelInfo, AdminMessage, AdminPOST, Version
+from ..shared import ChannelInfo, AdminMessage, AdminPOST, AdminStats, Version
 from .util import plaintext
 
 if TYPE_CHECKING:
-    from typing import Protocol, Any, cast
     from collections.abc import Callable
+    from typing import Protocol, Any
     from pathlib import Path
     from .server import State
 
@@ -29,6 +29,10 @@ if TYPE_CHECKING:
 
     class _Verifier(Protocol):
         def __call__(self, signature: bytes, *, data: bytes) -> None: ...
+
+
+def _json(d: dict) -> Response:
+    return Response(json.dumps(d, default=str), status=200, mimetype="application/json")
 
 
 class _UID:
@@ -76,6 +80,11 @@ class _Methods:
             debug = s.debug
         return plaintext(str(debug))
 
+    def stats(self, state: State) -> Response:
+        with state as s:
+            stats = asdict(s.stats)
+        return _json(stats)
+
     def channels(self, state: State) -> Response:
         """
         Return a list of the server's current channels and stats
@@ -89,7 +98,7 @@ class _Methods:
         )
         with state as s:
             output = {i: asdict(ci(k)) for i, k in s.streams.items()}
-        return Response(json.dumps(output, default=str), status=200, mimetype="application/json")
+        return _json(output)
 
 
 class Admin:
@@ -104,7 +113,7 @@ class Admin:
 
     def __init__(self) -> None:
         self._log = logging.getLogger("Admin")
-        self._verifiers: tuple[_Verifier, ...] = ()
+        self._verifiers: tuple[tuple[_Verifier, Path], ...] = ()
         self._methods: _Methods = _Methods()
         self._uids = _UID()
 
@@ -135,7 +144,7 @@ class Admin:
         Load the public key files that are used for signature verification
         """
         self._log.info("Loading allowed signing keys")
-        self._verifiers = tuple(i for i in (self._load_verifier(k) for k in key_files) if i)
+        self._verifiers = tuple(i for i in ((self._load_verifier(k), k) for k in key_files) if i[0])  # type: ignore
         self._log.info("Signing key load complete")
 
     def __getattribute__(self, item: str) -> Any:
@@ -144,43 +153,50 @@ class Admin:
         """
         if item.startswith("_") or item in ("uids", "load_keys"):
             return super().__getattribute__(item)
-        return self._verify_wrap(getattr(self._methods, item))
+        return self._verify_wrap(getattr(self._methods, item), item)
 
-    def _verify_signature(self, signature: bytes, *, msg: bytes) -> bool:
+    def _verify_signature(self, signature: bytes, *, msg: bytes) -> Path | None:
         self._log.info("Verifying signature of message: %s", msg)
-        for fn in self._verifiers:
+        for fn, path in self._verifiers:
             try:
                 fn(signature, data=msg)
-                return True
+                return path
             except InvalidSignature:
                 pass
-        return False
+        return None
 
-    def _verify_wrap(self, func: Callable) -> Callable:
+    def _verify_wrap(self, func: Callable, name: str) -> Callable:
         """
         A decorator that wraps the method with signature verification
         """
 
-        def _verify(*args, **kwargs) -> Response:
+        def _verify(state: State, *args) -> Response:
             try:
+                stat = AdminStats(host=request.remote_addr, command=name)
+                with state as s:
+                    s.stats.admin.append(stat)
                 self._log.info("Extracting request signature and message")
                 try:
                     pm = AdminPOST.from_json(request.get_json())
                 except Exception as e:  # pylint: disable=broad-except
                     logging.error(e, exc_info=True)
                     return Response("Failed to parse POST body", status=400)
+                stat.version = pm.version
+                stat.uid = pm.uid
                 if Version(pm.version) < MIN_VERSION:
                     return Response(f"Minimum supported client version: {MIN_VERSION}", status=426)
+                sleep(0.01)  # Slow down brute force attacks
                 if not self._uids.verify(pm.uid):
                     self._log.warning("Rejecting request due to invalid UID: %s", pm.uid)
                     return Response(status=401)
+                stat.uid_valid = True
                 msg = AdminMessage(path=request.path, args=dict(request.args), uid=pm.uid).bytes()
-                sleep(0.01)  # Slow down brute force attacks
-                if not self._verify_signature(pm.signature, msg=msg):
+                if (key_file := self._verify_signature(pm.signature, msg=msg)) is None:
                     self._log.warning("Signature verification failed.")
                     return Response(status=401)
+                stat.signer = key_file
                 self._log.info("Signature verified. Executing %s", request.full_path)
-                return func(*args, **kwargs)
+                return func(state, *args)
             except Exception as e:  # pylint: disable=broad-except
                 self._log.error(e, exc_info=True)
                 return Response(status=500)
