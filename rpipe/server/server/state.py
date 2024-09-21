@@ -1,18 +1,37 @@
 from __future__ import annotations
 from logging import getLogger, INFO
 from typing import TYPE_CHECKING
+from dataclasses import asdict
+from collections import deque
 from threading import RLock
-import pickle
+import json
 
 from ...shared import Stats, Version, version
 from .shutdown_handler import ShutdownHandler
+from .stream import Stream
 
 if TYPE_CHECKING:
-    from .stream import Stream
+    from typing import BinaryIO
     from pathlib import Path
 
 
-MIN_SAVE_STATE_VERSION = Version("8.0.0")
+MIN_SAVE_STATE_VERSION = Version("8.1.0")
+
+
+def _writeline(f: BinaryIO, s: bytes):
+    f.write(str(len(s)).encode() + b"\n")
+    f.write(s)
+    f.write(b"\n")
+
+
+def _readline(f: BinaryIO) -> bytes:
+    size = int(f.readline().strip())
+    ret = b""
+    while len(ret) < size:
+        ret += f.read(size - len(ret))
+    if f.read(1) != b"\n":
+        raise ValueError("Expected newline")
+    return ret
 
 
 class ServerShutdown(RuntimeError):
@@ -45,13 +64,9 @@ class UnlockedState:
         if not file.exists():
             self._log.warning("State file %s not found. State is set to empty", file)
             return
-        self._log.info("Loading %s", file)
-        with file.open("rb") as f:
-            if (ver := Version(f.readline().strip())) < MIN_SAVE_STATE_VERSION:
-                self._log.error("State version too old: %s", ver)
-                self._log.warning("Failed to load saved state. State is set to empty.")
-                return
-            self.streams = pickle.load(f)
+        if not self._load(file):
+            self._log.warning("Failed to load saved state. State is set to empty.")
+            return
         self._log.debug("Creating server Stats")
         self.stats = Stats()
         _ = tuple(self.stats.channels[i] for i in self.streams)
@@ -68,13 +83,39 @@ class UnlockedState:
         if file.exists():
             self._log.info("Purging old program state...")
             file.unlink()
-        self._log.info("Saving state to: %s", file)
-        with file.open("wb") as f:
-            f.write(bytes(version) + b"\n")
-            pickle.dump(self.streams, f)
+        self._save(file)
         if self._log.isEnabledFor(INFO):
             self._log.info("Channels saved: %s", ", ".join(self.streams.keys()))
         self._log.info("State saved successfully")
+
+    def _save(self, file: Path) -> None:
+        self._log.info("Saving state to: %s", file)
+        with file.open("wb") as f:
+            f.write(bytes(version) + b"\n")
+            _writeline(f, str(len(self.streams)).encode())
+            for name, s in self.streams.items():
+                d = asdict(s)
+                deq = d.pop("data")
+                _writeline(f, f"{name} {len(deq)} ".encode() + json.dumps(d, default=str).encode())
+                for i in deq:
+                    _writeline(f, i)
+
+    def _load(self, file: Path) -> bool:
+        self._log.info("Loading %s", file)
+        self.streams = {}
+        with file.open("rb") as f:
+            if (ver := Version(f.readline()[:-1])) < MIN_SAVE_STATE_VERSION:
+                self._log.error("State version too old: %s", ver)
+                return False
+            print(ver)
+            for _ in range(int(_readline(f))):
+                main = _readline(f).split(b" ", 2)
+                print(main[2])
+                body = json.loads(main[2])
+                body["version"] = Version(body["version"])
+                body["data"] = deque(_readline(f) for _2 in range(int(main[1])))
+                self.streams[main[0].decode()] = Stream(**body)
+        return True
 
     @property
     def debug(self):

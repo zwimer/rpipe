@@ -32,7 +32,7 @@ class Stream:  # pylint: disable=too-many-instance-attributes
     encrypted: bool
     version: Version
     capacity: int = _PIPE_MAX_BYTES
-    id_: str = field(init=False, default_factory=_uid)
+    id_: str = field(default_factory=_uid)
 
     def __post_init__(self) -> None:
         self.expire: datetime  # Set by __setattr__
