@@ -20,13 +20,15 @@ def delete(full_conf: Config) -> None:
 
 
 @contextmanager
-def delete_on_fail(config: Config):
+def delete_on_fail(config: Config, allow: tuple[type[BaseException], ...] = ()):
     """
     Context manager that deletes the channel on failure
     """
     log = getLogger("DeleteOnFail")
     try:
         yield
+    except allow:
+        raise
     except (KeyboardInterrupt, Exception) as e:
         log.warning("Caught %s; deleting channel", type(e))
         delete(config)

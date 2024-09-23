@@ -100,7 +100,7 @@ def recv(config: Config, peek: bool, force: bool, progress: bool | int) -> None:
     log.info("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
     params = DownloadRequestParams(version=version, override=force, delete=not peek)
     lvl: int | None = 0
-    with delete_on_fail(config):
+    with delete_on_fail(config, allow=(VersionError,)):
         with PBar(progress) as pbar:
             while lvl is not None:
                 lvl = _recv_body(config, peek, url, params, pbar, lvl)
