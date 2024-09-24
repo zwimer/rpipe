@@ -7,7 +7,7 @@ import sys
 from ...shared import UploadRequestParams, UploadResponseHeaders, UploadErrorCode, version
 from .errors import MultipleClients, ReportThis, VersionError
 from .util import wait_delay_sec, request, channel_url
-from .delete import delete_on_fail
+from .delete import DeleteOnFail
 from .crypt import encrypt
 from .pbar import PBar
 from .io import IO
@@ -40,19 +40,22 @@ def _send_error(r: Response) -> None:
             raise RuntimeError(r)
 
 
-def _send_block(data: bytes, config: Config, params: UploadRequestParams, lvl: int = 0) -> None:
+def _send_block(
+    data: bytes, config: Config, params: UploadRequestParams, dof: DeleteOnFail, *, lvl: int = 0
+) -> None:
     """
     Upload the given block of data; updates params for next block
     """
     r = request("PUT", channel_url(config), params=params.to_dict(), data=data)
     if r.ok:
+        dof.armed = True
         headers = UploadResponseHeaders.from_dict(r.headers)
         assert params.stream_id == headers.stream_id  # nosec B101
     elif r.status_code == UploadErrorCode.wait.value:
         delay = wait_delay_sec(lvl)
         getLogger(_LOG).info("Pipe full, sleeping for %s second(s).", delay)
         sleep(delay)
-        _send_block(data, config, params, lvl + 1)
+        _send_block(data, config, params, dof, lvl=lvl + 1)
     else:
         _send_error(r)
 
@@ -71,18 +74,18 @@ def send(config: Config, ttl: int | None, progress: bool | int) -> None:
     log = getLogger(_LOG)
     log.info("Writing to channel %s with block size of %s", config.channel, block_size)
     # Send
-    with delete_on_fail(config):
+    with DeleteOnFail(config) as dof:
         params.stream_id = headers.stream_id
         io = IO(sys.stdin.fileno(), block_size)
         with PBar(progress) as pbar:
             while block := io.read():
                 log.info("Processing block of %s bytes", len(block))
-                _send_block(encrypt(block, config.password), config, params)
+                _send_block(encrypt(block, config.password), config, params, dof)
                 pbar.update(len(block))
         # Finalize
         params.final = True
         try:
-            _send_block(b"", config, params)
+            _send_block(b"", config, params, dof)
         except MultipleClients:  # We might have hung after sending our data until the program closed
             log.warning("Received MultipleClients error on final PUT")
     log.info("Stream complete")

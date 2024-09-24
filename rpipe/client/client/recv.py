@@ -7,7 +7,7 @@ import sys
 from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadErrorCode, version
 from .errors import MultipleClients, ReportThis, VersionError, StreamError, NoData
 from .util import wait_delay_sec, request, channel_url
-from .delete import delete_on_fail
+from .delete import DeleteOnFail
 from .crypt import decrypt
 from .pbar import PBar
 
@@ -32,9 +32,8 @@ def _recv_error_helper(r: Response, config: Config, peek: bool, put: bool, waite
             raise VersionError(f"Server requires version >= {r.text}")
         case DownloadErrorCode.no_data:
             if put:
-                raise MultipleClients(
-                    "This data stream no longer exists; maybe the sender cancelled sending?"
-                )
+                msg = "This data stream no longer exists; maybe the sender cancelled sending?"
+                raise MultipleClients(msg)
             raise NoData(f"The channel {config.channel} is empty.")
         case DownloadErrorCode.conflict:
             if put:
@@ -65,11 +64,18 @@ def _recv_error(*args, **kwargs) -> None:
 
 
 def _recv_body(
-    config: Config, peek: bool, url: str, params: DownloadRequestParams, pbar: PBar, lvl: int
+    config: Config,
+    peek: bool,
+    url: str,
+    params: DownloadRequestParams,
+    pbar: PBar,
+    lvl: int,
+    dof: DeleteOnFail,
 ) -> int | None:
     log = getLogger(_LOG)
     r = request("GET", url, params=params.to_dict())
     if r.ok:
+        dof.armed = True
         headers = DownloadResponseHeaders.from_dict(r.headers)
         got: bytes = decrypt(r.content, config.password if headers.encrypted else None)
         log.info("Received %s bytes", len(got))
@@ -100,8 +106,8 @@ def recv(config: Config, peek: bool, force: bool, progress: bool | int) -> None:
     log.info("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
     params = DownloadRequestParams(version=version, override=force, delete=not peek)
     lvl: int | None = 0
-    with delete_on_fail(config, allow=(VersionError,)):
+    with DeleteOnFail(config) as dof:
         with PBar(progress) as pbar:
             while lvl is not None:
-                lvl = _recv_body(config, peek, url, params, pbar, lvl)
+                lvl = _recv_body(config, peek, url, params, pbar, lvl, dof)
     log.info("Stream complete")

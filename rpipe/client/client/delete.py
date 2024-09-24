@@ -1,5 +1,4 @@
 from __future__ import annotations
-from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from logging import getLogger
 
@@ -19,17 +18,16 @@ def delete(full_conf: Config) -> None:
         raise RuntimeError(r)
 
 
-@contextmanager
-def delete_on_fail(config: Config, allow: tuple[type[BaseException], ...] = ()):
-    """
-    Context manager that deletes the channel on failure
-    """
-    log = getLogger("DeleteOnFail")
-    try:
-        yield
-    except allow:
-        raise
-    except (KeyboardInterrupt, Exception) as e:
-        log.warning("Caught %s; deleting channel", type(e))
-        delete(config)
-        raise
+class DeleteOnFail:
+    def __init__(self, config: Config):
+        self.catch = KeyboardInterrupt | Exception
+        self.config = config
+        self.armed = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.armed and isinstance(exc_val, self.catch):
+            getLogger("DeleteOnFail").warning("Caught %s; deleting channel", type(exc_val))
+            delete(self.config)
