@@ -14,10 +14,9 @@ if TYPE_CHECKING:
     from ..server import State
 
 
-def channel_handler(state: State, channel: str) -> Response:
+def _channel_handler(state: State, channel: str) -> Response:
     log = getLogger("channel")
     try:
-        log.info("Invoking channel command %s", request.method)
         match request.method:
             case "DELETE":
                 with state as u:
@@ -31,7 +30,18 @@ def channel_handler(state: State, channel: str) -> Response:
             case "POST" | "PUT":
                 return write(state, channel)
             case _:
-                log.info("404: bad method: %s", request.method)
+                log.warning("404: bad method: %s", request.method)
                 return plaintext(f"Unknown method: {request.method}", status=404)
     except ServerShutdown:
+        log.warning("Ignoring request, server is shutting down")
         return plaintext("Server is shutting down", status=503)
+
+
+def channel_handler(state: State, channel: str) -> Response:
+    log = getLogger("channel")
+    log.info("Invoking: %s %s", request.method, channel)
+    ret = _channel_handler(state, channel)
+    log.info("Sending: %s", ret)
+    if ret.status_code >= 400:
+        log.debug("  body: %s", ret.get_data())
+    return ret
