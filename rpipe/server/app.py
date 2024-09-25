@@ -1,25 +1,56 @@
 from __future__ import annotations
+from logging import StreamHandler, FileHandler, Formatter, getLevelName, getLogger, shutdown
+from os import environ, close as fd_close
+from dataclasses import dataclass
+from tempfile import mkstemp
 from typing import TYPE_CHECKING
-from logging import getLogger
+from pathlib import Path
+import atexit
 
 from flask import Flask
 import waitress
 
-from ..shared import __version__
+from ..shared import LOG_DATEFMT, LOG_FORMAT, log_level, restrict_umask, __version__
 from .util import MAX_SIZE_HARD, plaintext
 from .channel import channel_handler
 from .server import Server
 from .admin import Admin
 
 if TYPE_CHECKING:
-    from pathlib import Path
     from flask import Response
 
 
 app = Flask(f"rpipe_server {__version__}")
+_REUSE_DEBUG_LOG_FILE = "_REUSE_DEBUG_LOG_FILE"
 server = Server()
 admin = Admin()
 _LOG = "app"
+
+
+#
+# Dataclasses
+#
+
+
+@dataclass(frozen=True, kw_only=True)
+class LogConfig:
+    log_file: Path
+    verbose: bool
+    debug: bool
+
+
+@dataclass(frozen=True, kw_only=True)
+class ServerConfig:
+    host: str
+    port: int
+    debug: bool
+    state_file: Path | None
+    key_files: list[Path]
+
+
+#
+# Routes
+#
 
 
 @app.route("/")
@@ -82,15 +113,60 @@ def _admin_stats() -> Response:
 # Serve
 
 
-def serve(host: str, port: int, debug: bool, state_file: Path | None, key_files: list[Path]) -> None:
+def _log_shutdown(log_file: Path) -> None:
+    getLogger().critical("Logger is shutting down. Purging: %s", log_file)
+    shutdown()
+    # Missing is an error, but we ignore it since it's not critical and we are shutting down
+    log_file.unlink(missing_ok=True)
+
+
+def _log_config(conf: LogConfig) -> Path:
+    log_file = conf.log_file
+    # Flask debug mode may restart the server without cleaning up, we reuse the log file here
+    if reuse_log_file := log_file is None and conf.debug and _REUSE_DEBUG_LOG_FILE in environ:
+        log_file = Path(environ[_REUSE_DEBUG_LOG_FILE])
+    # Determine which file to log to
+    with restrict_umask(0o6):
+        if log_file is not None:
+            # We force creation to ensure proper permissions
+            with log_file.open("a", encoding="utf8") as f:
+                f.write("" if f.tell() == 0 else "\n")
+        else:
+            fd, fpath = mkstemp(suffix=".log")
+            fd_close(fd)
+            log_file = Path(fpath)
+            atexit.register(_log_shutdown, log_file)
+            if conf.debug:
+                environ[_REUSE_DEBUG_LOG_FILE] = str(log_file)
+    # Setup logger
+    fmt = Formatter(LOG_FORMAT, LOG_DATEFMT)
+    fh = FileHandler(log_file, mode="a")
+    stream = StreamHandler()
+    root = getLogger()
+    for i in (fh, stream):
+        i.setFormatter(fmt)
+        root.addHandler(i)
+    # Set level
+    lvl: int = log_level(conf.verbose)
+    root.setLevel(lvl)
+    root.info("Logging level set to %s", getLevelName(lvl))
+    if reuse_log_file:
+        root.warning("Reusing debug log file: %s", log_file)
+    # Cleanup and return
+    return log_file
+
+
+# pylint: disable=too-many-arguments
+def serve(conf: ServerConfig, log_conf: LogConfig) -> None:
+    log_file = _log_config(log_conf)
     log = getLogger(_LOG)
     log.info("Setting max packet size: %s", MAX_SIZE_HARD)
     app.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
     app.url_map.strict_slashes = False
-    server.start(debug, state_file)
-    admin.load_keys(key_files)
-    log.info("Serving on %s:%s", host, port)
-    if debug:
-        app.run(host=host, port=port, debug=True)
+    admin.init(log_file, conf.key_files)
+    server.start(conf.debug, conf.state_file)
+    log.info("Serving on %s:%s", conf.host, conf.port)
+    if conf.debug:
+        app.run(host=conf.host, port=conf.port, debug=True)
     else:
-        waitress.serve(app, host=host, port=port)
+        waitress.serve(app, host=conf.host, port=conf.port)

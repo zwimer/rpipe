@@ -1,11 +1,12 @@
 from __future__ import annotations
+from logging import basicConfig, getLevelName, getLogger
 from typing import TYPE_CHECKING
 from dataclasses import fields
 from pathlib import Path
 import argparse
 import sys
 
-from ..shared import config_log, __version__
+from ..shared import LOG_DATEFMT, LOG_FORMAT, log_level, __version__
 from .config import PASSWORD_ENV, PartialConfig, Option
 from .client import rpipe, Mode
 from .admin import Admin
@@ -147,7 +148,9 @@ def main(prog: str, *args: str) -> None:
     admin.add_parser("stats", help="Print various server stats").set_defaults(method="stats")
     # Invoke func
     parsed = parser.parse_args(args)
-    config_log(parsed.verbose)
+    lvl = log_level(parsed.verbose)
+    basicConfig(level=lvl, datefmt=LOG_DATEFMT, format=LOG_FORMAT)
+    getLogger().info("Logging level set to %s", getLevelName(lvl))
     del parsed.verbose
     parsed.func(parsed)
 

@@ -1,10 +1,11 @@
+from dataclasses import fields
 from pathlib import Path
 import argparse
 import sys
 
-from ..shared import config_log, __version__
+from ..shared import __version__
+from .app import ServerConfig, LogConfig, serve
 from .util import MIN_VERSION
-from .app import serve
 
 
 def main(prog, *args) -> None:
@@ -33,7 +34,7 @@ def main(prog, *args) -> None:
         "--log-file", type=Path, default=None, help="The log file to append to, if desired"
     )
     # pylint: disable=duplicate-code
-    parser.add_argument(
+    log_group.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -41,10 +42,9 @@ def main(prog, *args) -> None:
         help="Increase Log verbosity, pass more than once to increase verbosity",
     )
     parser.add_argument("--debug", action="store_true", help="Run the server in debug mode")
-    parsed = parser.parse_args(args)
-    config_log(parsed.verbose)
-    del parsed.verbose
-    serve(**vars(parsed))
+    ns = parser.parse_args(args)
+    gen = lambda C: C(**{i: getattr(ns, i) for i in (k.name for k in fields(C))})
+    serve(gen(ServerConfig), gen(LogConfig))
 
 
 def cli() -> None:

@@ -82,15 +82,19 @@ class Admin:
 
     def __init__(self) -> None:
         self._verifiers: tuple[tuple[_Verifier, Path], ...] = ()
+        self._log = logging.getLogger("Admin")
+        self._log_file: Path | None = None
         self._uids = _UID()
         self._init = False
 
-    def init(self, key_files: list[Path]):
+    def init(self, log_file: Path, key_files: list[Path]):
         """
         Set up the admin class
         Load the public key files that are used for signature verification
         """
         self._log.debug("Setting up admin class")
+        self._log_file = log_file
+        self._log.debug("Log file set to %s", self._log_file)
         self._log.info("Loading allowed signing keys")
         self._verifiers = tuple(i for i in ((self._load_verifier(k), k) for k in key_files) if i[0])  # type: ignore
         self._log.info("Signing key load complete")
