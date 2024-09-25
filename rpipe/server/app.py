@@ -3,11 +3,10 @@ from logging import StreamHandler, FileHandler, Formatter, getLevelName, getLogg
 from os import environ, close as fd_close
 from dataclasses import dataclass
 from tempfile import mkstemp
-from typing import TYPE_CHECKING
 from pathlib import Path
 import atexit
 
-from flask import Flask
+from flask import Response, Flask, request
 import waitress
 
 from ..shared import LOG_DATEFMT, LOG_FORMAT, log_level, restrict_umask, __version__
@@ -15,9 +14,6 @@ from .util import MAX_SIZE_HARD, plaintext
 from .channel import channel_handler
 from .server import Server
 from .admin import Admin
-
-if TYPE_CHECKING:
-    from flask import Response
 
 
 app = Flask(f"rpipe_server {__version__}")
@@ -51,6 +47,12 @@ class ServerConfig:
 #
 # Routes
 #
+
+
+@app.errorhandler(404)
+def page_not_found(_) -> Response:
+    getLogger(_LOG).warning("404: Request for %s", request.full_path)
+    return Response("404: Not found", status=404)
 
 
 @app.route("/")
