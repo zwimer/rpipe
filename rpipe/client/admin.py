@@ -7,6 +7,7 @@ from logging import getLogger
 from json import loads, dumps
 from functools import cache
 from pathlib import Path
+import zlib
 
 from cryptography.hazmat.primitives.serialization import load_ssh_private_key
 from cryptography.exceptions import UnsupportedAlgorithm
@@ -155,11 +156,12 @@ class _Methods:
             msg = f"Error {r.status_code}: {r.text}"
             self._log.critical(msg)
             raise RuntimeError(msg)
+        out = zlib.decompress(r.content)
         if output_file is None:
-            print(r.text)
+            print(out.decode())
             return
         self._log.info("Writing log to %s", output_file)
-        output_file.write_text(r.text)
+        output_file.write_bytes(out)
 
     def stats(self, conf: Conf) -> None:
         """

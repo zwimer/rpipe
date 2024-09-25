@@ -7,6 +7,7 @@ from time import sleep
 from os import urandom
 import logging
 import json
+import zlib
 
 from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
@@ -121,8 +122,9 @@ class Admin:
             i.flush()
         if self._log_file is None:
             return Response("Missing log file", status=500, mimetype="text/plain")
-        data = self._log_file.read_text().strip()
-        return Response(data, status=200, mimetype="text/plain")
+        data = zlib.compress(self._log_file.read_bytes().strip())
+        self._log.debug("Sending compressed log of size: %s", len(data))
+        return Response(data, status=200, mimetype="application/octet-stream")
 
     def stats(self, state: State) -> Response:
         with state as s:
