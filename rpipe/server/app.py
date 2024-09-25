@@ -112,6 +112,11 @@ def _admin_stats() -> Response:
     return admin.stats(server.state)
 
 
+@app.route("/admin/log", methods=["POST"])
+def _admin_log() -> Response:
+    return admin.log(server.state)
+
+
 # Serve
 
 

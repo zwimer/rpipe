@@ -16,7 +16,10 @@ if TYPE_CHECKING:
 
 
 def _admin(ns: Namespace):
-    getattr(Admin(), ns.method)(url=ns.url, key_file=ns.key_file)
+    kw = ["url", "key_file"]
+    if ns.method == "log":
+        kw.append("output_file")
+    getattr(Admin(), ns.method)(**{i: getattr(ns, i) for i in kw})
 
 
 def _main(raw_ns: Namespace):
@@ -146,6 +149,11 @@ def main(prog: str, *args: str) -> None:
     dbg.set_defaults(method="debug")
     admin.add_parser("channels", help="List all channels with stats").set_defaults(method="channels")
     admin.add_parser("stats", help="Print various server stats").set_defaults(method="stats")
+    logp = admin.add_parser("log", help="Download server logs various server stats")
+    logp.set_defaults(method="log")
+    logp.add_argument(
+        "-o", "--output-file", type=Path, default=None, help="Log output file, instead of stdout"
+    )
     # Invoke func
     parsed = parser.parse_args(args)
     lvl = log_level(parsed.verbose)

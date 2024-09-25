@@ -116,6 +116,14 @@ class Admin:
             debug = s.debug
         return plaintext(str(debug))
 
+    def log(self, _: State) -> Response:
+        for i in logging.getLogger().handlers:
+            i.flush()
+        if self._log_file is None:
+            return Response("Missing log file", status=500, mimetype="text/plain")
+        data = self._log_file.read_text().strip()
+        return Response(data, status=200, mimetype="text/plain")
+
     def stats(self, state: State) -> Response:
         with state as s:
             stats = asdict(s.stats)

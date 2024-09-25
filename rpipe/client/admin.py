@@ -144,6 +144,23 @@ class _Methods:
         """
         print(f"Server is running in {'DEBUG' if self._debug(conf) else 'RELEASE'} mode")
 
+    # SSL Protected methods
+
+    def log(self, conf: Conf, output_file: Path | None = None) -> None:
+        """
+        Download the server log
+        """
+        r = self._request(conf, "/admin/log")
+        if not r.ok:
+            msg = f"Error {r.status_code}: {r.text}"
+            self._log.critical(msg)
+            raise RuntimeError(msg)
+        if output_file is None:
+            print(r.text)
+            return
+        self._log.info("Writing log to %s", output_file)
+        output_file.write_text(r.text)
+
     def stats(self, conf: Conf) -> None:
         """
         Give the client a bunch of stats about the server
