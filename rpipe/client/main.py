@@ -36,6 +36,7 @@ def _main(raw_ns: Namespace):
     )
 
 
+# pylint: disable=too-many-locals
 def main(prog: str, *args: str) -> None:
     """
     Parses arguments then invokes rpipe

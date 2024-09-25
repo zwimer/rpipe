@@ -10,13 +10,17 @@ from .app import serve
 def main(prog, *args) -> None:
     name = Path(prog).name
     parser = argparse.ArgumentParser(prog=name)
-    parser.add_argument("--version", action="version", version=f"{name} {__version__}")
-    parser.add_argument(
+    modes = parser.add_argument_group("Modes")
+    modes.add_argument("--version", action="version", version=f"{name} {__version__}")
+    modes.add_argument(
         "--min-client-version",
         action="version",
         version=f"rpipe>={MIN_VERSION}",
         help="Print the minimum supported client version then exit",
     )
+    parser.add_argument("port", type=int, help="The port waitress will listen on")
+    parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
+    parser.add_argument("--state-file", type=Path, help="The save state file, if desired")
     parser.add_argument(
         "--key-files",
         type=Path,
@@ -24,9 +28,10 @@ def main(prog, *args) -> None:
         default=[],
         help="SSH ed25519 public keys to accept for admin access",
     )
-    parser.add_argument("--state-file", type=Path, help="The save state file, if desired")
-    parser.add_argument("port", type=int, help="The port waitress will listen on")
-    parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
+    log_group = parser.add_argument_group("Logging")
+    log_group.add_argument(
+        "--log-file", type=Path, default=None, help="The log file to append to, if desired"
+    )
     # pylint: disable=duplicate-code
     parser.add_argument(
         "-v",

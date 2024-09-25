@@ -69,11 +69,43 @@ class _UID:
         return True
 
 
-class _Methods:
+class Admin:
     """
-    A list of admin methods that normal users should not be able to access
-    These methods must be protected externally
+    Admin class that protects the server from unauthorized access
+    It requires a valid signature to access any method from the Methods class
+    Any method from the method class is a member of this class, but is wrapped in a signature verification
+    Signed requests must contain a valid signed UID that is only valid for a short period of time
     """
+
+    _NO_WRAP = ("init", "uids")
+    _UIDS_PER_QUERY: int = 2
+
+    def __init__(self) -> None:
+        self._verifiers: tuple[tuple[_Verifier, Path], ...] = ()
+        self._uids = _UID()
+        self._init = False
+
+    def init(self, key_files: list[Path]):
+        """
+        Set up the admin class
+        Load the public key files that are used for signature verification
+        """
+        self._log.debug("Setting up admin class")
+        self._log.info("Loading allowed signing keys")
+        self._verifiers = tuple(i for i in ((self._load_verifier(k), k) for k in key_files) if i[0])  # type: ignore
+        self._log.info("Signing key load complete")
+        self._init = True
+
+    def uids(self) -> Response:
+        """
+        Get a few UIDSs that may each be used in a signature to access the server exactly once
+        """
+        data = json.dumps(self._uids.new(self._UIDS_PER_QUERY))
+        return Response(data, status=200, mimetype="application/json")
+
+    #
+    # Wrapped Methods
+    #
 
     def debug(self, state: State) -> Response:
         with state as s:
@@ -100,29 +132,9 @@ class _Methods:
             output = {i: asdict(ci(k)) for i, k in s.streams.items()}
         return _json(output)
 
-
-class Admin:
-    """
-    Admin class that protects the server from unauthorized access
-    It requires a valid signature to access any method from the Methods class
-    Any method from the method class is a member of this class, but is wrapped in a signature verification
-    Signed requests must contain a valid signed UID that is only valid for a short period of time
-    """
-
-    _UIDS_PER_QUERY: int = 2
-
-    def __init__(self) -> None:
-        self._log = logging.getLogger("Admin")
-        self._verifiers: tuple[tuple[_Verifier, Path], ...] = ()
-        self._methods: _Methods = _Methods()
-        self._uids = _UID()
-
-    def uids(self) -> Response:
-        """
-        Get a few UIDSs that may each be used in a signature to access the server exactly once
-        """
-        data = json.dumps(self._uids.new(self._UIDS_PER_QUERY))
-        return Response(data, status=200, mimetype="application/json")
+    #
+    # Helpers
+    #
 
     def _load_verifier(self, key_file: Path) -> _Verifier | None:
         try:
@@ -139,21 +151,14 @@ class Admin:
         self._log.error("Signature verification is not supported for %s - Skipping", key_file)
         return None
 
-    def load_keys(self, key_files: list[Path]):
-        """
-        Load the public key files that are used for signature verification
-        """
-        self._log.info("Loading allowed signing keys")
-        self._verifiers = tuple(i for i in ((self._load_verifier(k), k) for k in key_files) if i[0])  # type: ignore
-        self._log.info("Signing key load complete")
-
     def __getattribute__(self, item: str) -> Any:
         """
-        Override the getattribute method to expose all methods of _Methods and protect them with signature verification
+        Override the getattribute method to wrap most public members with signature verification
         """
-        if item.startswith("_") or item in ("uids", "load_keys"):
-            return super().__getattribute__(item)
-        return self._verify_wrap(getattr(self._methods, item), item)
+        ret = super().__getattribute__(item)
+        if item.startswith("_") or item in self._NO_WRAP:
+            return ret
+        return self._wrap(ret, item)
 
     def _verify_signature(self, signature: bytes, *, msg: bytes) -> Path | None:
         self._log.info("Verifying signature of message: %s", msg)
@@ -165,16 +170,20 @@ class Admin:
                 pass
         return None
 
-    def _verify_wrap(self, func: Callable, name: str) -> Callable:
+    def _wrap(self, func: Callable, name: str) -> Callable:
         """
         A decorator that wraps the method with signature verification
         """
 
         def _verify(state: State, *args) -> Response:
             try:
+                # Log the request and verify initialization
                 stat = AdminStats(host=request.remote_addr, command=name)
                 with state as s:
                     s.stats.admin.append(stat)
+                if not self._init:
+                    raise AttributeError("Admin class not initialized")
+                # Extract parameters
                 self._log.info("Extracting request signature and message")
                 try:
                     pm = AdminPOST.from_json(request.get_json())
@@ -183,6 +192,7 @@ class Admin:
                     return Response("Failed to parse POST body", status=400)
                 stat.version = pm.version
                 stat.uid = pm.uid
+                # Version check, UID check, Signature Verification
                 if Version(pm.version) < MIN_VERSION:
                     return Response(f"Minimum supported client version: {MIN_VERSION}", status=426)
                 sleep(0.01)  # Slow down brute force attacks
@@ -195,6 +205,7 @@ class Admin:
                     self._log.warning("Signature verification failed.")
                     return Response(status=401)
                 stat.signer = key_file
+                # Execute function
                 self._log.info("Signature verified. Executing %s", request.full_path)
                 return func(state, *args)
             except Exception as e:  # pylint: disable=broad-except

@@ -107,10 +107,8 @@ class UnlockedState:
             if (ver := Version(f.readline()[:-1])) < MIN_SAVE_STATE_VERSION:
                 self._log.error("State version too old: %s", ver)
                 return False
-            print(ver)
             for _ in range(int(_readline(f))):
                 main = _readline(f).split(b" ", 2)
-                print(main[2])
                 body = json.loads(main[2])
                 body["version"] = Version(body["version"])
                 body["data"] = deque(_readline(f) for _2 in range(int(main[1])))

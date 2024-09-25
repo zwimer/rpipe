@@ -25,6 +25,7 @@ ADMIN_REQUEST_TIMEOUT: int = 60
 _VERIFY_SSL: str = "_VERIFY_SSL_"
 _LOG = "admin"
 
+
 #
 # Exceptions
 #
@@ -92,7 +93,7 @@ class _Methods:
 
     def __getattribute__(self, item: str) -> Any:
         """
-        If a pulic methods is prefixed with _VERIFY_SSL, require SSL
+        If a public methods is prefixed with _VERIFY_SSL, require SSL
         """
         if item.startswith(_VERIFY_SSL):
             return self._require_ssl(getattr(self, item[len(_VERIFY_SSL) :]))

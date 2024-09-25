@@ -26,6 +26,7 @@ class ShutdownHandler(metaclass=Singleton):
         atexit.register(self._shutdown)
 
     def _shutdown(self):
+        self._log.critical("Server shutdown initiated")
         with self._state as state:
             state.shutdown = True
             state.save(self.file)
