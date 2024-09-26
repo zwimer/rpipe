@@ -65,6 +65,7 @@ def _recv_error(*args, **kwargs) -> None:
 
 def _recv_body(
     config: Config,
+    block: bool,
     peek: bool,
     url: str,
     params: DownloadRequestParams,
@@ -86,7 +87,9 @@ def _recv_body(
             return None  # Stream complete
         params.stream_id = headers.stream_id
         return 0
-    elif r.status_code == DownloadErrorCode.wait.value:
+    elif (block and r.status_code == DownloadErrorCode.no_data.value) or (
+        r.status_code == DownloadErrorCode.wait.value
+    ):
         delay = wait_delay_sec(lvl)
         log.info("No data available yet, sleeping for %s second(s)", delay)
         sleep(delay)
@@ -97,7 +100,7 @@ def _recv_body(
         raise NotImplementedError("Unreachable code")
 
 
-def recv(config: Config, peek: bool, force: bool, progress: bool | int) -> None:
+def recv(config: Config, block: bool, peek: bool, force: bool, progress: bool | int) -> None:
     """
     Receive data from the remote pipe
     """
@@ -109,5 +112,6 @@ def recv(config: Config, peek: bool, force: bool, progress: bool | int) -> None:
     with DeleteOnFail(config) as dof:
         with PBar(progress) as pbar:
             while lvl is not None:
-                lvl = _recv_body(config, peek, url, params, pbar, lvl, dof)
+                if (lvl := _recv_body(config, block, peek, url, params, pbar, lvl, dof)) == 0:
+                    block = False  # Stop blocking after first successful read
     log.info("Stream complete")

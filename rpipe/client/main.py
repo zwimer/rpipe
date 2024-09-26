@@ -51,6 +51,9 @@ def main(prog: str, *args: str) -> None:
     parser.set_defaults(method=None)
     read_g = parser.add_argument_group("Read Mode Options")
     read_g.add_argument(
+        "-b", "--block", action="store_true", help="Wait until a channel is available to read"
+    )
+    read_g.add_argument(
         "-p",
         "--peek",
         action="store_true",

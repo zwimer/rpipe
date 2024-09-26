@@ -29,8 +29,9 @@ class Mode:
     delete: bool
     write: bool
     # Read options
-    force: bool
+    block: bool
     peek: bool
+    force: bool
     # Write options
     ttl: int | None
     # Read / Write options
@@ -56,7 +57,7 @@ def _check_mode_flags(mode: Mode) -> None:
         raise UsageError("Can only read, write, or delete at a time")
     # Mode flags
     read_bad = {"ttl"}
-    write_bad = {"force", "peek"}
+    write_bad = {"block", "peek", "force"}
     delete_bad = read_bad | write_bad | {"progress", "encrypt"}
     bad = lambda x: [f"--{i}" for i in x if tru(i)]
     fmt = lambda x: f"argument{'' if len(x) == 1 else 's'} {listing(x, ',', 'and') }: may not be used "
@@ -116,7 +117,7 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
     # Invoke mode
     log.info("HTTP timeout set to %d seconds", REQUEST_TIMEOUT)
     if mode.read:
-        recv(full_conf, mode.peek, mode.force, mode.progress)
+        recv(full_conf, mode.block, mode.peek, mode.force, mode.progress)
     elif mode.write:
         send(full_conf, mode.ttl, mode.progress)
     else:
