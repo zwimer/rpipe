@@ -22,9 +22,10 @@ dependencies = [
     "requests",
     "tqdm",
     # Server
-    "human_readable",
     "waitress",
     "flask",
+    # Both
+    "human_readable",
 ]
 dynamic = ["version"]
 
@@ -63,7 +64,7 @@ ignore=["E731"]
 "__init__.py" = ["F401", "F403"]
 
 [tool.bandit]
-skips = ["B201", "B104"]
+skips = ["B104", "B201"]
 
 [tool.vulture]
 ignore_names = ["cli", "_help", "_show_version", "_channel", "strict_slashes"]

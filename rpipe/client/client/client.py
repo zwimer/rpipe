@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from logging import getLogger
 
+from human_readable import listing
+
 from ..config import ConfigFile, Option, PartialConfig
 from .util import REQUEST_TIMEOUT, request
 from .errors import UsageError
@@ -18,50 +20,69 @@ class Mode:
     Arguments used to decide how rpipe should operate
     """
 
-    # Priority (in order)
+    # Priority modes (in order)
     print_config: bool
     save_config: bool
     server_version: bool
-    # Whether the user *explicitly* requested encryption or plaintext
-    encrypt: Option[bool]
     # Read/Write/Delete modes
     read: bool
-    peek: bool
     delete: bool
-    # Other options
-    progress: bool | int
-    ttl: int | None
+    write: bool
+    # Read options
     force: bool
+    peek: bool
+    # Write options
+    ttl: int | None
+    # Read / Write options
+    encrypt: Option[bool]
+    progress: bool | int
 
 
-# pylint: disable=too-many-branches
-def rpipe(conf: PartialConfig, mode: Mode) -> None:
-    """
-    rpipe: A remote piping tool
-    Assumes no UsageError's in mode that argparse would catch
-    """
-    config_file = ConfigFile()
+def _check_mode_flags(mode: Mode) -> None:
+    def tru(x) -> bool:
+        rv = getattr(mode, x)
+        return (False if rv.is_none() else rv.value) if isinstance(rv, Option) else bool(rv)
+
+    # Flag specific checks
+    if mode.ttl is not None and mode.ttl <= 0:
+        raise UsageError("--ttl must be positive")
+    if mode.progress is not False and mode.progress <= 0:
+        raise UsageError("--progress argument must be positive if passed")
+    # Sanity check
+    n_priority = (mode.print_config, mode.save_config, mode.server_version).count(True)
+    if n_priority > 1:
+        raise UsageError("Only one priority mode may be used at a time")
+    if (mode.read, mode.write, mode.delete).count(True) != 1:
+        raise UsageError("Can only read, write, or delete at a time")
+    # Mode flags
+    read_bad = {"ttl"}
+    write_bad = {"force", "peek"}
+    delete_bad = read_bad | write_bad | {"progress", "encrypt"}
+    bad = lambda x: [f"--{i}" for i in x if tru(i)]
+    fmt = lambda x: f"argument{'' if len(x) == 1 else 's'} {listing(x, ',', 'and') }: may not be used "
+    if n_priority > 0 and (args := bad(delete_bad)):
+        raise UsageError(fmt(args) + "with priority modes")
+    # Mode specific flags
+    if mode.read and (args := bad(read_bad)):
+        raise UsageError(fmt(args) + "when reading data from the pipe")
+    if mode.write and (args := bad(write_bad)):
+        raise UsageError(fmt(args) + "when writing data to the pipe")
+    if mode.delete and (args := bad(delete_bad)):
+        raise UsageError(fmt(args) + "when deleting data from the pipe")
+
+
+def _priority_actions(conf: PartialConfig, mode: Mode, config_file) -> PartialConfig | None:
     log = getLogger(_LOG)
-    log.info("Config file: %s", config_file.path)
-    write = not (mode.read or mode.delete)
-    if not mode.read and mode.delete:
-        raise UsageError("--delete may not be used when writing data to the pipe")
-    if not mode.read and mode.peek:
-        raise UsageError("--peek may not be used when writing data to the pipe")
-    if mode.progress is not False:
-        if mode.progress <= 0:
-            raise UsageError("--progress may not be passed a non-positive number of bytes")
-        if mode.delete:
-            log.warning("Ignoring --progress; no data will be transferred")
+    # Print config if requested
     if mode.print_config:
         config_file.print()
-        return
+        return None
     # Load pipe config and save is requested
     conf = config_file.load_onto(conf, mode.encrypt.is_false())
     log.info("Loaded %s", conf)
     if mode.save_config:
         config_file.save(conf, mode.encrypt.is_true())
-        return
+        return None
     # Print server version if requested
     if mode.server_version:
         log.info("Mode: Server version")
@@ -72,19 +93,31 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
         if not r.ok:
             raise RuntimeError(f"Failed to get version: {r}")
         print(f"rpipe_server {r.text}")
+        return None
+    return conf
+
+
+def rpipe(conf: PartialConfig, mode: Mode) -> None:
+    """
+    rpipe: A remote piping tool
+    Assumes no UsageError's in mode that argparse would catch
+    """
+    config_file = ConfigFile()
+    log = getLogger(_LOG)
+    log.info("Config file: %s", config_file.path)
+    _check_mode_flags(mode)
+    loaded: PartialConfig | None = _priority_actions(conf, mode, config_file)
+    if loaded is None:
         return
-    # Check ttl usage
-    if mode.ttl and not write:
-        raise UsageError("--ttl may only be used when writing")
-    # Check config
-    if write and not mode.encrypt.is_none():
+    # Finish creating config
+    if mode.write and not mode.encrypt.is_none():
         log.info("Write mode: No password found, falling back to plaintext mode")
-    full_conf = config_file.verify(conf, mode.encrypt.is_true())
+    full_conf = config_file.verify(loaded, mode.encrypt.is_true())
     # Invoke mode
     log.info("HTTP timeout set to %d seconds", REQUEST_TIMEOUT)
-    if mode.delete:
-        delete(full_conf)
-    elif mode.read:
+    if mode.read:
         recv(full_conf, mode.peek, mode.force, mode.progress)
-    else:
+    elif mode.write:
         send(full_conf, mode.ttl, mode.progress)
+    else:
+        delete(full_conf)

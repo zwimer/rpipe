@@ -7,7 +7,7 @@ import argparse
 import sys
 
 from ..shared import LOG_DATEFMT, LOG_FORMAT, log_level, __version__
-from .config import PASSWORD_ENV, PartialConfig, Option
+from .config import PASSWORD_ENV, UsageError, PartialConfig, Option
 from .client import rpipe, Mode
 from .admin import Admin
 
@@ -28,6 +28,7 @@ def _main(raw_ns: Namespace):
     mode_d = {i: k for i, k in ns.items() if i in {i.name for i in fields(Mode) if i.name != "encrypt"}}
     if mode_d["progress"] is None:
         mode_d["progress"] = False
+    read: bool = sys.stdin.isatty() and not mode_d["delete"]
     rpipe(
         PartialConfig(
             ssl=opt("ssl", "no_require_ssl"),
@@ -36,7 +37,7 @@ def _main(raw_ns: Namespace):
             password=Option(),
             key_file=Option(ns.pop("key_file")),
         ),
-        Mode(read=sys.stdin.isatty(), encrypt=opt("encrypt", "plaintext"), **mode_d),
+        Mode(read=read, write=not (read or mode_d["delete"]), encrypt=opt("encrypt", "plaintext"), **mode_d),
     )
 
 
@@ -47,30 +48,30 @@ def main(prog: str, *args: str) -> None:
     """
     name = Path(prog).name
     parser = argparse.ArgumentParser(prog=name, add_help=False)
-    parser.set_defaults(func=_main)
-    g1 = parser.add_argument_group(
-        "Read Mode Options", "Only available when reading"
-    ).add_mutually_exclusive_group()
-    g1.add_argument(
+    parser.set_defaults(method=None)
+    read_g = parser.add_argument_group("Read Mode Options")
+    read_g.add_argument(
         "-p",
         "--peek",
         action="store_true",
-        help="Read pipe without emptying it; will not construct a persistent pipe like a normal read.",
+        help="Read pipe without emptying it; will not construct a persistent pipe like a normal read",
     )
-    g1.add_argument("-d", "--delete", action="store_true", help="Delete all entries in the channel")
-    parser.add_argument(
+    read_g.add_argument(
         "-f",
         "--force",
         action="store_true",
         help="Attempt to read data even if this is a upload/download client version mismatch",
     )
-    parser.add_argument(
+    write_g = parser.add_argument_group("Write Mode Options")
+    write_g.add_argument(
         "-t",
         "--ttl",
         type=int,
         default=None,
-        help="Pipe TTL in seconds; use server default if not passed. Only available while writing.",
+        help="Pipe TTL in seconds; use server default if not passed",
     )
+    delete_g = parser.add_argument_group("Delete Mode Options")
+    delete_g.add_argument("-d", "--delete", action="store_true", help="Delete all entries in the channel")
     # pylint: disable=duplicate-code
     parser.add_argument(
         "-v",
@@ -87,11 +88,11 @@ def main(prog: str, *args: str) -> None:
         nargs="?",
         help=(
             "Show a progress bar, if a value is passed, assume that's the number"
-            " of bytes to be passed. Only valid while sending or receiving data."
+            " of bytes to be passed. Only valid while sending or receiving data"
         ),
     )
     # Config options
-    config = parser.add_argument_group("Config Options", "Overrides saved config options")
+    config = parser.add_argument_group("Config Options")
     config.add_argument("-u", "--url", help="The pipe url to use")
     config.add_argument("-c", "--channel", help="The channel to use")
     config.add_argument(
@@ -113,10 +114,10 @@ def main(prog: str, *args: str) -> None:
     ssl_g = config.add_mutually_exclusive_group()
     ssl_g.add_argument("-s", "--ssl", action="store_true", help="Require host use https")
     ssl_g.add_argument("--no-require-ssl", action="store_true", help="Do not require host use https")
-    # Modes
+    # Priority Modes
     priority_mode = parser.add_argument_group(
         "Alternative modes",
-        "If one of these is passed, the client will execute the desired action then exit.",
+        "If one of these is passed, the client will execute the desired action then exit",
     ).add_mutually_exclusive_group()
     priority_mode.add_argument("-h", "--help", action="help", help="show this help message and exit")
     priority_mode.add_argument("-V", "--version", action="version", version=f"{name} {__version__}")
@@ -129,38 +130,40 @@ def main(prog: str, *args: str) -> None:
         action="store_true",
         help="Update the existing rpipe config then exit; allows incomplete configs to be saved",
     )
-    # Other modes
     priority_mode.add_argument(
         "-Q", "--server-version", action="store_true", help="Print the server version then exit"
     )
+    priority_mode.add_argument("-a", "--admin", action="store_true", help="Allow use of admin commands")
     # Admin commands
-    subparsers = parser.add_subparsers()
-    admin_parser = subparsers.add_parser(
-        "admin",
-        help="Admins commands.",
+    admin = parser.add_subparsers(
+        title="Admin commands",
         description=(
-            "All arguments except --verbose, --url, and --key-file are ignored with admin commands."
+            "Server admin commands; must be used with --admin and should have a key file set before use."
+            " All arguments except --verbose, --url, and --key-file are ignored with admin commands."
             " Server must be configured to accept messages signed by your selected private key file"
         ),
+        dest="method",
     )
-    admin_parser.set_defaults(func=_admin)
-    admin = admin_parser.add_subparsers(required=True, title="Admin commands")
-    dbg = admin.add_parser("debug", help="Check if the server is running in debug mode")
-    dbg.set_defaults(method="debug")
-    admin.add_parser("channels", help="List all channels with stats").set_defaults(method="channels")
-    admin.add_parser("stats", help="Print various server stats").set_defaults(method="stats")
-    logp = admin.add_parser("log", help="Download server logs various server stats")
-    logp.set_defaults(method="log")
-    logp.add_argument(
+    admin.add_parser("debug", help="Check if the server is running in debug mode")
+    admin.add_parser("channels", help="List all channels with stats")
+    admin.add_parser("stats", help="Print various server stats")
+    log_p = admin.add_parser("log", help="Download server logs various server stats")
+    log_p.add_argument(
         "-o", "--output-file", type=Path, default=None, help="Log output file, instead of stdout"
     )
-    # Invoke func
+    # Log config
     parsed = parser.parse_args(args)
     lvl = log_level(parsed.verbose)
     basicConfig(level=lvl, datefmt=LOG_DATEFMT, format=LOG_FORMAT)
     getLogger().info("Logging level set to %s", getLevelName(lvl))
     del parsed.verbose
-    parsed.func(parsed)
+    # Invoke the correct function
+    if (parsed.method is not None) != parsed.admin:
+        raise UsageError("Admin command must be passed with --admin")
+    try:
+        (_admin if parsed.admin else _main)(parsed)
+    except UsageError as e:
+        parser.error(str(e))
 
 
 def cli() -> None:
