@@ -49,7 +49,7 @@ def main(prog: str, *args: str) -> None:
     name = Path(prog).name
     parser = argparse.ArgumentParser(prog=name, add_help=False)
     parser.set_defaults(method=None)
-    read_g = parser.add_argument_group("Read Mode Options")
+    read_g = parser.add_argument_group("Read Options")
     read_g.add_argument(
         "-b", "--block", action="store_true", help="Wait until a channel is available to read"
     )
@@ -65,7 +65,7 @@ def main(prog: str, *args: str) -> None:
         action="store_true",
         help="Attempt to read data even if this is a upload/download client version mismatch",
     )
-    write_g = parser.add_argument_group("Write Mode Options")
+    write_g = parser.add_argument_group("Write Options")
     write_g.add_argument(
         "-t",
         "--ttl",
@@ -73,27 +73,22 @@ def main(prog: str, *args: str) -> None:
         default=None,
         help="Pipe TTL in seconds; use server default if not passed",
     )
-    delete_g = parser.add_argument_group("Delete Mode Options")
+    delete_g = parser.add_argument_group("Delete Options")
     delete_g.add_argument("-d", "--delete", action="store_true", help="Delete all entries in the channel")
+    read_write_g = parser.add_argument_group("Read/Write Options")
     # pylint: disable=duplicate-code
-    parser.add_argument(
+    read_write_g.add_argument(
         "-v",
         "--verbose",
         action="count",
         default=0,
         help="Increase Log verbosity, pass more than once to increase verbosity",
     )
-    parser.add_argument(
-        "-P",
-        "--progress",
-        type=int,
-        const=True,
-        nargs="?",
-        help=(
-            "Show a progress bar, if a value is passed, assume that's the number"
-            " of bytes to be passed. Only valid while sending or receiving data"
-        ),
+    msg = (
+        "Show a progress bar, if a value is passed, assume that's the number"
+        " of bytes to be passed. Only valid while sending or receiving data"
     )
+    read_write_g.add_argument("-P", "--progress", type=int, const=True, nargs="?", help=msg)
     # Config options
     config = parser.add_argument_group("Config Options")
     config.add_argument("-u", "--url", help="The pipe url to use")
@@ -119,7 +114,7 @@ def main(prog: str, *args: str) -> None:
     ssl_g.add_argument("--no-require-ssl", action="store_true", help="Do not require host use https")
     # Priority Modes
     priority_mode = parser.add_argument_group(
-        "Alternative modes",
+        "Alternative Modes",
         "If one of these is passed, the client will execute the desired action then exit",
     ).add_mutually_exclusive_group()
     priority_mode.add_argument("-h", "--help", action="help", help="show this help message and exit")
@@ -139,7 +134,7 @@ def main(prog: str, *args: str) -> None:
     priority_mode.add_argument("-a", "--admin", action="store_true", help="Allow use of admin commands")
     # Admin commands
     admin = parser.add_subparsers(
-        title="Admin commands",
+        title="Admin Commands",
         description=(
             "Server admin commands; must be used with --admin and should have a key file set before use."
             " All arguments except --verbose, --url, and --key-file are ignored with admin commands."
