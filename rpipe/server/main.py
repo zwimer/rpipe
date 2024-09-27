@@ -1,18 +1,16 @@
 from dataclasses import fields
 from pathlib import Path
 import argparse
-import sys
 
 from ..shared import __version__
 from .app import ServerConfig, LogConfig, serve
 from .util import MIN_VERSION
 
 
-def main(prog, *args) -> None:
-    name = Path(prog).name
-    parser = argparse.ArgumentParser(prog=name)
+def cli() -> None:
+    parser = argparse.ArgumentParser()
     modes = parser.add_argument_group("Modes")
-    modes.add_argument("--version", action="version", version=f"{name} {__version__}")
+    modes.add_argument("-V", "--version", action="version", version=f"{parser.prog} {__version__}")
     modes.add_argument(
         "--min-client-version",
         action="version",
@@ -21,8 +19,9 @@ def main(prog, *args) -> None:
     )
     parser.add_argument("port", type=int, help="The port waitress will listen on")
     parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
-    parser.add_argument("--state-file", type=Path, help="The save state file, if desired")
+    parser.add_argument("-s", "--state-file", type=Path, help="The save state file, if desired")
     parser.add_argument(
+        "-k",
         "--key-files",
         type=Path,
         nargs="*",
@@ -31,7 +30,7 @@ def main(prog, *args) -> None:
     )
     log_group = parser.add_argument_group("Logging")
     log_group.add_argument(
-        "--log-file", type=Path, default=None, help="The log file to append to, if desired"
+        "-l", "--log-file", type=Path, default=None, help="The log file to append to, if desired"
     )
     # pylint: disable=duplicate-code
     log_group.add_argument(
@@ -42,14 +41,6 @@ def main(prog, *args) -> None:
         help="Increase Log verbosity, pass more than once to increase verbosity",
     )
     parser.add_argument("--debug", action="store_true", help="Run the server in debug mode")
-    ns = parser.parse_args(args)
+    ns = parser.parse_args()
     gen = lambda C: C(**{i: getattr(ns, i) for i in (k.name for k in fields(C))})
     serve(gen(ServerConfig), gen(LogConfig))
-
-
-def cli() -> None:
-    main(*sys.argv)
-
-
-if __name__ == "__main__":
-    cli()

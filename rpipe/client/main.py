@@ -42,12 +42,11 @@ def _main(raw_ns: Namespace):
 
 
 # pylint: disable=too-many-locals
-def main(prog: str, *args: str) -> None:
+def cli() -> None:
     """
     Parses arguments then invokes rpipe
     """
-    name = Path(prog).name
-    parser = argparse.ArgumentParser(prog=name, add_help=False)
+    parser = argparse.ArgumentParser(add_help=False)
     parser.set_defaults(method=None)
     read_g = parser.add_argument_group("Read Options")
     read_g.add_argument(
@@ -118,7 +117,7 @@ def main(prog: str, *args: str) -> None:
         "If one of these is passed, the client will execute the desired action then exit",
     ).add_mutually_exclusive_group()
     priority_mode.add_argument("-h", "--help", action="help", help="show this help message and exit")
-    priority_mode.add_argument("-V", "--version", action="version", version=f"{name} {__version__}")
+    priority_mode.add_argument("-V", "--version", action="version", version=f"{parser.prog} {__version__}")
     priority_mode.add_argument(
         "-X", "--print-config", action="store_true", help="Print out the saved config information then exit"
     )
@@ -150,7 +149,7 @@ def main(prog: str, *args: str) -> None:
         "-o", "--output-file", type=Path, default=None, help="Log output file, instead of stdout"
     )
     # Log config
-    parsed = parser.parse_args(args)
+    parsed = parser.parse_args()
     lvl = log_level(parsed.verbose)
     basicConfig(level=lvl, datefmt=LOG_DATEFMT, format=LOG_FORMAT)
     getLogger().info("Logging level set to %s", getLevelName(lvl))
@@ -162,11 +161,3 @@ def main(prog: str, *args: str) -> None:
         (_admin if parsed.admin else _main)(parsed)
     except UsageError as e:
         parser.error(str(e))
-
-
-def cli() -> None:
-    main(*sys.argv)
-
-
-if __name__ == "__main__":
-    cli()

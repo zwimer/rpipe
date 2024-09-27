@@ -1,2 +1,2 @@
-from .main import cli, main
 from .client import rpipe
+from .main import cli
