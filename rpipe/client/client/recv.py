@@ -109,9 +109,13 @@ def recv(config: Config, block: bool, peek: bool, force: bool, progress: bool | 
     log.info("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
     params = DownloadRequestParams(version=version, override=force, delete=not peek)
     lvl: int | None = 0
-    with DeleteOnFail(config) as dof:
-        with PBar(progress) as pbar:
-            while lvl is not None:
-                if (lvl := _recv_body(config, block, peek, url, params, pbar, lvl, dof)) == 0:
-                    block = False  # Stop blocking after first successful read
-    log.info("Stream complete")
+    try:
+        with DeleteOnFail(config) as dof:
+            with PBar(progress) as pbar:
+                while lvl is not None:
+                    if (lvl := _recv_body(config, block, peek, url, params, pbar, lvl, dof)) == 0:
+                        block = False  # Stop blocking after first successful read
+    except BrokenPipeError:
+        log.warning("BrokenPipeError: stdout pipe closed")
+    else:
+        log.info("Stream complete")
