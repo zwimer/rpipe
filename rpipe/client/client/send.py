@@ -66,7 +66,7 @@ def send(config: Config, ttl: int | None, progress: bool | int) -> None:
     """
     # Open stream and get block size
     params = UploadRequestParams(version=version, final=False, ttl=ttl, encrypted=config.password is not None)
-    r = request("POST", channel_url(config), params=params.to_dict(), data="")
+    r = request("POST", channel_url(config), params=params.to_dict(), data=b"")
     if not r.ok:
         raise RuntimeError(r)
     headers = UploadResponseHeaders.from_dict(r.headers)
