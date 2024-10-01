@@ -79,9 +79,10 @@ def send(config: Config, ttl: int | None, progress: bool | int) -> None:
         io = IO(sys.stdin.fileno(), block_size)
         with PBar(progress) as pbar:
             while block := io.read():
-                log.info("Processing block of %s bytes", len(block))
-                _send_block(encrypt(block, config.password), config, params, dof)
-                pbar.update(len(block))
+                if block:  # Else EOF
+                    log.info("Processing block of %s bytes", len(block))
+                    _send_block(encrypt(block, config.password), config, params, dof)
+                    pbar.update(len(block))
         # Finalize
         params.final = True
         try:

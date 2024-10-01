@@ -64,7 +64,7 @@ ignore=["E731"]
 "__init__.py" = ["F401", "F403"]
 
 [tool.bandit]
-skips = ["B104", "B201"]
+skips = ["B101", "B104", "B201"]
 
 [tool.vulture]
 ignore_names = ["cli", "_help", "_show_version", "_channel", "strict_slashes"]

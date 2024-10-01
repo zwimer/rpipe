@@ -88,7 +88,7 @@ def read(state: State, channel: str) -> Response:
             if s.new:
                 s.new = False
                 u.stats.read(channel)
-            rdata = s.data.popleft() if s.data else b""  # If no data was ever sent, s.data is empty
+            rdata = s.data.popleft() if s.data else b""  # Can be empty if empty PUTs were sent
             final = s.upload_complete and not s.data
         if args.delete and final:
             del u.streams[channel]

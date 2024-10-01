@@ -47,6 +47,7 @@ class IO:
             self._cond.wait_for(lambda: self._buffer or self._eof)
             ret: bytes = self._read(self._chunk if n is None else n)
             self._cond.notify()
+        assert bool(ret) ^ self._eof, "Sanity check failed: EOF iff 0 bytes read"
         if ret:
             self._log.debug("Read %d bytes of data", len(ret))
             return ret
