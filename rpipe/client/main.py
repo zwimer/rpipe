@@ -15,6 +15,18 @@ if TYPE_CHECKING:
     from argparse import Namespace
 
 
+_SI_UNITS: str = "KMGT"
+
+
+def _si_parse(size: str) -> int:
+    if size.isdecimal():
+        return int(size)
+    size = size.upper()
+    if size[:-1].isdecimal() and size[-1] in _SI_UNITS:
+        return int(size[:-1]) * (1000 ** (1 + _SI_UNITS.index(size[-1])))
+    raise UsageError(f"Invalid size: {size}")
+
+
 def _admin(ns: Namespace):
     kw = ["url", "key_file"]
     if ns.method == "log":
@@ -85,9 +97,10 @@ def cli() -> None:
     )
     msg = (
         "Show a progress bar, if a value is passed, assume that's the number"
-        " of bytes to be passed. Only valid while sending or receiving data"
+        " of bytes to be passed. Only valid while sending or receiving data."
+        " Values can be suffixed with K, M, G, or T, to multiply by powers of 1000"
     )
-    read_write_g.add_argument("-P", "--progress", type=int, const=True, nargs="?", help=msg)
+    read_write_g.add_argument("-P", "--progress", type=_si_parse, const=True, nargs="?", help=msg)
     # Config options
     config = parser.add_argument_group("Config Options")
     config.add_argument("-u", "--url", help="The pipe url to use")

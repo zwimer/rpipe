@@ -4,8 +4,14 @@ from logging import getLogger
 
 from flask import Response, request
 
-from ...shared import WEB_VERSION, DownloadResponseHeaders, DownloadRequestParams, DownloadErrorCode
-from ..util import MIN_VERSION, MAX_SIZE_SOFT, plaintext, total_len
+from ...shared import (
+    WEB_VERSION,
+    DownloadResponseHeaders,
+    DownloadRequestParams,
+    DownloadErrorCode,
+    total_len,
+)
+from ..util import MIN_VERSION, MAX_SIZE_SOFT, plaintext
 from .util import log_response, log_params
 
 if TYPE_CHECKING:

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import random
 import string
 
-from ..util import total_len
+from ...shared import total_len
 
 if TYPE_CHECKING:
     from ...version import Version

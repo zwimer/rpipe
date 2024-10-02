@@ -7,8 +7,8 @@ from flask import Response
 from ..shared import Version
 
 if TYPE_CHECKING:
-    from typing import Any
     from collections.abc import Sequence
+    from typing import Any
     from enum import Enum
 
 
