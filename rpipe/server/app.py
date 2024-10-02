@@ -171,6 +171,7 @@ def serve(conf: ServerConfig, log_conf: LogConfig) -> None:
     app.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
     app.url_map.strict_slashes = False
     admin.init(log_file, conf.key_files)
+    log.info("Starting server version: %s", __version__)
     server.start(conf.debug, conf.state_file)
     log.info("Serving on %s:%s", conf.host, conf.port)
     if conf.debug:
