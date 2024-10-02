@@ -22,7 +22,7 @@ class IO:
         self._log.info("Constructed IO on fd %d with chunk size: %d", fd, chunk)
         self._buffer: deque[bytes] = deque()
         self._cond = Condition()
-        self._eof: bool = False
+        self._eof: bool = False  # Set when reader thread hits EOF; _buffer may still have data
         self._fd: int = fd
         self._chunk: int = chunk
         self._log.info("Starting up IO thread.")
@@ -38,6 +38,9 @@ class IO:
 
     # Main Thread
 
+    def eof(self) -> bool:
+        return self._eof and not self._buffer
+
     def read(self, n: int | None = None) -> bytes:
         """
         :param n: The maximum number of bytes to read; if None read the chunk size
@@ -50,7 +53,7 @@ class IO:
         if ret:
             self._log.debug("Read %d bytes of data", len(ret))
             return ret
-        assert self._eof, "Sanity check failed: EOF iff 0 bytes read"
+        assert self._eof
         self._log.info("Read EOF")
         return b""
 
@@ -61,6 +64,7 @@ class IO:
         :param n: The maximum number of bytes to read
         """
         if not self._buffer:
+            assert self._eof
             return b""
         # Calculate how many pieces to stitch together
         count: int = 0

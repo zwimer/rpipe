@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 _LOG = "send"
 
 
-def _send_error(r: Response) -> None:
+def _send_known_error(r: Response) -> None:
     """
     Raise an exception according to the send response error
     """
@@ -36,57 +36,58 @@ def _send_error(r: Response) -> None:
             | UploadErrorCode.stream_id
         ):
             raise ReportThis(r.text)
-        case _:
-            raise RuntimeError(r)
 
 
-def _send_block(
-    data: bytes, config: Config, params: UploadRequestParams, dof: DeleteOnFail, *, lvl: int = 0
-) -> None:
+def _send_block(data: bytes, config: Config, params: UploadRequestParams, *, lvl: int = 0) -> Response:
     """
     Upload the given block of data; updates params for next block
     """
     r = request("PUT", channel_url(config), params=params.to_dict(), data=data)
     if r.ok:
-        dof.armed = True
-        headers = UploadResponseHeaders.from_dict(r.headers)
-        assert params.stream_id == headers.stream_id  # nosec B101
+        return r
     elif r.status_code == UploadErrorCode.wait.value:
         delay = wait_delay_sec(lvl)
         getLogger(_LOG).info("Pipe full, sleeping for %s second(s).", delay)
         sleep(delay)
-        _send_block(data, config, params, dof, lvl=lvl + 1)
+        return _send_block(data, config, params, lvl=lvl + 1)
     else:
-        _send_error(r)
+        _send_known_error(r)
+        raise RuntimeError(r)  # Fallback
 
 
 def send(config: Config, ttl: int | None, progress: bool | int) -> None:
     """
     Send data to the remote pipe
     """
-    # Open stream and get block size
+    log = getLogger(_LOG)
+    # Configure params
     params = UploadRequestParams(version=version, final=False, ttl=ttl, encrypted=config.password is not None)
     r = request("POST", channel_url(config), params=params.to_dict(), data=b"")
     if not r.ok:
         raise RuntimeError(r)
     headers = UploadResponseHeaders.from_dict(r.headers)
-    block_size: int = headers.max_size
-    log = getLogger(_LOG)
-    log.info("Writing to channel %s with block size of %s", config.channel, block_size)
+    params.stream_id = headers.stream_id
     # Send
+    eof: bool = False
+    io = IO(sys.stdin.fileno(), headers.max_size)
+    log.info("Writing to channel %s", config.channel)
     with DeleteOnFail(config) as dof:
-        params.stream_id = headers.stream_id
-        io = IO(sys.stdin.fileno(), block_size)
         with PBar(progress) as pbar:
             while block := io.read():
-                if block:  # Else EOF
+                if eof := io.eof():
+                    params.final = True
+                if block:  # Else: no data + EOF
                     log.info("Processing block of %s bytes", len(block))
-                    _send_block(encrypt(block, config.password), config, params, dof)
+                    r = _send_block(encrypt(block, config.password), config, params)
+                    dof.armed = True
+                    assert UploadResponseHeaders.from_dict(r.headers).stream_id == params.stream_id
                     pbar.update(len(block))
         # Finalize
-        params.final = True
-        try:
-            _send_block(b"", config, params, dof)
-        except MultipleClients:  # We might have hung after sending our data until the program closed
-            log.warning("Received MultipleClients error on final PUT")
+        if not eof:  # If eof was already set, we've already sent the final header
+            assert io.eof()
+            params.final = True
+            try:
+                _send_block(b"", config, params)
+            except MultipleClients:  # We might have hung after sending our data until the program closed
+                log.warning("Received MultipleClients error on final PUT")
     log.info("Stream complete")
