@@ -58,6 +58,7 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams, *, lvl
 def _send(config: Config, ttl: int | None, progress: bool | int) -> None:
     log = getLogger(_LOG)
     # Configure params
+    log.info("Initializing channel %s", config.channel)
     params = UploadRequestParams(version=version, final=False, ttl=ttl, encrypted=config.password is not None)
     r = request("POST", channel_url(config), params=params.to_dict())
     if not r.ok:
