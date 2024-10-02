@@ -70,7 +70,7 @@ class IO:
             return b""
         # Calculate how many pieces to stitch together
         merge: list[bytes] = []
-        while self._buffer and (len(self._buffer[0]) + total_len(merge) < n):
+        while self._buffer and (len(self._buffer[0]) + total_len(merge) <= n):
             merge.append(self._buffer.popleft())
         # Stitch together
         if not merge:  # This is slow, read size is too small
