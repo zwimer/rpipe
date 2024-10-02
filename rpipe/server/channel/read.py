@@ -5,10 +5,11 @@ from logging import getLogger
 from flask import Response, request
 
 from ...shared import WEB_VERSION, DownloadResponseHeaders, DownloadRequestParams, DownloadErrorCode
-from ..util import MIN_VERSION, plaintext
+from ..util import MIN_VERSION, MAX_SIZE_SOFT, plaintext, total_len
 from .util import log_response, log_params
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from ..server import Stream
     from ..server import State
 
@@ -81,16 +82,18 @@ def read(state: State, channel: str) -> Response:
         if not args.delete or args.version == WEB_VERSION:
             if not args.delete:  # Peeking
                 u.stats.read(channel)
-            rdata = b"".join(s.data)
+            rdata: Sequence[bytes] = s.data
             final = True
         # Read mode
         else:
             if s.new:
                 s.new = False
                 u.stats.read(channel)
-            rdata = s.data.popleft() if s.data else b""  # Can be empty if empty PUTs were sent
+            rdata = [s.data.popleft()] if s.data else []  # Ensure at least one packet if available
+            while s.data and (len(s.data[0]) + total_len(rdata)) < MAX_SIZE_SOFT:
+                rdata.append(s.data.popleft())
             final = s.upload_complete and not s.data
         if args.delete and final:
             del u.streams[channel]
     headers = DownloadResponseHeaders(encrypted=s.encrypted, stream_id=s.id_, final=final).to_dict()
-    return Response(rdata, mimetype="application/octet-stream", headers=headers)
+    return Response(b"".join(rdata), mimetype="application/octet-stream", headers=headers)

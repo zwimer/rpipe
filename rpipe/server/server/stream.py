@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 import random
 import string
 
+from ..util import total_len
+
 if TYPE_CHECKING:
     from ...version import Version
     from collections import deque
@@ -62,7 +64,7 @@ class Stream:  # pylint: disable=too-many-instance-attributes
         """
         :return: The number of bytes in the pipe
         """
-        return sum(len(i) for i in self.data)
+        return total_len(self.data)
 
     def full(self) -> bool:
         """

@@ -7,8 +7,9 @@ from flask import Response
 from ..shared import Version
 
 if TYPE_CHECKING:
-    from enum import Enum
     from typing import Any
+    from collections.abc import Sequence
+    from enum import Enum
 
 
 MIN_VERSION = Version("6.3.0")
@@ -30,6 +31,10 @@ class Singleton(type):
                 raise RuntimeError("Singleton class already instantiated")
             cls._instances[cls] = super().__call__(*args, **kwargs)
             return cls._instances[cls]
+
+
+def total_len(x: Sequence[bytes]) -> int:
+    return sum(len(i) for i in x)
 
 
 def plaintext(msg: str, status: Enum | int = 200, **kwargs) -> Response:
