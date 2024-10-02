@@ -3,6 +3,8 @@ from collections import deque
 from logging import getLogger
 import os
 
+from ...shared import total_len
+
 
 class IO:
     """
@@ -67,23 +69,15 @@ class IO:
             assert self._eof
             return b""
         # Calculate how many pieces to stitch together
-        count: int = 0
-        total: int = 0
-        for i in self._buffer:
-            total += len(i)
-            count += 1
-            if total > n:
-                break
-        if len(self._buffer) > 1:  # To avoid going over n bytes
-            count -= 1
-        # Stitch together pieces as efficiently as possible
-        if count == 0:  # This is slow, read size is too small
+        merge: list[bytes] = []
+        while self._buffer and (len(self._buffer[0]) + total_len(merge) < n):
+            merge.append(self._buffer.popleft())
+        # Stitch together
+        if not merge:  # This is slow, read size is too small
             ret = self._buffer[0][:n]
             self._buffer[0] = self._buffer[0][n:]
             return ret
-        if count == 1:
-            return self._buffer.popleft()
-        return b"".join(self._buffer.popleft() for _ in range(count))
+        return b"".join(merge)
 
     # Worker thread
 
@@ -92,7 +86,7 @@ class IO:
         The worker thread that reads data from the file descriptor
         Always attempts to keep at least self._chunk bytes loaded
         """
-        until = lambda: sum(len(i) for i in self._buffer) < self._chunk
+        until = lambda: total_len(self._buffer) < self._chunk
         while data := os.read(self._fd, self._chunk):  # Can read in small bursts
             with self._cond:
                 self._cond.wait_for(until)
@@ -103,4 +97,4 @@ class IO:
         with self._cond:
             self._eof = True
             self._cond.notify()
-        self._log.info("Data loading complete. IO thread terminating.")
+        self._log.info("Read EOF. IO thread terminating.")
