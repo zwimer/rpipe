@@ -21,9 +21,11 @@ _SI_UNITS: str = "KMGT"
 def _si_parse(size: str) -> int:
     if size.isdecimal():
         return int(size)
-    size = size.upper()
-    if size[:-1].isdecimal() and size[-1] in _SI_UNITS:
-        return int(size[:-1]) * (1000 ** (1 + _SI_UNITS.index(size[-1])))
+    try:
+        if (frv := float(size[:-1]) * (1000 ** (1 + _SI_UNITS.index(size[-1].upper())))) == (rv := int(frv)):
+            return int(rv)
+    except ValueError as e:
+        raise UsageError(f"Invalid size: {size}") from e
     raise UsageError(f"Invalid size: {size}")
 
 
