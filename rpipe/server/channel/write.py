@@ -3,10 +3,9 @@ from typing import TYPE_CHECKING, cast
 from collections import deque
 import logging
 
-from human_readable import file_size
 from flask import request
 
-from ...shared import WEB_VERSION, UploadResponseHeaders, UploadRequestParams, UploadErrorCode
+from ...shared import WEB_VERSION, LFS, UploadResponseHeaders, UploadRequestParams, UploadErrorCode
 from ..util import MIN_VERSION, MAX_SIZE_HARD, MAX_SIZE_SOFT, plaintext
 from .util import log_response, log_params
 from ..server import Stream
@@ -25,7 +24,7 @@ def _log_pipe_size(log: Logger, s: Stream) -> None:
     if log.isEnabledFor(logging.DEBUG):
         n = len(s)
         msg = "Pipe now contains %s/%s bytes. It is %.2f%% full."
-        log.debug(msg, file_size(n), file_size(s.capacity), 100 * n / s.capacity)
+        log.debug(msg, LFS(n), LFS(s.capacity), 100 * n / s.capacity)
 
 
 def _put_error_check(s: Stream | None, args: UploadRequestParams) -> Response | None:

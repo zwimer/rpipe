@@ -2,7 +2,7 @@ from threading import Thread, Condition
 from logging import getLogger
 import os
 
-from ...shared import total_len
+from ...shared import LFS, total_len
 
 
 class IO:
@@ -25,7 +25,7 @@ class IO:
         self._eof: bool = False  # Set when reader thread hits EOF; _buffer may still have data
         self._fd: int = fd
         self._chunk: int = chunk
-        self._mlog.info("Starting IO thread with fd %d and chunk size: %d", fd, chunk)
+        self._mlog.info("Starting IO thread on fd %d with chunk size: %s", fd, LFS(chunk))
         self._thread.start()
 
     # Main Thread
@@ -37,6 +37,7 @@ class IO:
         if n < self._chunk:
             raise ValueError("Cannot decrease chunk size")
         if n != self._chunk:
+            self._mlog.info("Updating IO chunk size to %s", LFS(n))
             with self._cond:
                 self._chunk = n
                 self._cond.notify()
@@ -53,7 +54,7 @@ class IO:
             self._buffer.clear()
             self._cond.notify()
         if ret:
-            self._mlog.debug("Read %d bytes of data", len(ret))
+            self._mlog.debug("Read %s bytes of data", LFS(ret))
         return ret, self._eof and not self._buffer
 
     # Worker thread
@@ -67,7 +68,7 @@ class IO:
         n = self._chunk
         until = lambda: total_len(self._buffer) < self._chunk
         while data := os.read(self._fd, n):  # Can os.read may read in small bursts
-            log.debug("Loaded %d bytes of data from input", len(data))
+            log.debug("Loaded %s bytes of data from input", LFS(data))
             with self._cond:
                 self._buffer.append(data)
                 self._cond.notify()

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 # Servers may not have a MAX_SOFT_SIZE less than this
-MAX_SOFT_SIZE_MIN: int = 8 * (2**20)
+MAX_SOFT_SIZE_MIN: int = 8 * (1000**2)
 
 
 @dataclass

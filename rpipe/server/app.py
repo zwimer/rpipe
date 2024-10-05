@@ -9,7 +9,7 @@ import atexit
 from flask import Response, Flask, request
 import waitress
 
-from ..shared import LOG_DATEFMT, LOG_FORMAT, log_level, restrict_umask, __version__
+from ..shared import LOG_DATEFMT, LOG_FORMAT, LFS, log_level, restrict_umask, __version__
 from .util import MAX_SIZE_HARD, plaintext
 from .channel import channel_handler
 from .server import Server
@@ -167,7 +167,7 @@ def _log_config(conf: LogConfig) -> Path:
 def serve(conf: ServerConfig, log_conf: LogConfig) -> None:
     log_file = _log_config(log_conf)
     log = getLogger(_LOG)
-    log.info("Setting max packet size: %s", MAX_SIZE_HARD)
+    log.info("Setting max packet size: %s", LFS(MAX_SIZE_HARD))
     app.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
     app.url_map.strict_slashes = False
     admin.init(log_file, conf.key_files)

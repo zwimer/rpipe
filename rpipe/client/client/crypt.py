@@ -7,6 +7,8 @@ import zlib
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Cipher import AES
 
+from ...shared import LFS
+
 
 _ZLIB_LEVEL: int = 6
 
@@ -46,7 +48,7 @@ def _aes(salt: bytes, password: str, nonce: bytes | None = None):
 def encrypt(data: bytes, password: str | None) -> bytes:
     if not password or not data:
         return data
-    getLogger("encrypt").debug("Encrypting %d byte chunk", len(data))
+    getLogger("encrypt").debug("Encrypting %s byte chunk", LFS(data))
     salt = get_random_bytes(AES.block_size)
     aes = _aes(salt, password)
     text, tag = aes.encrypt_and_digest(zlib.compress(data, level=_ZLIB_LEVEL))
@@ -57,7 +59,7 @@ def decrypt(data: bytes, password: str | None) -> bytes:
     if not password or not data:
         return data
     log = getLogger("decrypt")
-    log.debug("Extracting chunks from %d bytes of data", len(data))
+    log.debug("Extracting chunks from %s bytes of data", LFS(data))
     es = _EncryptedData.decode(data)
     log.debug("Decrypting and decompressing %d chunk%s", len(es), "s" if len(es) != 1 else "")
     r = [zlib.decompress(_aes(e.salt, password, e.nonce).decrypt_and_verify(e.text, e.tag)) for e in es]

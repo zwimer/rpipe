@@ -6,7 +6,7 @@ from .request_response import (
     DownloadRequestParams,
     DownloadResponseHeaders,
 )
-from .util import LOG_DATEFMT, LOG_FORMAT, log_level, restrict_umask, total_len
+from .util import LOG_DATEFMT, LOG_FORMAT, LFS, log_level, restrict_umask, total_len
 from .error_code import UploadErrorCode, DownloadErrorCode
 from .admin import AdminMessage, AdminPOST, ChannelInfo
 from .stats import AdminStats, Stats

@@ -4,7 +4,14 @@ from logging import getLogger
 from time import sleep
 import sys
 
-from ...shared import MAX_SOFT_SIZE_MIN, UploadRequestParams, UploadResponseHeaders, UploadErrorCode, version
+from ...shared import (
+    MAX_SOFT_SIZE_MIN,
+    LFS,
+    UploadRequestParams,
+    UploadResponseHeaders,
+    UploadErrorCode,
+    version,
+)
 from .errors import MultipleClients, ReportThis, VersionError
 from .util import wait_delay_sec, request, channel_url
 from .delete import DeleteOnFail
@@ -60,7 +67,7 @@ def _send(config: Config, io: IO, params: UploadRequestParams, pbar: PBar) -> No
     log = getLogger(_LOG)
     while not params.final:
         block, params.final = io.read()
-        log.info("Processing block of %s bytes", len(block))
+        log.info("Processing block of %s bytes", LFS(block))
         r = _send_block(encrypt(block, config.password), config, params)
         pbar.update(len(block))
         if params.stream_id is None:  # Configure following PUTs
