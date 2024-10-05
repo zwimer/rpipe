@@ -1,5 +1,6 @@
 from .version_ import __version__, version, Version, WEB_VERSION
 from .request_response import (
+    MAX_SOFT_SIZE_MIN,
     UploadRequestParams,
     UploadResponseHeaders,
     DownloadRequestParams,

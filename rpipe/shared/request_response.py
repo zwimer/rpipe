@@ -9,6 +9,10 @@ if TYPE_CHECKING:
     from werkzeug.datastructures import MultiDict
 
 
+# Servers may not have a MAX_SOFT_SIZE less than this
+MAX_SOFT_SIZE_MIN: int = 8 * (2**20)
+
+
 @dataclass
 class _ToDict:
     def to_dict(self) -> dict[str, str]:

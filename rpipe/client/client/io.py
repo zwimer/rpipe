@@ -1,5 +1,4 @@
-from threading import Thread, Condition, get_ident
-from collections import deque
+from threading import Thread, Condition
 from logging import getLogger
 import os
 
@@ -10,8 +9,7 @@ class IO:
     """
     A better version of stdin.read that doesn't hang as often
     Only meant to ever be used from a single thread at a time
-    Will attempt to keep chunk bytes loaded at all times, may
-    preload 2*chunk bytes to do so. Optimal chunk read size is chunk
+    Will attempt to keep chunk bytes loaded at all times
     May use about an extra chunk bytes for stitching data together
     """
 
@@ -21,63 +19,42 @@ class IO:
         :param chunk: The number of bytes to keep preloaded whenever possible
         """
         self._thread = Thread(target=self, daemon=True)  # Construct first
-        self._log.info("Constructed IO on fd %d with chunk size: %d", fd, chunk)
-        self._buffer: deque[bytes] = deque()
+        self._mlog = getLogger("IO Main")
+        self._buffer: list[bytes] = []
         self._cond = Condition()
         self._eof: bool = False  # Set when reader thread hits EOF; _buffer may still have data
         self._fd: int = fd
         self._chunk: int = chunk
-        self._log.info("Starting up IO thread.")
+        self._mlog.info("Starting IO thread with fd %d and chunk size: %d", fd, chunk)
         self._thread.start()
-
-    @property
-    def _log(self):
-        """
-        Return the logger for the current thread
-        self._thread must exist
-        """
-        return getLogger("IO Thread" if get_ident() == self._thread.ident else "IO Main")
 
     # Main Thread
 
-    def eof(self) -> bool:
-        return self._eof and not self._buffer
-
-    def read(self, n: int | None = None) -> bytes:
+    def increase_chunk(self, n: int) -> None:
         """
-        :param n: The maximum number of bytes to read; if None read the chunk size
-        :return: Up to n bytes; returns b"" only upon final read
+        Increase the chunk size to n bytes
+        """
+        if n < self._chunk:
+            raise ValueError("Cannot decrease chunk size")
+        if n != self._chunk:
+            with self._cond:
+                self._chunk = n
+                self._cond.notify()
+
+    def read(self) -> tuple[bytes, bool]:
+        """
+        Read up to self._chunk bytes; b"" only if EOF
+        :return: A tuple containing the bytes read and a boolean indicating EOF
         """
         with self._cond:
             self._cond.wait_for(lambda: self._buffer or self._eof)
-            ret: bytes = self._read(self._chunk if n is None else n)
+            ret = b"".join(self._buffer)
+            assert len(ret) <= self._chunk, "Sanity check failed"
+            self._buffer.clear()
             self._cond.notify()
         if ret:
-            self._log.debug("Read %d bytes of data", len(ret))
-            return ret
-        assert self._eof
-        self._log.info("Read EOF")
-        return b""
-
-    def _read(self, n: int) -> bytes:
-        """
-        A helper to read that assumes it owns self._buffer
-        Optimal read size is self._chunk
-        :param n: The maximum number of bytes to read
-        """
-        if not self._buffer:
-            assert self._eof
-            return b""
-        # Calculate how many pieces to stitch together
-        merge: list[bytes] = []
-        while self._buffer and (len(self._buffer[0]) + total_len(merge) <= n):
-            merge.append(self._buffer.popleft())
-        # Stitch together
-        if not merge:  # This is slow, read size is too small
-            ret = self._buffer[0][:n]
-            self._buffer[0] = self._buffer[0][n:]
-            return ret
-        return b"".join(merge)
+            self._mlog.debug("Read %d bytes of data", len(ret))
+        return ret, self._eof and not self._buffer
 
     # Worker thread
 
@@ -86,15 +63,17 @@ class IO:
         The worker thread that reads data from the file descriptor
         Always attempts to keep at least self._chunk bytes loaded
         """
+        log = getLogger("IO Thread")
+        n = self._chunk
         until = lambda: total_len(self._buffer) < self._chunk
-        while data := os.read(self._fd, self._chunk):  # Can read in small bursts
+        while data := os.read(self._fd, n):  # Can os.read may read in small bursts
+            log.debug("Loaded %d bytes of data from input", len(data))
             with self._cond:
-                self._cond.wait_for(until)
                 self._buffer.append(data)
                 self._cond.notify()
-            self._log.debug("Loaded %d bytes of data from input", len(data))
-        # EOF
+                self._cond.wait_for(until)
+                n = self._chunk - total_len(self._buffer)
         with self._cond:
             self._eof = True
             self._cond.notify()
-        self._log.info("Read EOF. IO thread terminating.")
+        log.info("Read EOF. IO thread terminating.")
