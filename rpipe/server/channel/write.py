@@ -23,7 +23,7 @@ _LOG = "write"
 def _log_pipe_size(log: Logger, s: Stream) -> None:
     if log.isEnabledFor(logging.DEBUG):
         n = len(s)
-        msg = "Pipe now contains %s/%s bytes. It is %.2f%% full."
+        msg = "Pipe now contains %s/%s. It is %.2f%% full."
         log.debug(msg, LFS(n), LFS(s.capacity), 100 * n / s.capacity)
 
 

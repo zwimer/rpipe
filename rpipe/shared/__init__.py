@@ -10,4 +10,4 @@ from .error_code import UploadErrorCode, DownloadErrorCode
 from .admin import AdminMessage, AdminPOST, ChannelInfo
 from .util import restrict_umask, total_len
 from .stats import AdminStats, Stats
-from .log import LFS
+from .log import TRACE, LFS

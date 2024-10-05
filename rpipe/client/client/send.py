@@ -76,6 +76,7 @@ def _send(config: Config, io: IO, params: UploadRequestParams, pbar: PBar) -> No
             headers = UploadResponseHeaders.from_dict(r.headers)
             params.stream_id = headers.stream_id
             io.increase_chunk(headers.max_size)
+            sleep(0.025)  # Avoid being over-eager with sending data; let the read thread read
 
 
 def send(config: Config, ttl: int | None, progress: bool | int) -> None:
@@ -84,6 +85,7 @@ def send(config: Config, ttl: int | None, progress: bool | int) -> None:
     """
     log = getLogger(_LOG)
     io = IO(sys.stdin.fileno(), MAX_SOFT_SIZE_MIN)
+    sleep(0.025)  # Avoid being over-eager with sending data; let the read thread read
     params = UploadRequestParams(version=version, final=False, ttl=ttl, encrypted=config.password is not None)
     log.info("Writing to channel %s", config.channel)
     with PBar(progress) as pbar:

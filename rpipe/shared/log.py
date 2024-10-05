@@ -7,9 +7,9 @@ from human_readable import file_size
 DATEFMT = "%H:%M:%S"
 FORMAT = "%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)-10s - %(message)s"
 
-_TRACE = DEBUG - 5
-assert _TRACE > 0
-_VERBOSITY: dict[int, int] = {0: WARNING, 1: INFO, 2: DEBUG, 3: _TRACE}
+TRACE = DEBUG - 5
+assert TRACE > 0
+_VERBOSITY: dict[int, int] = {0: WARNING, 1: INFO, 2: DEBUG, 3: TRACE}
 
 
 class LFS:
@@ -33,7 +33,4 @@ def define_trace():
     Add a TRACE level to the logging module
     """
     assert not hasattr(logging, "TRACE"), "Already added TRACE level"
-    logging.TRACE = _TRACE
-    logging.addLevelName(logging.TRACE, "TRACE")
-    logging.trace = lambda *args, **kwargs: logging.log(logging.TRACE, *args, **kwargs)
-    logging.getLoggerClass().trace = lambda self, *args, **kwargs: self.log(logging.TRACE, *args, **kwargs)
+    logging.addLevelName(TRACE, "TRACE")

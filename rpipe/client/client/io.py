@@ -2,7 +2,7 @@ from threading import Thread, Condition
 from logging import getLogger
 import os
 
-from ...shared import LFS, total_len
+from ...shared import TRACE, LFS, total_len
 
 
 class IO:
@@ -13,20 +13,21 @@ class IO:
     May use about an extra chunk bytes for stitching data together
     """
 
+    __slots__ = ("_mlog", "_buffer", "_cond", "_eof", "_chunk")
+
     def __init__(self, fd: int, chunk: int) -> None:
         """
         :param fd: The file descriptor to read from
         :param chunk: The number of bytes to keep preloaded whenever possible
         """
-        self._thread = Thread(target=self, daemon=True)  # Construct first
+        thread = Thread(target=self._worker, args=(fd,), daemon=True)  # Construct first
         self._mlog = getLogger("IO Main")
         self._buffer: list[bytes] = []
         self._cond = Condition()
         self._eof: bool = False  # Set when reader thread hits EOF; _buffer may still have data
-        self._fd: int = fd
         self._chunk: int = chunk
         self._mlog.info("Starting IO thread on fd %d with chunk size: %s", fd, LFS(chunk))
-        self._thread.start()
+        thread.start()
 
     # Main Thread
 
@@ -59,7 +60,7 @@ class IO:
 
     # Worker thread
 
-    def __call__(self) -> None:
+    def _worker(self, fd: int) -> None:
         """
         The worker thread that reads data from the file descriptor
         Always attempts to keep at least self._chunk bytes loaded
@@ -67,8 +68,8 @@ class IO:
         log = getLogger("IO Thread")
         n = self._chunk
         until = lambda: total_len(self._buffer) < self._chunk
-        while data := os.read(self._fd, n):  # Can os.read may read in small bursts
-            log.debug("Loaded %s bytes of data from input", LFS(data))
+        while data := os.read(fd, n):  # os.read may read in small chunks (ex. pipe buffer capacity in Linux)
+            log.log(TRACE, "Loaded %s bytes of data from input", LFS(data))  # This can be spammy, so trace
             with self._cond:
                 self._buffer.append(data)
                 self._cond.notify()
