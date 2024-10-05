@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, cast
+from collections import deque
 from logging import getLogger
 
 from flask import Response, request
@@ -10,6 +11,8 @@ from ...shared import (
     DownloadRequestParams,
     DownloadErrorCode,
     total_len,
+    TRACE,
+    LFS,
 )
 from ..util import MIN_VERSION, MAX_SIZE_SOFT, plaintext
 from .util import log_response, log_params
@@ -74,8 +77,9 @@ def read(state: State, channel: str) -> Response:
     If web version: Fail if not encrypted, bypass version checks
     Otherwise: Version check
     """
+    log = getLogger(_LOG)
     args = DownloadRequestParams.from_dict(request.args)
-    log_params(getLogger(_LOG), args)
+    log_params(log, args)
     if args.version != WEB_VERSION and (args.version < MIN_VERSION or args.version.invalid()):
         return plaintext(f"Bad version. Requires >= {MIN_VERSION}", DownloadErrorCode.illegal_version)
     with state as u:
@@ -85,21 +89,30 @@ def read(state: State, channel: str) -> Response:
         if TYPE_CHECKING:
             s = cast(Stream, s)  # For type checker
         # Read all at once if required
-        if not args.delete or args.version == WEB_VERSION:
-            if not args.delete:  # Peeking
-                u.stats.read(channel)
-            rdata: Sequence[bytes] = s.data
+        if not args.delete:  # Peek mode (could also be web version)
+            log.debug("Reading channel %s in peek mode", channel)
+            u.stats.peek(channel)
+            rdata: Sequence[bytes] = tuple(s.data)
             final = True
-        # Read mode
+        elif args.version == WEB_VERSION:
+            log.debug("Reading channel %s from WEB_VERSION", channel)
+            u.stats.read(channel)
+            rdata = s.data
+            s.data = deque()
+            final = True
+        # Standard read mode
         else:
+            log.log(TRACE, "Reading channel %s in standard mode", channel)
             if s.new:
                 s.new = False
                 u.stats.read(channel)
             rdata = [s.data.popleft()] if s.data else []  # Ensure at least one packet if available
             while s.data and (len(s.data[0]) + total_len(rdata)) < MAX_SIZE_SOFT:
                 rdata.append(s.data.popleft())
+            log.log(TRACE, "Merging %d piece(s) of data; total length: %s", len(rdata), LFS(rdata))
             final = s.upload_complete and not s.data
         if args.delete and final:
+            log.debug("Channel %s empty and final; removing", channel)
             del u.streams[channel]
     headers = DownloadResponseHeaders(encrypted=s.encrypted, stream_id=s.id_, final=final).to_dict()
     return Response(b"".join(rdata), mimetype="application/octet-stream", headers=headers)

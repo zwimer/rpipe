@@ -4,7 +4,7 @@ from logging import getLogger
 from time import sleep
 import sys
 
-from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadErrorCode, version
+from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadErrorCode, LFS, version
 from .errors import MultipleClients, ReportThis, VersionError, StreamError, NoData
 from .util import wait_delay_sec, request, channel_url
 from .delete import DeleteOnFail
@@ -79,7 +79,7 @@ def _recv_body(
         dof.armed = True
         headers = DownloadResponseHeaders.from_dict(r.headers)
         got: bytes = decrypt(r.content, config.password if headers.encrypted else None)
-        log.info("Received %s bytes", len(got))
+        log.info("Received %s", LFS(got))
         sys.stdout.buffer.write(got)
         sys.stdout.flush()
         pbar.update(len(got))

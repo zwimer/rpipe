@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 @dataclass(kw_only=True)
 class ChannelStats:
+    peeks: defaultdict[str, int] = field(default_factory=lambda: defaultdict(int))
     reads: defaultdict[str, int] = field(default_factory=lambda: defaultdict(int))
     writes: defaultdict[str, int] = field(default_factory=lambda: defaultdict(int))
     deletes: defaultdict[str, int] = field(default_factory=lambda: defaultdict(int))
@@ -34,6 +35,9 @@ class Stats:
     start: datetime = field(default_factory=datetime.now)
     channels: defaultdict[str, ChannelStats] = field(default_factory=lambda: defaultdict(ChannelStats))
     admin: list[AdminStats] = field(default_factory=list)
+
+    def peek(self, channel: str) -> None:
+        self._update(channel, "peeks")
 
     def read(self, channel: str) -> None:
         self._update(channel, "reads")

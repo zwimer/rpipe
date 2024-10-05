@@ -18,7 +18,7 @@ MIN_VERSION = Version("6.3.0")
 # Note: The soft limit is soft to allow overhead of encryption headers and such
 MAX_SIZE_SOFT: int = 64 * (1000**2)
 assert MAX_SIZE_SOFT >= MAX_SOFT_SIZE_MIN
-MAX_SIZE_HARD: int = 2 * MAX_SIZE_SOFT + 0x200
+MAX_SIZE_HARD: int = 2 * MAX_SIZE_SOFT + 0x200  # For packets sent to the server only
 
 
 class Singleton(type):

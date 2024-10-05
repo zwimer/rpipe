@@ -3,6 +3,8 @@ import logging
 
 from human_readable import file_size
 
+from .util import total_len
+
 
 DATEFMT = "%H:%M:%S"
 FORMAT = "%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)-10s - %(message)s"
@@ -17,8 +19,8 @@ class LFS:
     Human-readable number of bytes, lazily evaluated for logging
     """
 
-    def __init__(self, x: int | bytes) -> None:
-        self._x: int = x if isinstance(x, int) else len(x)
+    def __init__(self, x: int | bytes | list[bytes]) -> None:
+        self._x = x if isinstance(x, int) else (total_len(x) if isinstance(x, list) else len(x))
 
     def __str__(self) -> str:
         return file_size(self._x)
