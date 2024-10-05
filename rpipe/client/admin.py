@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 
 
 ADMIN_REQUEST_TIMEOUT: int = 60
-_VERIFY_SSL: str = "_VERIFY_SSL_"
 _LOG = "admin"
 
 
@@ -60,21 +59,6 @@ class Conf:
     url: str
 
 
-class UIDGenerator:
-    """
-    A class to generate UIDs for admin requests
-    """
-
-    def __init__(self) -> None:
-        self._uids: deque[str] = deque()
-
-    def __call__(self, conf) -> str:
-        if len(self._uids) == 0:
-            r = conf.session.get(f"{conf.url}/admin/uid", timeout=ADMIN_REQUEST_TIMEOUT)
-            self._uids += r.json()
-        return self._uids.popleft()
-
-
 #
 # Main Classes
 #
@@ -85,39 +69,45 @@ class _Methods:
     Methods that can be called by the Admin class
     These methods may return sensitive data and should only be used with SSL
     Any public function may require SSL by invoke it with the prefix _VERIFY_SSL
-    All functions require conf
+    All public functions besides 'get' may access self._conf (it will not be None)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._log = getLogger(_LOG)
-        self._gen_uid = UIDGenerator()
+        self._uids: deque[str] = deque()
+        self._conf: Conf | None = None
 
-    def __getattribute__(self, item: str) -> Any:
+    def get(self, func: str, require_ssl: bool = True):
         """
-        If a public methods is prefixed with _VERIFY_SSL, require SSL
+        Get a method for use
         """
-        if item.startswith(_VERIFY_SSL):
-            return self._require_ssl(getattr(self, item[len(_VERIFY_SSL) :]))
-        return super().__getattribute__(item)
 
-    def _require_ssl(self, func: Callable) -> Callable:
         def wrapper(*args, conf: Conf, **kwargs):
-            if not self._debug(conf) and all(i not in conf.url for i in ("https", ":443/")):
+            self._conf = conf
+            if require_ssl and not self._debug() and all(i not in conf.url for i in ("https", ":443/")):
                 raise RuntimeError("Refusing to send admin request to server in release mode over plaintext")
-            return func(*args, conf=conf, **kwargs)
+            return getattr(self, func)(*args, **kwargs)
 
         return wrapper
 
-    def _request(self, conf: Conf, path: str, args: dict[str, str] | None = None) -> Response:
+    # Helpers
+
+    def _request(self, path: str, args: dict[str, str] | None = None) -> Response:
         """
         Send a request to the server
         """
+        assert self._conf is not None, "Sanity check failed"
+        # Get a UID
+        if len(self._uids) == 0:
+            r = self._conf.session.get(f"{self._conf.url}/admin/uid", timeout=ADMIN_REQUEST_TIMEOUT)
+            self._uids += r.json()
+        uid: str = self._uids.popleft()
+        # Sign and send POST request
         args = {} if args is None else args
-        uid: str = self._gen_uid(conf)
         self._log.info("Signing request for path=%s with args=%s", path, args)
-        signature: bytes = conf.sign(AdminMessage(path=path, args=args, uid=uid).bytes())
+        signature: bytes = self._conf.sign(AdminMessage(path=path, args=args, uid=uid).bytes())
         data = AdminPOST(signature=signature, uid=uid, version=str(version)).json()
-        ret = conf.session.post(f"{conf.url}{path}", json=data, timeout=ADMIN_REQUEST_TIMEOUT)
+        ret = self._conf.session.post(f"{self._conf.url}{path}", json=data, timeout=ADMIN_REQUEST_TIMEOUT)
         match ret.status_code:
             case 401:
                 self._log.critical("Admin access denied")
@@ -127,31 +117,33 @@ class _Methods:
             case _:
                 return ret
 
-    def _debug(self, conf: Conf) -> bool:
+    def _debug(self) -> bool:
         """
         :return: True if the server is in debug mode, else False
         """
-        r = self._request(conf, "/admin/debug")
+        r = self._request("/admin/debug")
         if not r.ok:
             msg = f"Failed to get debug information: {r.status_code}"
             self._log.error(msg)
             raise RuntimeError(msg)
         return r.text == "True"
 
-    def debug(self, conf: Conf) -> None:
+    # Non-SSL-Protected methods
+
+    def debug(self) -> None:
         """
         Check to see if the server is in debug mode
         This method should only be used by an admin, but is safe to be used without SSL
         """
-        print(f"Server is running in {'DEBUG' if self._debug(conf) else 'RELEASE'} mode")
+        print(f"Server is running in {'DEBUG' if self._debug() else 'RELEASE'} mode")
 
-    # SSL Protected methods
+    # SSL-Protected methods
 
-    def log(self, conf: Conf, output_file: Path | None = None) -> None:
+    def log(self, output_file: Path | None = None) -> None:
         """
         Download the server log
         """
-        r = self._request(conf, "/admin/log")
+        r = self._request("/admin/log")
         if not r.ok:
             msg = f"Error {r.status_code}: {r.text}"
             self._log.critical(msg)
@@ -163,22 +155,22 @@ class _Methods:
         self._log.info("Writing log to %s", output_file)
         output_file.write_bytes(out)
 
-    def stats(self, conf: Conf) -> None:
+    def stats(self) -> None:
         """
         Give the client a bunch of stats about the server
         """
-        r = self._request(conf, "/admin/stats")
+        r = self._request("/admin/stats")
         if not r.ok:
             msg = f"Error {r.status_code}: {r.text}"
             self._log.critical(msg)
             raise RuntimeError(msg)
         print(dumps(loads(r.text), indent=4))
 
-    def channels(self, conf: Conf) -> None:
+    def channels(self) -> None:
         """
         Request information about the channels the server has
         """
-        r = self._request(conf, "/admin/channels")
+        r = self._request("/admin/channels")
         if not r.ok:
             msg = f"Error {r.status_code}: {r.text}"
             self._log.critical(msg)
@@ -237,7 +229,7 @@ class Admin:
         # Load ssh key
         return Conf(sign=self._load_ssh_key_file(key_file), url=url, session=Session())
 
-    def _conf(self, func):
+    def _give_conf(self, func):
         def wrapper(*args, **kwargs):
             conf = self._get_conf(kwargs.pop("url"), kwargs.pop("key_file"))
             return func(*args, conf=conf, **kwargs)
@@ -248,8 +240,6 @@ class Admin:
         """
         Override the getattribute method to expose all methods of Methods
         """
-        if item.startswith("_") or item == "load_keys":
-            return super().__getattribute__(item)
-        if item == "debug":
-            return self._conf(self._methods.debug)
-        return self._conf(getattr(self._methods, f"{_VERIFY_SSL}{item}"))
+        if item.startswith("_"):
+            return object.__getattribute__(self, item)
+        return self._give_conf(self._methods.get(item, require_ssl=item != "debug"))
