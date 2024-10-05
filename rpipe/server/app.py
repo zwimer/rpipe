@@ -9,7 +9,7 @@ import atexit
 from flask import Response, Flask, request
 import waitress
 
-from ..shared import LOG_DATEFMT, LOG_FORMAT, LFS, log_level, restrict_umask, __version__
+from ..shared import restrict_umask, log, __version__
 from .util import MAX_SIZE_HARD, plaintext
 from .channel import channel_handler
 from .server import Server
@@ -128,6 +128,7 @@ def _log_shutdown(log_file: Path) -> None:
 
 
 def _log_config(conf: LogConfig) -> Path:
+    log.define_trace()
     log_file = conf.log_file
     # Flask debug mode may restart the server without cleaning up, we reuse the log file here
     if reuse_log_file := log_file is None and conf.debug and _REUSE_DEBUG_LOG_FILE in environ:
@@ -146,7 +147,7 @@ def _log_config(conf: LogConfig) -> Path:
             if conf.debug:
                 environ[_REUSE_DEBUG_LOG_FILE] = str(log_file)
     # Setup logger
-    fmt = Formatter(LOG_FORMAT, LOG_DATEFMT)
+    fmt = Formatter(log.FORMAT, log.DATEFMT)
     fh = FileHandler(log_file, mode="a")
     stream = StreamHandler()
     root = getLogger()
@@ -154,7 +155,7 @@ def _log_config(conf: LogConfig) -> Path:
         i.setFormatter(fmt)
         root.addHandler(i)
     # Set level
-    lvl: int = log_level(conf.verbose)
+    lvl: int = log.level(conf.verbose)
     root.setLevel(lvl)
     root.info("Logging level set to %s", getLevelName(lvl))
     if reuse_log_file:
@@ -166,14 +167,14 @@ def _log_config(conf: LogConfig) -> Path:
 # pylint: disable=too-many-arguments
 def serve(conf: ServerConfig, log_conf: LogConfig) -> None:
     log_file = _log_config(log_conf)
-    log = getLogger(_LOG)
-    log.info("Setting max packet size: %s", LFS(MAX_SIZE_HARD))
+    lg = getLogger(_LOG)
+    lg.info("Setting max packet size: %s", log.LFS(MAX_SIZE_HARD))
     app.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
     app.url_map.strict_slashes = False
     admin.init(log_file, conf.key_files)
-    log.info("Starting server version: %s", __version__)
+    lg.info("Starting server version: %s", __version__)
     server.start(conf.debug, conf.state_file)
-    log.info("Serving on %s:%s", conf.host, conf.port)
+    lg.info("Serving on %s:%s", conf.host, conf.port)
     if conf.debug:
         app.run(host=conf.host, port=conf.port, debug=True)
     else:

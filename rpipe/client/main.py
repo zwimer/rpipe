@@ -6,8 +6,8 @@ from pathlib import Path
 import argparse
 import sys
 
-from ..shared import LOG_DATEFMT, LOG_FORMAT, log_level, __version__
 from .config import PASSWORD_ENV, UsageError, PartialConfig, Option
+from ..shared import log, __version__
 from .client import rpipe, Mode
 from .admin import Admin
 
@@ -165,8 +165,9 @@ def cli() -> None:
     )
     # Log config
     parsed = parser.parse_args()
-    lvl = log_level(parsed.verbose)
-    basicConfig(level=lvl, datefmt=LOG_DATEFMT, format=LOG_FORMAT)
+    log.define_trace()
+    lvl = log.level(parsed.verbose)
+    basicConfig(level=lvl, datefmt=log.DATEFMT, format=log.FORMAT)
     getLogger().info("Logging level set to %s", getLevelName(lvl))
     del parsed.verbose
     # Invoke the correct function
