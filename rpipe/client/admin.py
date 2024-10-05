@@ -114,19 +114,17 @@ class _Methods:
                 raise AccessDenied()
             case 426:
                 raise IllegalVersion(ret.text, log=self._log.critical)
-            case _:
-                return ret
+        if not r.ok:
+            msg = f"Error {r.status_code}: {r.text}"
+            self._log.critical(msg)
+            raise RuntimeError(msg)
+        return r
 
     def _debug(self) -> bool:
         """
         :return: True if the server is in debug mode, else False
         """
-        r = self._request("/admin/debug")
-        if not r.ok:
-            msg = f"Failed to get debug information: {r.status_code}"
-            self._log.error(msg)
-            raise RuntimeError(msg)
-        return r.text == "True"
+        return self._request("/admin/debug").text == "True"
 
     # Non-SSL-Protected methods
 
@@ -143,12 +141,7 @@ class _Methods:
         """
         Download the server log
         """
-        r = self._request("/admin/log")
-        if not r.ok:
-            msg = f"Error {r.status_code}: {r.text}"
-            self._log.critical(msg)
-            raise RuntimeError(msg)
-        out = zlib.decompress(r.content)
+        out = zlib.decompress(self._request("/admin/log").content)
         if output_file is None:
             print(out.decode())
             return
@@ -159,29 +152,18 @@ class _Methods:
         """
         Give the client a bunch of stats about the server
         """
-        r = self._request("/admin/stats")
-        if not r.ok:
-            msg = f"Error {r.status_code}: {r.text}"
-            self._log.critical(msg)
-            raise RuntimeError(msg)
-        print(dumps(loads(r.text), indent=4))
+        print(dumps(loads(self._request("/admin/stats").text), indent=4))
 
     def channels(self) -> None:
         """
         Request information about the channels the server has
         """
-        r = self._request("/admin/channels")
-        if not r.ok:
-            msg = f"Error {r.status_code}: {r.text}"
-            self._log.critical(msg)
-            raise RuntimeError(msg)
-        raw = r.json()
-        if not raw:
+        if not (raw := self._request("/admin/channels").json()):
             print("Server is empty")
             return
         for i in raw.values():
             i["expire"] = datetime.fromisoformat(i["expire"])
-        data = {i: ChannelInfo(**k) for i, k in r.json().items()}
+        data = {i: ChannelInfo(**k) for i, k in raw.items()}
         mx = max(len(i) for i in data)
         print("\n".join(f"{i.ljust(mx)} : {k}" for i, k in data.items()))
 
