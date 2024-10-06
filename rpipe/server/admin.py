@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging import getLevelNamesMapping, getLevelName, getLogger
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 from dataclasses import asdict
@@ -6,7 +7,6 @@ from base64 import b85decode
 from threading import RLock
 from time import sleep
 from os import urandom
-import logging
 import json
 import zlib
 
@@ -47,7 +47,7 @@ class _UID:
 
     def __init__(self) -> None:
         self._uids: dict[str, datetime] = {}
-        self._log = logging.getLogger("UID")
+        self._log = getLogger("UID")
         self._lock = RLock()
 
     def new(self, n: int) -> list[str]:
@@ -84,7 +84,7 @@ class Admin:
 
     def __init__(self) -> None:
         self._verifiers: tuple[tuple[_Verifier, Path], ...] = ()
-        self._log = logging.getLogger("Admin")
+        self._log = getLogger("Admin")
         self._log_file: Path | None = None
         self._uids = _UID()
         self._init = False
@@ -125,13 +125,30 @@ class Admin:
         return plaintext(str(debug))
 
     def _unsafe_log(self, **_) -> Response:
-        for i in logging.getLogger().handlers:
+        for i in getLogger().handlers:
             i.flush()
         if self._log_file is None:
             return Response("Missing log file", status=500, mimetype="text/plain")
         data = zlib.compress(self._log_file.read_bytes().strip())
         self._log.debug("Sending compressed log of size: %s", len(data))
         return Response(data, status=200, mimetype="application/octet-stream")
+
+    def _unsafe_log_level(self, state: State, body: str, **_) -> Response:
+        root = getLogger()
+        new = (old := getLevelName(root.getEffectiveLevel()))
+        if body:
+            try:
+                lvl = int(getLevelNamesMapping().get(body.upper(), body))
+                new = getLevelName(lvl)
+                self._log.info("Setting log level to %s", new)
+                root.setLevel(lvl)
+                with state as s:
+                    if s.debug:
+                        getLogger("werkzeug").setLevel(lvl)
+                self._log.debug("Log level to %s", new)
+            except ValueError:
+                return Response(f"Invalid log level: {body}", status=400, mimetype="text/plain")
+        return Response(str(old) + "\n" + str(new), status=200, mimetype="text/plain")
 
     def _unsafe_stats(self, state: State, **_) -> Response:
         with state as s:

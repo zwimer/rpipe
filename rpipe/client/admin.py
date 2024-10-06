@@ -148,6 +148,10 @@ class _Methods:
         self._log.info("Writing log to %s", output_file)
         output_file.write_bytes(out)
 
+    def log_level(self, level: int | str | None):
+        old, new = self._request("/admin/log-level", "" if level is None else str(level)).text.split("\n")
+        print(f"Log level: {old} -> {new}")
+
     def stats(self) -> None:
         """
         Give the client a bunch of stats about the server

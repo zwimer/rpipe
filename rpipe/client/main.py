@@ -33,7 +33,9 @@ def _admin(ns: Namespace):
     kw = ["url", "key_file"]
     if ns.method == "log":
         kw.append("output_file")
-    getattr(Admin(), ns.method)(**{i: getattr(ns, i) for i in kw})
+    if ns.method == "log-level":
+        kw.append("level")
+    getattr(Admin(), ns.method.replace("-", "_"))(**{i: getattr(ns, i) for i in kw})
 
 
 def _main(raw_ns: Namespace):
@@ -55,7 +57,7 @@ def _main(raw_ns: Namespace):
     )
 
 
-# pylint: disable=too-many-locals
+# pylint: disable=too-many-locals,too-many-statements
 def cli() -> None:
     """
     Parses arguments then invokes rpipe
@@ -145,7 +147,7 @@ def cli() -> None:
     priority_mode.add_argument(
         "-Q", "--server-version", action="store_true", help="Print the server version then exit"
     )
-    priority_mode.add_argument("-a", "--admin", action="store_true", help="Allow use of admin commands")
+    priority_mode.add_argument("-A", "--admin", action="store_true", help="Allow use of admin commands")
     # Admin commands
     admin = parser.add_subparsers(
         title="Admin Commands",
@@ -163,6 +165,8 @@ def cli() -> None:
     log_p.add_argument(
         "-o", "--output-file", type=Path, default=None, help="Log output file, instead of stdout"
     )
+    log_lvl_p = admin.add_parser("log-level", help="Get/set the server log level")
+    log_lvl_p.add_argument("level", default=None, nargs="?", help="The log level for the server to use")
     # Log config
     parsed = parser.parse_args()
     log.define_trace()

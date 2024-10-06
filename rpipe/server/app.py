@@ -117,6 +117,11 @@ def _admin_log() -> Response:
     return admin.log(server.state)
 
 
+@app.route("/admin/log-level", methods=["POST"])
+def _admin_log_level() -> Response:
+    return admin.log_level(server.state)
+
+
 # Serve
 
 
