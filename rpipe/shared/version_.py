@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-__version__: str = "8.5.0"  # Must be "<major>.<minor>.<patch>", all numbers
+__version__: str = "8.6.0"  # Must be "<major>.<minor>.<patch>", all numbers
 
 
 class Version:
@@ -30,7 +30,7 @@ class Version:
         return self.str
 
     def __bytes__(self):
-        return self.str.encode()
+        return str(self).encode()
 
     def __lt__(self, other: Version):
         return self.tuple < other.tuple

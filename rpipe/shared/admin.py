@@ -1,6 +1,7 @@
 from __future__ import annotations
-from dataclasses import dataclass, field, asdict, astuple
+from dataclasses import dataclass, asdict
 from typing import TYPE_CHECKING
+from json import dumps
 
 from .version_ import Version
 
@@ -10,29 +11,12 @@ if TYPE_CHECKING:
 
 @dataclass(kw_only=True, frozen=True)
 class AdminMessage:
-    args: dict[str, str] = field(default_factory=dict)
+    body: str
     path: str
     uid: str
 
     def bytes(self) -> bytes:
-        return str(astuple(self)).encode()
-
-
-@dataclass(kw_only=True, frozen=True)
-class AdminPOST:
-    signature: bytes
-    version: str
-    uid: str
-
-    @classmethod
-    def from_json(cls, d: dict[str, str]) -> AdminPOST:
-        s = bytes.fromhex(d.pop("signature"))
-        return cls(signature=s, **d)
-
-    def json(self) -> dict[str, str]:
-        ret = asdict(self)
-        ret["signature"] = self.signature.hex()
-        return ret
+        return dumps(asdict(self)).encode()
 
 
 @dataclass(kw_only=True)

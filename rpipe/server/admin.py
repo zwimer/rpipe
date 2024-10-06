@@ -2,6 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 from dataclasses import asdict
+from base64 import b85decode
 from threading import RLock
 from time import sleep
 from os import urandom
@@ -13,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from flask import Response, request
 
-from ..shared import ChannelInfo, AdminMessage, AdminPOST, AdminStats, Version
+from ..shared import ChannelInfo, AdminMessage, AdminStats, Version
 from .util import plaintext
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     from .server import State
 
 
-MIN_VERSION = Version("7.1.5")
+MIN_VERSION = Version("8.6.0")
 
 
 if TYPE_CHECKING:
@@ -78,7 +79,7 @@ class Admin:
     Signed requests must contain a valid signed UID that is only valid for a short period of time
     """
 
-    _NO_WRAP = ("init", "uids")
+    _UNSAFE: str = "_unsafe_"  # Functions prefixed with this will be protected
     _UIDS_PER_QUERY: int = 2
 
     def __init__(self) -> None:
@@ -101,6 +102,12 @@ class Admin:
         self._log.info("Signing key load complete")
         self._init = True
 
+    def __getattr__(self, item: str) -> Any:
+        """
+        Override the getattribute method to wrap most public members with signature verification
+        """
+        return self._wrap(getattr(self, self._UNSAFE + item))
+
     def uids(self) -> Response:
         """
         Get a few UIDSs that may each be used in a signature to access the server exactly once
@@ -112,12 +119,12 @@ class Admin:
     # Wrapped Methods
     #
 
-    def debug(self, state: State) -> Response:
+    def _unsafe_debug(self, state: State, **_) -> Response:
         with state as s:
             debug = s.debug
         return plaintext(str(debug))
 
-    def log(self, _: State) -> Response:
+    def _unsafe_log(self, **_) -> Response:
         for i in logging.getLogger().handlers:
             i.flush()
         if self._log_file is None:
@@ -126,12 +133,12 @@ class Admin:
         self._log.debug("Sending compressed log of size: %s", len(data))
         return Response(data, status=200, mimetype="application/octet-stream")
 
-    def stats(self, state: State) -> Response:
+    def _unsafe_stats(self, state: State, **_) -> Response:
         with state as s:
             stats = asdict(s.stats)
         return _json(stats)
 
-    def channels(self, state: State) -> Response:
+    def _unsafe_channels(self, state: State, **_) -> Response:
         """
         Return a list of the server's current channels and stats
         """
@@ -165,16 +172,7 @@ class Admin:
         self._log.error("Signature verification is not supported for %s - Skipping", key_file)
         return None
 
-    def __getattribute__(self, item: str) -> Any:
-        """
-        Override the getattribute method to wrap most public members with signature verification
-        """
-        ret = super().__getattribute__(item)
-        if item.startswith("_") or item in self._NO_WRAP:
-            return ret
-        return self._wrap(ret, item)
-
-    def _verify_signature(self, signature: bytes, *, msg: bytes) -> Path | None:
+    def _verify_signature(self, signature: bytes, msg: bytes) -> Path | None:
         self._log.info("Verifying signature of message: %s", msg)
         for fn, path in self._verifiers:
             try:
@@ -184,44 +182,40 @@ class Admin:
                 pass
         return None
 
-    def _wrap(self, func: Callable, name: str) -> Callable:
+    def _wrap(self, func: Callable) -> Callable:
         """
         A decorator that wraps the method with signature verification
         """
 
-        def _verify(state: State, *args) -> Response:
+        def _verify(state: State) -> Response:
             try:
                 # Log the request and verify initialization
-                stat = AdminStats(host=request.remote_addr, command=name)
+                stat = AdminStats(host=request.remote_addr, command=func.__name__[len(self._UNSAFE) :])
                 with state as s:
                     s.stats.admin.append(stat)
                 if not self._init:
                     raise AttributeError("Admin class not initialized")
                 # Extract parameters
                 self._log.info("Extracting request signature and message")
-                try:
-                    pm = AdminPOST.from_json(request.get_json())
-                except Exception as e:  # pylint: disable=broad-except
-                    logging.error(e, exc_info=True)
-                    return Response("Failed to parse POST body", status=400)
-                stat.version = pm.version
-                stat.uid = pm.uid
-                # Version check, UID check, Signature Verification
-                if Version(pm.version) < MIN_VERSION:
+                version, post = request.get_data().split(b"\n", 1)
+                stat.version = version.decode()
+                if Version(version) < MIN_VERSION:
                     return Response(f"Minimum supported client version: {MIN_VERSION}", status=426)
                 sleep(0.01)  # Slow down brute force attacks
-                if not self._uids.verify(pm.uid):
-                    self._log.warning("Rejecting request due to invalid UID: %s", pm.uid)
+                signature, msg_bytes = post.split(b"\n", 1)
+                msg = AdminMessage(**json.loads(msg_bytes.decode()))
+                stat.uid = msg.uid
+                if not self._uids.verify(msg.uid):
+                    self._log.warning("Rejecting request due to invalid UID: %s", msg.uid)
                     return Response(status=401)
                 stat.uid_valid = True
-                msg = AdminMessage(path=request.path, args=dict(request.args), uid=pm.uid).bytes()
-                if (key_file := self._verify_signature(pm.signature, msg=msg)) is None:
+                if (key_file := self._verify_signature(b85decode(signature), msg_bytes)) is None:
                     self._log.warning("Signature verification failed.")
                     return Response(status=401)
                 stat.signer = key_file
                 # Execute function
                 self._log.info("Signature verified. Executing %s", request.full_path)
-                return func(state, *args)
+                return func(state=state, body=msg.body)
             except Exception as e:  # pylint: disable=broad-except
                 self._log.error(e, exc_info=True)
                 return Response(status=500)

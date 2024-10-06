@@ -5,6 +5,7 @@ from datetime import datetime
 from collections import deque
 from logging import getLogger
 from json import loads, dumps
+from base64 import b85encode
 from functools import cache
 from pathlib import Path
 import zlib
@@ -13,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import load_ssh_private_key
 from cryptography.exceptions import UnsupportedAlgorithm
 from requests import Session
 
-from ..shared import ChannelInfo, AdminMessage, AdminPOST, version
+from ..shared import ChannelInfo, AdminMessage, version
 from .config import ConfigFile, UsageError, Option
 
 if TYPE_CHECKING:
@@ -92,7 +93,7 @@ class _Methods:
 
     # Helpers
 
-    def _request(self, path: str, args: dict[str, str] | None = None) -> Response:
+    def _request(self, path: str, body: str = "") -> Response:
         """
         Send a request to the server
         """
@@ -103,22 +104,21 @@ class _Methods:
             self._uids += r.json()
         uid: str = self._uids.popleft()
         # Sign and send POST request
-        args = {} if args is None else args
-        self._log.info("Signing request for path=%s with args=%s", path, args)
-        signature: bytes = self._conf.sign(AdminMessage(path=path, args=args, uid=uid).bytes())
-        data = AdminPOST(signature=signature, uid=uid, version=str(version)).json()
-        ret = self._conf.session.post(f"{self._conf.url}{path}", json=data, timeout=ADMIN_REQUEST_TIMEOUT)
+        self._log.info("Signing request for path=%s with body=%s", path, body)
+        msg = AdminMessage(path=path, body=body, uid=uid).bytes()
+        data = b"\n".join((bytes(version), b85encode(self._conf.sign(msg)), msg))
+        ret = self._conf.session.post(f"{self._conf.url}{path}", data=data, timeout=ADMIN_REQUEST_TIMEOUT)
         match ret.status_code:
             case 401:
                 self._log.critical("Admin access denied")
                 raise AccessDenied()
             case 426:
                 raise IllegalVersion(ret.text, log=self._log.critical)
-        if not r.ok:
-            msg = f"Error {r.status_code}: {r.text}"
-            self._log.critical(msg)
-            raise RuntimeError(msg)
-        return r
+        if not ret.ok:
+            what = f"Error {ret.status_code}: {ret.text}"
+            self._log.critical(what)
+            raise RuntimeError(what)
+        return ret
 
     def _debug(self) -> bool:
         """
