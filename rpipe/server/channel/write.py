@@ -5,7 +5,7 @@ import logging
 
 from flask import request
 
-from ...shared import WEB_VERSION, LFS, UploadResponseHeaders, UploadRequestParams, UploadErrorCode
+from ...shared import WEB_VERSION, LFS, UploadResponseHeaders, UploadRequestParams, UploadEC
 from ..util import MIN_VERSION, MAX_SIZE_HARD, MAX_SIZE_SOFT, plaintext
 from .util import log_response, log_params
 from ..server import Stream
@@ -29,13 +29,13 @@ def _log_pipe_size(log: Logger, s: Stream) -> None:
 
 def _put_error_check(s: Stream | None, args: UploadRequestParams) -> Response | None:
     if s is None or s.id_ != args.stream_id:
-        return plaintext("Stream ID mismatch.", UploadErrorCode.conflict)
+        return plaintext("Stream ID mismatch.", UploadEC.conflict)
     if s.upload_complete:
-        return plaintext("Cannot write to a completed stream.", UploadErrorCode.forbidden)
+        return plaintext("Cannot write to a completed stream.", UploadEC.forbidden)
     if args.version != s.version and not args.override:
-        return plaintext(f"Override = False. Version should be: {s.version}", UploadErrorCode.wrong_version)
+        return plaintext(f"Override = False. Version should be: {s.version}", UploadEC.wrong_version)
     if s.full():
-        return plaintext("Pipe full; wait for the downloader to download more.", UploadErrorCode.wait)
+        return plaintext("Pipe full; wait for the downloader to download more.", UploadEC.wait)
     return None
 
 
@@ -47,14 +47,14 @@ def write(state: State, channel: str) -> Response:
     log_params(log, args)
     # Version and size check
     if args.version != WEB_VERSION and (args.version < MIN_VERSION or args.version.invalid()):
-        return plaintext(f"Bad version. Requires >= {MIN_VERSION}", UploadErrorCode.illegal_version)
+        return plaintext(f"Bad version. Requires >= {MIN_VERSION}", UploadEC.illegal_version)
     add = request.get_data()
     if len(add) > MAX_SIZE_HARD:
-        return plaintext(f"Too much data sent. Max data size: {MAX_SIZE_SOFT}", UploadErrorCode.too_big)
+        return plaintext(f"Too much data sent. Max data size: {MAX_SIZE_SOFT}", UploadEC.too_big)
     # Starting a new stream, no stream ID should be present
     if request.method == "POST":
         if args.stream_id is not None:
-            return plaintext("POST request should not have a stream_id", UploadErrorCode.stream_id)
+            return plaintext("POST request should not have a stream_id", UploadEC.stream_id)
         new = Stream(
             data=deque([] if not add else [add]),
             ttl=DEFAULT_TTL if args.ttl is None else args.ttl,
@@ -69,7 +69,7 @@ def write(state: State, channel: str) -> Response:
         return plaintext("", 201, headers=headers.to_dict())
     # Continuing an existing stream, stream ID should be present
     if args.stream_id is None:
-        return plaintext("PUT request missing stream id", UploadErrorCode.stream_id)
+        return plaintext("PUT request missing stream id", UploadEC.stream_id)
     with state as unlocked:
         s: Stream | None = unlocked.streams.get(channel, None)
         if (err := _put_error_check(s, args)) is not None:

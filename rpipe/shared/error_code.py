@@ -2,9 +2,10 @@ from enum import Enum, unique
 
 
 @unique
-class UploadErrorCode(Enum):
+class UploadEC(Enum):
     """
     HTTP error codes the rpipe client may be sent when uploading data
+    Others may be sent, but these are the ones the client should be prepared to handle
     """
 
     wrong_version: int = 412  #    PUT: different version than initial POST
@@ -17,9 +18,10 @@ class UploadErrorCode(Enum):
 
 
 @unique
-class DownloadErrorCode(Enum):
+class DownloadEC(Enum):
     """
     HTTP error codes the rpipe client may be sent when downloading data
+    Others may be sent, but these are the ones the client should be prepared to handle
     """
 
     wrong_version: int = 412  #    GET: bad version

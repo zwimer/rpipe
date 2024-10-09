@@ -6,7 +6,7 @@ from .request_response import (
     DownloadRequestParams,
     DownloadResponseHeaders,
 )
-from .error_code import UploadErrorCode, DownloadErrorCode
+from .error_code import UploadEC, DownloadEC
 from .admin import AdminMessage, ChannelInfo
 from .util import restrict_umask, total_len
 from .stats import AdminStats, Stats

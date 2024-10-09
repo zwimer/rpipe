@@ -9,7 +9,7 @@ from ...shared import (
     WEB_VERSION,
     DownloadResponseHeaders,
     DownloadRequestParams,
-    DownloadErrorCode,
+    DownloadEC,
     total_len,
     TRACE,
     LFS,
@@ -30,15 +30,15 @@ def _check_if_aio(s: Stream, args: DownloadRequestParams) -> Response | None:
     if not args.delete or args.version == WEB_VERSION:
         mode = "web client" if args.delete else "peek"
         if args.stream_id is not None:
-            return plaintext("Stream ID not allowed when using {mode}.", DownloadErrorCode.forbidden)
+            return plaintext("Stream ID not allowed when using {mode}.", DownloadEC.forbidden)
         if not s.new:
-            return plaintext("Another client has already connected to this pipe.", DownloadErrorCode.in_use)
+            return plaintext("Another client has already connected to this pipe.", DownloadEC.in_use)
         if not s.upload_complete:
             if s.full():
                 msg = f"Must wait until uploader completes upload when using {mode}"
-                return plaintext(msg, DownloadErrorCode.wait)
+                return plaintext(msg, DownloadEC.wait)
             msg = f"Too much data to read all at once: when using {mode}; data can only be read all at once."
-            return plaintext(msg, DownloadErrorCode.cannot_peek)
+            return plaintext(msg, DownloadEC.cannot_peek)
     return None
 
 
@@ -49,24 +49,24 @@ def _read_error_check(s: Stream | None, args: DownloadRequestParams) -> Response
     """
     # No data found?
     if s is None:
-        return plaintext("This channel is currently empty", DownloadErrorCode.no_data)
+        return plaintext("This channel is currently empty", DownloadEC.no_data)
     # If data must be all at once, handle it
     if err := _check_if_aio(s, args):
         return err
     # Stream ID check
     if args.stream_id is None and s.new is False:
-        return plaintext("Another client has already connected to this pipe.", DownloadErrorCode.in_use)
+        return plaintext("Another client has already connected to this pipe.", DownloadEC.in_use)
     if args.stream_id is not None and args.stream_id != s.id_:
-        return plaintext("Stream ID mismatch", DownloadErrorCode.conflict)
+        return plaintext("Stream ID mismatch", DownloadEC.conflict)
     # Web version cannot handle encryption
     if args.version == WEB_VERSION and s.encrypted:
         return plaintext("Web version cannot read encrypted data. Use the CLI: pip install rpipe", 422)
     # Version comparison; bypass if web version or override requested
     if args.version not in (WEB_VERSION, s.version) and not args.override:
-        return plaintext(f"Override = False. Version should be: {s.version}", DownloadErrorCode.wrong_version)
+        return plaintext(f"Override = False. Version should be: {s.version}", DownloadEC.wrong_version)
     # Not data currently available
     if not s.upload_complete and not s.data:
-        return plaintext("No data available; wait for the uploader to send more", DownloadErrorCode.wait)
+        return plaintext("No data available; wait for the uploader to send more", DownloadEC.wait)
     return None
 
 
@@ -81,7 +81,7 @@ def read(state: State, channel: str) -> Response:
     args = DownloadRequestParams.from_dict(request.args)
     log_params(log, args)
     if args.version != WEB_VERSION and (args.version < MIN_VERSION or args.version.invalid()):
-        return plaintext(f"Bad version. Requires >= {MIN_VERSION}", DownloadErrorCode.illegal_version)
+        return plaintext(f"Bad version. Requires >= {MIN_VERSION}", DownloadEC.illegal_version)
     with state as u:
         s: Stream | None = u.streams.get(channel, None)
         if (err := _read_error_check(s, args)) is not None:

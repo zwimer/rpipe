@@ -4,7 +4,7 @@ from logging import getLogger
 from time import sleep
 import sys
 
-from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadErrorCode, LFS, version
+from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadEC, LFS, version
 from .errors import MultipleClients, ReportThis, VersionError, StreamError, NoData
 from .util import wait_delay_sec, request, channel_url
 from .delete import DeleteOnFail
@@ -24,29 +24,29 @@ def _recv_error_helper(r: Response, config: Config, peek: bool, put: bool, waite
     """
     Raise an exception according to the recv response error
     """
-    match DownloadErrorCode(r.status_code):
-        case DownloadErrorCode.wrong_version:
+    match DownloadEC(r.status_code):
+        case DownloadEC.wrong_version:
             v = r.text.split(":")[-1].strip()
             raise VersionError(f"Version mismatch; uploader version = {v}; force a read with --force")
-        case DownloadErrorCode.illegal_version:
+        case DownloadEC.illegal_version:
             raise VersionError(f"Server requires version >= {r.text}")
-        case DownloadErrorCode.no_data:
+        case DownloadEC.no_data:
             if put:
                 msg = "This data stream no longer exists; maybe the sender cancelled sending?"
                 raise MultipleClients(msg)
             raise NoData(f"The channel {config.channel} is empty.")
-        case DownloadErrorCode.conflict:
+        case DownloadEC.conflict:
             if put:
                 raise MultipleClients("This data stream no longer exists; maybe the channel was deleted?")
             raise ReportThis(r.text)
-        case DownloadErrorCode.cannot_peek:
+        case DownloadEC.cannot_peek:
             msg = "Too much data to peek; data is being streamed and does not all exist on server."
             raise StreamError(msg)
-        case DownloadErrorCode.in_use:
+        case DownloadEC.in_use:
             if peek and waited:
                 raise MultipleClients("Another client started reading the data before peek was complete")
             raise MultipleClients(r.text)
-        case DownloadErrorCode.forbidden:
+        case DownloadEC.forbidden:
             raise ReportThis("Attempt to read from stream with stream ID.")
         case _:
             raise RuntimeError(r)
@@ -87,9 +87,7 @@ def _recv_body(
             return None  # Stream complete
         params.stream_id = headers.stream_id
         return 0
-    elif (block and r.status_code == DownloadErrorCode.no_data.value) or (
-        r.status_code == DownloadErrorCode.wait.value
-    ):
+    elif (block and r.status_code == DownloadEC.no_data.value) or (r.status_code == DownloadEC.wait.value):
         delay = wait_delay_sec(lvl)
         log.info("No data available yet, sleeping for %s second(s)", delay)
         sleep(delay)

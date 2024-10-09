@@ -9,7 +9,7 @@ from ...shared import (
     LFS,
     UploadRequestParams,
     UploadResponseHeaders,
-    UploadErrorCode,
+    UploadEC,
     version,
 )
 from .errors import MultipleClients, ReportThis, VersionError
@@ -31,17 +31,12 @@ def _send_known_error(r: Response) -> None:
     """
     Raise an exception according to the send response error
     """
-    match UploadErrorCode(r.status_code):
-        case UploadErrorCode.illegal_version:
+    match UploadEC(r.status_code):
+        case UploadEC.illegal_version:
             raise VersionError(f"Server requires version >= {r.text}")
-        case UploadErrorCode.conflict:
+        case UploadEC.conflict:
             raise MultipleClients("The stream ID changed mid-upload; maybe the receiver broke the pipe?")
-        case (
-            UploadErrorCode.wrong_version
-            | UploadErrorCode.too_big
-            | UploadErrorCode.forbidden
-            | UploadErrorCode.stream_id
-        ):
+        case UploadEC.wrong_version | UploadEC.too_big | UploadEC.forbidden | UploadEC.stream_id:
             raise ReportThis(r.text)
 
 
@@ -53,7 +48,7 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams, *, lvl
     r = request(typ, channel_url(config), params=params.to_dict(), data=data)
     if r.ok:
         return r
-    elif r.status_code == UploadErrorCode.wait.value:
+    elif r.status_code == UploadEC.wait.value:
         delay = wait_delay_sec(lvl)
         getLogger(_LOG).info("Pipe full, sleeping for %s second(s).", delay)
         sleep(delay)
