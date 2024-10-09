@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 from typing import TYPE_CHECKING, TypeVar
+from datetime import datetime
 
 from .version_ import Version, WEB_VERSION
 
@@ -126,3 +127,18 @@ class DownloadResponseHeaders(_ResponseHeaders):
             final=d["final"] == "True",
             encrypted=d["encrypted"] == "True",
         )
+
+
+#
+# Query
+#
+
+
+@dataclass(kw_only=True, frozen=True)
+class QueryResponse:
+    new: bool
+    upload_complete: bool
+    size: int
+    encrypted: bool
+    version: Version
+    expiration: datetime

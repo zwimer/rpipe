@@ -1,11 +1,13 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+from dataclasses import asdict
 from logging import getLogger
 
 from flask import request
 
+from ...shared import QueryEC, QueryResponse, total_len
+from ..util import plaintext, json_response
 from ..server import ServerShutdown
-from ..util import plaintext
 from .write import write
 from .read import read
 
@@ -14,7 +16,7 @@ if TYPE_CHECKING:
     from ..server import State
 
 
-def _channel_handler(state: State, channel: str) -> Response:
+def _handler(state: State, channel: str) -> Response:
     log = getLogger("channel")
     try:
         match request.method:
@@ -37,11 +39,30 @@ def _channel_handler(state: State, channel: str) -> Response:
         return plaintext("Server is shutting down", status=503)
 
 
-def channel_handler(state: State, channel: str) -> Response:
+def handler(state: State, channel: str) -> Response:
     log = getLogger("channel")
     log.info("Invoking: %s %s", request.method, channel)
-    ret = _channel_handler(state, channel)
+    ret = _handler(state, channel)
     log.info("Sending: %s", ret)
     if ret.status_code >= 400:
         log.debug("  body: %s", ret.get_data())
     return ret
+
+
+def query(state: State, channel: str) -> Response:
+    log = getLogger("query")
+    log.info("Query %s", channel)
+    with state as u:
+        if (s := u.streams.get(channel, None)) is None:
+            log.debug("Channel not found: %s", channel)
+            return plaintext("No data on this channel", status=QueryEC.no_data)
+        q = QueryResponse(
+            new=s.new,
+            upload_complete=s.upload_complete,
+            size=total_len(s.data),
+            encrypted=s.encrypted,
+            version=s.version,
+            expiration=s.expire,
+        )
+    log.debug("Channel found: %s", q)
+    return json_response(asdict(q))

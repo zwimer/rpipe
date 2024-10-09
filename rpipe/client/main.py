@@ -146,6 +146,12 @@ def cli() -> None:
     priority_mode.add_argument(
         "-Q", "--server-version", action="store_true", help="Print the server version then exit"
     )
+    priority_mode.add_argument(
+        "-q",
+        "--query",
+        action="store_true",
+        help="Get information on the given channel",
+    )
     priority_mode.add_argument("-A", "--admin", action="store_true", help="Allow use of admin commands")
     # Admin commands
     admin = parser.add_subparsers(

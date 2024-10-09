@@ -11,7 +11,7 @@ import waitress
 
 from ..shared import restrict_umask, log, __version__
 from .util import MAX_SIZE_HARD, plaintext
-from .channel import channel_handler
+from .channel import handler, query
 from .server import Server
 from .admin import Admin
 
@@ -81,7 +81,12 @@ def _show_version() -> Response:
 
 @app.route("/c/<channel>", methods=["DELETE", "GET", "POST", "PUT"])
 def _channel(channel: str) -> Response:
-    return channel_handler(server.state, channel)
+    return handler(server.state, channel)
+
+
+@app.route("/q/<channel>")
+def _query(channel: str) -> Response:
+    return query(server.state, channel)
 
 
 # Admin routes

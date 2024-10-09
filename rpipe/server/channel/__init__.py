@@ -1,1 +1,1 @@
-from .channel import channel_handler
+from .channel import handler, query

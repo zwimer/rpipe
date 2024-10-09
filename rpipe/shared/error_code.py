@@ -64,6 +64,16 @@ class DownloadEC(metaclass=_UniqueEnum):
     in_use: int = 453  #           Someone else is reading from the pipe
 
 
+class QueryEC(metaclass=_UniqueEnum):
+    """
+    HTTP error codes the rpipe client may be sent when in query mode
+    Others may be sent, but these are the ones the client should be prepared to handle
+    """
+
+    illegal_version: int = 426  #  Illegal version
+    no_data: int = 410  #          No data on this channel
+
+
 class AdminEC(metaclass=_UniqueEnum):
     """
     HTTP error codes the rpipe client may be sent when in admin mode

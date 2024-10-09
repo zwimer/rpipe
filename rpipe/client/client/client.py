@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 from logging import getLogger
+from json import dumps
 
 from human_readable import listing
 
+from ...shared import TRACE, QueryEC
 from ..config import ConfigFile, Option, PartialConfig
 from .util import REQUEST_TIMEOUT, request
-from .errors import UsageError
+from .errors import UsageError, VersionError
 from .delete import delete
 from .recv import recv
 from .send import send
@@ -24,6 +26,7 @@ class Mode:
     print_config: bool
     save_config: bool
     server_version: bool
+    query: bool
     # Read/Write/Delete modes
     read: bool
     delete: bool
@@ -72,6 +75,28 @@ def _check_mode_flags(mode: Mode) -> None:
         raise UsageError(fmt(args) + "when deleting data from the pipe")
 
 
+def _query(conf: PartialConfig) -> None:
+    log = getLogger(_LOG)
+    log.info("Mode: Query")
+    if conf.url is None:
+        raise UsageError("URL unknown; try again with --url")
+    if conf.channel is None:
+        raise UsageError("Channel unknown; try again with --channel")
+    log.info("Querying channel %s ...", conf.channel)
+    r = request("GET", f"{conf.url.value}/q/{conf.channel.value}")
+    log.debug("Got response %s", r)
+    log.log(TRACE, "Data: %s", r.content)
+    match r.status_code:
+        case QueryEC.illegal_version:
+            raise VersionError(f"Server requires version >= {r.text}")
+        case QueryEC.no_data:
+            print("No data on this channel")
+            return
+    if not r.ok:
+        raise RuntimeError(f"Query failed. Error {r.status_code}: {r.text}")
+    print(f"{conf.channel.value}: {dumps(r.json(), indent=4)}")
+
+
 def _priority_actions(conf: PartialConfig, mode: Mode, config_file) -> PartialConfig | None:
     log = getLogger(_LOG)
     # Print config if requested
@@ -95,6 +120,10 @@ def _priority_actions(conf: PartialConfig, mode: Mode, config_file) -> PartialCo
             raise RuntimeError(f"Failed to get version: {r}")
         print(f"rpipe_server {r.text}")
         return None
+    if mode.query:
+        _query(conf)
+        return None
+
     return conf
 
 
