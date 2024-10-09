@@ -90,7 +90,7 @@ def _query(conf: PartialConfig) -> None:
         case QueryEC.illegal_version:
             raise VersionError(f"Server requires version >= {r.text}")
         case QueryEC.no_data:
-            print("No data on this channel")
+            print(f"No data on channel: {conf.channel.value}")
             return
     if not r.ok:
         raise RuntimeError(f"Query failed. Error {r.status_code}: {r.text}")
