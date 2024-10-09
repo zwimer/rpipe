@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from threading import RLock
+from json import dumps
 
 from flask import Response
 
@@ -47,3 +48,7 @@ def plaintext(msg: str, status: Enum | int = 200, **kwargs) -> Response:
     """
     code: int = status if isinstance(status, int) else status.value
     return Response(msg, status=code, mimetype="text/plain", **kwargs)
+
+
+def json_response(js) -> Response:
+    return Response(dumps(js, default=str), status=200, mimetype="application/json")

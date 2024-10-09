@@ -6,8 +6,8 @@ from dataclasses import asdict
 from base64 import b85decode
 from threading import RLock
 from time import sleep
+from json import loads
 from os import urandom
-import json
 import zlib
 
 from cryptography.hazmat.primitives.serialization import load_ssh_public_key
@@ -15,7 +15,7 @@ from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from flask import Response, request
 
 from ..shared import ChannelInfo, AdminMessage, AdminStats, AdminEC, Version
-from .util import plaintext
+from .util import plaintext, json_response
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,10 +31,6 @@ if TYPE_CHECKING:
 
     class _Verifier(Protocol):
         def __call__(self, signature: bytes, *, data: bytes) -> None: ...
-
-
-def _json(d: dict) -> Response:
-    return Response(json.dumps(d, default=str), status=200, mimetype="application/json")
 
 
 class _UID:
@@ -112,8 +108,7 @@ class Admin:
         """
         Get a few UIDSs that may each be used in a signature to access the server exactly once
         """
-        data = json.dumps(self._uids.new(self._UIDS_PER_QUERY))
-        return Response(data, status=200, mimetype="application/json")
+        return json_response(self._uids.new(self._UIDS_PER_QUERY))
 
     #
     # Wrapped Methods
@@ -153,7 +148,7 @@ class Admin:
     def _unsafe_stats(self, state: State, **_) -> Response:
         with state as s:
             stats = asdict(s.stats)
-        return _json(stats)
+        return json_response(stats)
 
     def _unsafe_channels(self, state: State, **_) -> Response:
         """
@@ -168,7 +163,7 @@ class Admin:
         )
         with state as s:
             output = {i: asdict(ci(k)) for i, k in s.streams.items()}
-        return _json(output)
+        return json_response(output)
 
     #
     # Helpers
@@ -221,7 +216,7 @@ class Admin:
                     return Response(_msg, status=AdminEC.illegal_version)
                 sleep(0.01)  # Slow down brute force attacks
                 signature, msg_bytes = post.split(b"\n", 1)
-                msg = AdminMessage(**json.loads(msg_bytes.decode()))
+                msg = AdminMessage(**loads(msg_bytes.decode()))
                 stat.uid = msg.uid
                 if not self._uids.verify(msg.uid):
                     self._log.warning("Rejecting request due to invalid UID: %s", msg.uid)
