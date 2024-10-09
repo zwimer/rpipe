@@ -108,7 +108,7 @@ class _Methods:
         msg = AdminMessage(path=path, body=body, uid=uid).bytes()
         data = b"\n".join((bytes(version), b85encode(self._conf.sign(msg)), msg))
         ret = self._conf.session.post(f"{self._conf.url}{path}", data=data, timeout=ADMIN_REQUEST_TIMEOUT)
-        match AdminEC(ret.status_code):
+        match ret.status_code:
             case AdminEC.unauthorized:
                 self._log.critical("Admin access denied")
                 raise AccessDenied()
@@ -118,7 +118,7 @@ class _Methods:
             what = f"Error {ret.status_code}: {ret.text}"
             self._log.critical(what)
             raise RuntimeError(what)
-        assert not AdminEC.invalid, "Sanity check failed"
+        assert not ret.status_code == AdminEC.invalid, "Sanity check failed"
         return ret
 
     def _debug(self) -> bool:

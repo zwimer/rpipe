@@ -124,7 +124,6 @@ def cli() -> None:
         help=f"Encrypt the data; uses {PASSWORD_ENV} as the password if set, otherwise uses saved password",
     )
     enc_g.add_argument("--plaintext", action="store_true", help="Do not encrypt the data")
-    # Warnings
     ssl_g = config.add_mutually_exclusive_group()
     ssl_g.add_argument("-s", "--ssl", action="store_true", help="Require host use https")
     ssl_g.add_argument("--no-require-ssl", action="store_true", help="Do not require host use https")

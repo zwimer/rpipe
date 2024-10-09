@@ -30,8 +30,9 @@ _LOG = "send"
 def _send_known_error(r: Response) -> None:
     """
     Raise an exception according to the send response error
+    If error is unknown, does nothing
     """
-    match UploadEC(r.status_code):
+    match r.status_code:
         case UploadEC.illegal_version:
             raise VersionError(f"Server requires version >= {r.text}")
         case UploadEC.conflict:
@@ -48,14 +49,14 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams, *, lvl
     r = request(typ, channel_url(config), params=params.to_dict(), data=data)
     if r.ok:
         return r
-    elif r.status_code == UploadEC.wait.value:
+    elif r.status_code == UploadEC.wait:
         delay = wait_delay_sec(lvl)
         getLogger(_LOG).info("Pipe full, sleeping for %s second(s).", delay)
         sleep(delay)
         return _send_block(data, config, params, lvl=lvl + 1)
     else:
         _send_known_error(r)
-        raise RuntimeError(r)  # Fallback
+        raise RuntimeError(f"Error {r.status_code}", r.text)
 
 
 def _send(config: Config, io: IO, params: UploadRequestParams, pbar: PBar) -> None:

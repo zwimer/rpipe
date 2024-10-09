@@ -24,7 +24,7 @@ def _recv_error_helper(r: Response, config: Config, peek: bool, put: bool, waite
     """
     Raise an exception according to the recv response error
     """
-    match DownloadEC(r.status_code):
+    match r.status_code:
         case DownloadEC.wrong_version:
             v = r.text.split(":")[-1].strip()
             raise VersionError(f"Version mismatch; uploader version = {v}; force a read with --force")
@@ -49,7 +49,7 @@ def _recv_error_helper(r: Response, config: Config, peek: bool, put: bool, waite
         case DownloadEC.forbidden:
             raise ReportThis("Attempt to read from stream with stream ID.")
         case _:
-            raise RuntimeError(r)
+            raise RuntimeError(f"Error {r.status_code}", r.text)
 
 
 def _recv_error(*args, **kwargs) -> None:
@@ -87,7 +87,7 @@ def _recv_body(
             return None  # Stream complete
         params.stream_id = headers.stream_id
         return 0
-    elif (block and r.status_code == DownloadEC.no_data.value) or (r.status_code == DownloadEC.wait.value):
+    elif (block and r.status_code == DownloadEC.no_data) or (r.status_code == DownloadEC.wait):
         delay = wait_delay_sec(lvl)
         log.info("No data available yet, sleeping for %s second(s)", delay)
         sleep(delay)
