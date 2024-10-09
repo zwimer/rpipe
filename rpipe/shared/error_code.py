@@ -32,3 +32,15 @@ class DownloadEC(Enum):
     forbidden: int = 403  #        StreamID passed for new stream or while peeking
     cannot_peek: int = 452  #      Cannot peek, too much data
     in_use: int = 453  #           Someone else is reading from the pipe
+
+
+@unique
+class AdminEC(Enum):
+    """
+    HTTP error codes the rpipe client may be sent when in admin mode
+    Others may be sent, but these are the ones the client should be prepared to handle
+    """
+
+    invalid: int = 400
+    unauthorized: int = 401
+    illegal_version: int = 426

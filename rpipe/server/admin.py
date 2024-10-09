@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from flask import Response, request
 
-from ..shared import ChannelInfo, AdminMessage, AdminStats, Version
+from ..shared import ChannelInfo, AdminMessage, AdminStats, AdminEC, Version
 from .util import plaintext
 
 if TYPE_CHECKING:
@@ -147,7 +147,7 @@ class Admin:
                         getLogger("werkzeug").setLevel(lvl)
                 self._log.debug("Log level to %s", new)
             except ValueError:
-                return Response(f"Invalid log level: {body}", status=400, mimetype="text/plain")
+                return Response(f"Invalid log level: {body}", status=AdminEC.invalid, mimetype="text/plain")
         return Response(str(old) + "\n" + str(new), status=200, mimetype="text/plain")
 
     def _unsafe_stats(self, state: State, **_) -> Response:
@@ -217,18 +217,19 @@ class Admin:
                 version, post = request.get_data().split(b"\n", 1)
                 stat.version = version.decode()
                 if Version(version) < MIN_VERSION:
-                    return Response(f"Minimum supported client version: {MIN_VERSION}", status=426)
+                    _msg = f"Minimum supported client version: {MIN_VERSION}"
+                    return Response(_msg, status=AdminEC.illegal_version)
                 sleep(0.01)  # Slow down brute force attacks
                 signature, msg_bytes = post.split(b"\n", 1)
                 msg = AdminMessage(**json.loads(msg_bytes.decode()))
                 stat.uid = msg.uid
                 if not self._uids.verify(msg.uid):
                     self._log.warning("Rejecting request due to invalid UID: %s", msg.uid)
-                    return Response(status=401)
+                    return Response(status=AdminEC.unauthorized)
                 stat.uid_valid = True
                 if (key_file := self._verify_signature(b85decode(signature), msg_bytes)) is None:
                     self._log.warning("Signature verification failed.")
-                    return Response(status=401)
+                    return Response(status=AdminEC.unauthorized)
                 stat.signer = key_file
                 # Execute function
                 self._log.info("Signature verified. Executing %s", request.full_path)

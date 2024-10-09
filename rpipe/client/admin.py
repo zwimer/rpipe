@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import load_ssh_private_key
 from cryptography.exceptions import UnsupportedAlgorithm
 from requests import Session
 
-from ..shared import ChannelInfo, AdminMessage, version
+from ..shared import ChannelInfo, AdminMessage, AdminEC, version
 from .config import ConfigFile, UsageError, Option
 
 if TYPE_CHECKING:
@@ -108,16 +108,17 @@ class _Methods:
         msg = AdminMessage(path=path, body=body, uid=uid).bytes()
         data = b"\n".join((bytes(version), b85encode(self._conf.sign(msg)), msg))
         ret = self._conf.session.post(f"{self._conf.url}{path}", data=data, timeout=ADMIN_REQUEST_TIMEOUT)
-        match ret.status_code:
-            case 401:
+        match AdminEC(ret.status_code):
+            case AdminEC.unauthorized:
                 self._log.critical("Admin access denied")
                 raise AccessDenied()
-            case 426:
+            case AdminEC.illegal_version:
                 raise IllegalVersion(ret.text, log=self._log.critical)
         if not ret.ok:
             what = f"Error {ret.status_code}: {ret.text}"
             self._log.critical(what)
             raise RuntimeError(what)
+        assert not AdminEC.invalid, "Sanity check failed"
         return ret
 
     def _debug(self) -> bool:
