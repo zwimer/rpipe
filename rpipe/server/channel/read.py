@@ -109,10 +109,10 @@ def read(state: State, channel: str) -> Response:
             rdata = [s.data.popleft()] if s.data else []  # Ensure at least one packet if available
             while s.data and (len(s.data[0]) + total_len(rdata)) < MAX_SIZE_SOFT:
                 rdata.append(s.data.popleft())
-            log.log(TRACE, "Merging %d piece(s) of data; total length: %s", len(rdata), LFS(rdata))
             final = s.upload_complete and not s.data
         if args.delete and final:
             log.debug("Channel %s empty and final; removing", channel)
             del u.streams[channel]
+    log.log(TRACE, "Merging %d piece(s) of data; total length: %s", len(rdata), LFS(rdata))
     headers = DownloadResponseHeaders(encrypted=s.encrypted, stream_id=s.id_, final=final).to_dict()
     return Response(b"".join(rdata), mimetype="application/octet-stream", headers=headers)

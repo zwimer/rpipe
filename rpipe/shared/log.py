@@ -1,9 +1,14 @@
+from __future__ import annotations
 from logging import WARNING, INFO, DEBUG
+from typing import TYPE_CHECKING
 import logging
 
 from human_readable import file_size
 
 from .util import total_len
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 DATEFMT = "%H:%M:%S"
@@ -19,7 +24,7 @@ class LFS:
     Human-readable number of bytes, lazily evaluated for logging
     """
 
-    def __init__(self, x: int | bytes | list[bytes]) -> None:
+    def __init__(self, x: int | bytes | Sequence[bytes]) -> None:
         self._x = x if isinstance(x, int) else (total_len(x) if isinstance(x, list) else len(x))
 
     def __str__(self) -> str:
