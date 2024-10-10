@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from .server import State
 
 
-MIN_VERSION = Version("8.6.0")
+MIN_VERSION = Version("8.8.0")
 
 
 if TYPE_CHECKING:
