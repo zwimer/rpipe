@@ -17,6 +17,7 @@ urls = {Homepage = "https://github.com/zwimer/rpipe"}
 requires-python = ">= 3.10"
 dependencies = [
     # Client
+    "zstandard[cffi]",
     "pycryptodomex",
 	"cryptography",
     "requests",

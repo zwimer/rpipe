@@ -2,7 +2,9 @@ from dataclasses import dataclass
 from logging import getLogger
 from json import dumps
 
+from zstandard import ZstdCompressor
 from human_readable import listing
+
 
 from ...shared import TRACE, QueryEC
 from ..config import ConfigFile, Option, PartialConfig
@@ -12,6 +14,8 @@ from .delete import delete
 from .recv import recv
 from .send import send
 
+
+ZSTD_DEFAULT: int = 17
 _LOG: str = "client"
 
 
@@ -37,6 +41,8 @@ class Mode:
     force: bool
     # Write options
     ttl: int | None
+    zstd: int | None
+    threads: int
     # Read / Write options
     encrypt: Option[bool]
     progress: bool | int
@@ -143,11 +149,18 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
     if mode.write and not mode.encrypt.is_none():
         log.info("Write mode: No password found, falling back to plaintext mode")
     full_conf = config_file.verify(loaded, mode.encrypt.is_true())
+    if (mode.read or mode.write) and not conf.password:
+        log.warning("Encryption disabled: plaintext mode")
+        if mode.zstd is not None:
+            raise UsageError("Cannot compress data in plaintext mode")
     # Invoke mode
     log.info("HTTP timeout set to %d seconds", REQUEST_TIMEOUT)
     if mode.read:
         recv(full_conf, mode.block, mode.peek, mode.force, mode.progress)
     elif mode.write:
-        send(full_conf, mode.ttl, mode.progress)
+        lvl = ZSTD_DEFAULT if mode.zstd is None else mode.zstd
+        log.debug("Using compression level %d and %d threads", lvl, mode.threads)
+        compress = ZstdCompressor(write_checksum=True, level=lvl, threads=mode.threads).compress
+        send(full_conf, mode.ttl, mode.progress, compress)
     else:
         delete(full_conf)

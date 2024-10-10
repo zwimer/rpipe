@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-__version__: str = "8.7.1"  # Must be "<major>.<minor>.<patch>", all numbers
+__version__: str = "8.8.0"  # Must be "<major>.<minor>.<patch>", all numbers
 
 
 class Version:

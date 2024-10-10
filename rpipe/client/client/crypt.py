@@ -1,16 +1,15 @@
 from __future__ import annotations
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 from logging import getLogger
 import hashlib
-import zlib
 
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Cipher import AES
 
-from ...shared import LFS
+from ...shared import TRACE, LFS
 
-
-_ZLIB_LEVEL: int = 6
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class _EncryptedData(NamedTuple):
@@ -45,24 +44,32 @@ def _aes(salt: bytes, password: str, nonce: bytes | None = None):
     return AES.new(scrypt, AES.MODE_GCM, nonce=nonce)
 
 
-def encrypt(data: bytes, password: str | None) -> bytes:
+def encrypt(data: bytes, compress: Callable[[bytes], bytes], password: str | None) -> bytes:
+    log = getLogger("encrypt")
     if not password or not data:
+        log.log(TRACE, "Not encrypting")
         return data
-    getLogger("encrypt").debug("Encrypting %s byte chunk", LFS(data))
+    log.debug("Compressing %s chunk", LFS(data))
+    data = compress(data)
+    log.debug("Encrypting compressed %s chunk", LFS(data))
     salt = get_random_bytes(AES.block_size)
     aes = _aes(salt, password)
-    text, tag = aes.encrypt_and_digest(zlib.compress(data, level=_ZLIB_LEVEL))
+    text, tag = aes.encrypt_and_digest(data)
     return _EncryptedData(text, salt, aes.nonce, tag).encode()
 
 
-def decrypt(data: bytes, password: str | None) -> bytes:
-    if not password or not data:
-        return data
+def decrypt(data: bytes, decompress: Callable[[bytes], bytes], password: str | None) -> bytes:
     log = getLogger("decrypt")
-    log.debug("Extracting chunks from %s bytes of data", LFS(data))
+    if not password or not data:
+        log.log(TRACE, "Not decrypting")
+        return data
+    log.debug("Extracting chunks from %s of data", LFS(data))
     es = _EncryptedData.decode(data)
-    log.debug("Decrypting and decompressing %d chunk%s", len(es), "s" if len(es) != 1 else "")
-    r = [zlib.decompress(_aes(e.salt, password, e.nonce).decrypt_and_verify(e.text, e.tag)) for e in es]
+    sfx = "s" if len(es) != 1 else ""
+    log.debug("Decrypting %d chunk%s", len(es), sfx)
+    r = tuple(_aes(e.salt, password, e.nonce).decrypt_and_verify(e.text, e.tag) for e in es)
+    log.debug("Decompressing %d chunk%s", len(es), sfx)
+    r = tuple(decompress(i) for i in r)
     if len(es) > 1:
         log.debug("Merging chunks")
     return r[0] if len(r) == 1 else b"".join(r)

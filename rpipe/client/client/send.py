@@ -20,6 +20,7 @@ from .pbar import PBar
 from .io import IO
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from requests import Response
     from ..config import Config
 
@@ -59,12 +60,15 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams, *, lvl
         raise RuntimeError(f"Error {r.status_code}", r.text)
 
 
-def _send(config: Config, io: IO, params: UploadRequestParams, pbar: PBar) -> None:
+def _send(
+    config: Config, io: IO, compress: Callable[[bytes], bytes], params: UploadRequestParams, pbar: PBar
+) -> None:
     log = getLogger(_LOG)
     while not params.final:
         block, params.final = io.read()
-        log.info("Processing block of %s bytes", LFS(block))
-        r = _send_block(encrypt(block, config.password), config, params)
+        log.info("Processing block of %s", LFS(block))
+        enc = encrypt(block, compress, config.password)
+        r = _send_block(enc, config, params)
         pbar.update(len(block))
         if params.stream_id is None:  # Configure following PUTs
             if params.final:
@@ -75,16 +79,21 @@ def _send(config: Config, io: IO, params: UploadRequestParams, pbar: PBar) -> No
             sleep(0.025)  # Avoid being over-eager with sending data; let the read thread read
 
 
-def send(config: Config, ttl: int | None, progress: bool | int) -> None:
+def send(config: Config, ttl: int | None, progress: bool | int, compress: Callable[[bytes], bytes]) -> None:
     """
     Send data to the remote pipe
     """
     log = getLogger(_LOG)
     io = IO(sys.stdin.fileno(), MAX_SOFT_SIZE_MIN)
     sleep(0.025)  # Avoid being over-eager with sending data; let the read thread read
-    params = UploadRequestParams(version=version, final=False, ttl=ttl, encrypted=config.password is not None)
+    params = UploadRequestParams(
+        version=version,
+        final=False,
+        ttl=ttl,
+        encrypted=config.password is not None,
+    )
     log.info("Writing to channel %s", config.channel)
     with PBar(progress) as pbar:
         with DeleteOnFail(config):
-            _send(config, io, params, pbar)
+            _send(config, io, compress, params, pbar)
     log.info("Stream complete")

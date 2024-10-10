@@ -1,5 +1,6 @@
 from __future__ import annotations
 from logging import basicConfig, getLevelName, getLogger
+from multiprocessing import cpu_count
 from typing import TYPE_CHECKING
 from dataclasses import fields
 from pathlib import Path
@@ -8,7 +9,7 @@ import sys
 
 from .config import PASSWORD_ENV, UsageError, PartialConfig, Option
 from ..shared import log, __version__
-from .client import rpipe, Mode
+from .client import ZSTD_DEFAULT, Mode, rpipe
 from .admin import Admin
 
 if TYPE_CHECKING:
@@ -62,6 +63,8 @@ def cli() -> None:
     """
     Parses arguments then invokes rpipe
     """
+    cpu = cpu_count()
+    threads = max(1, cpu - 1)
     parser = argparse.ArgumentParser(add_help=False)
     parser.set_defaults(method=None)
     read_g = parser.add_argument_group("Read Options")
@@ -88,6 +91,21 @@ def cli() -> None:
         default=None,
         help="Pipe TTL in seconds; use server default if not passed",
     )
+    write_g.add_argument(  # Do not use default= for better error checking w.r.t. plaintext mode
+        "--zstd",
+        metavar="[1-22]",
+        choices=range(1, 23),
+        type=int,
+        help=f"Compression level to use; invalid in plaintext mode. Default: {ZSTD_DEFAULT}",
+    )
+    write_g.add_argument(
+        "--threads",
+        metavar=f"[1-{cpu}]" if cpu > 1 else "1",
+        choices=range(1, cpu + 1),
+        default=threads,
+        type=int,
+        help=f"The number of threads to use for compression. Default: {threads}",
+    )
     delete_g = parser.add_argument_group("Delete Options")
     delete_g.add_argument("-d", "--delete", action="store_true", help="Delete all entries in the channel")
     read_write_g = parser.add_argument_group("Read/Write Options")
@@ -104,7 +122,9 @@ def cli() -> None:
         " of bytes to be passed. Only valid while sending or receiving data."
         " Values can be suffixed with K, M, G, or T, to multiply by powers of 1000"
     )
-    read_write_g.add_argument("-P", "--progress", type=_si_parse, const=True, nargs="?", help=msg)
+    read_write_g.add_argument(
+        "-P", "--progress", metavar="size", type=_si_parse, const=True, nargs="?", help=msg
+    )
     # Config options
     config = parser.add_argument_group("Config Options")
     config.add_argument("-u", "--url", help="The pipe url to use")
@@ -123,7 +143,7 @@ def cli() -> None:
         action="store_true",
         help=f"Encrypt the data; uses {PASSWORD_ENV} as the password if set, otherwise uses saved password",
     )
-    enc_g.add_argument("--plaintext", action="store_true", help="Do not encrypt the data")
+    enc_g.add_argument("--plaintext", action="store_true", help="Do not encrypt or compress the data")
     ssl_g = config.add_mutually_exclusive_group()
     ssl_g.add_argument("-s", "--ssl", action="store_true", help="Require host use https")
     ssl_g.add_argument("--no-require-ssl", action="store_true", help="Do not require host use https")

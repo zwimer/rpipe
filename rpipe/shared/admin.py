@@ -26,3 +26,7 @@ class ChannelInfo:
     size: int
     encrypted: bool
     expire: datetime
+
+
+# pylint: disable=fixme
+# TODO: use query response?

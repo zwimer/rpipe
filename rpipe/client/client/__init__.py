@@ -1,1 +1,1 @@
-from .client import rpipe, Mode
+from .client import ZSTD_DEFAULT, Mode, rpipe
