@@ -15,8 +15,8 @@ from .recv import recv
 from .send import send
 
 
-ZSTD_DEFAULT: int = 17
 _LOG: str = "client"
+_DEFAULT_LVL: int = 3
 
 
 # pylint: disable=too-many-instance-attributes
@@ -158,7 +158,7 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
     if mode.read:
         recv(full_conf, mode.block, mode.peek, mode.force, mode.progress)
     elif mode.write:
-        lvl = ZSTD_DEFAULT if mode.zstd is None else mode.zstd
+        lvl = _DEFAULT_LVL if mode.zstd is None else mode.zstd
         log.debug("Using compression level %d and %d threads", lvl, mode.threads)
         compress = ZstdCompressor(write_checksum=True, level=lvl, threads=mode.threads).compress
         send(full_conf, mode.ttl, mode.progress, compress)

@@ -9,7 +9,7 @@ import sys
 
 from .config import PASSWORD_ENV, UsageError, PartialConfig, Option
 from ..shared import log, __version__
-from .client import ZSTD_DEFAULT, Mode, rpipe
+from .client import Mode, rpipe
 from .admin import Admin
 
 if TYPE_CHECKING:
@@ -96,7 +96,7 @@ def cli() -> None:
         metavar="[1-22]",
         choices=range(1, 23),
         type=int,
-        help=f"Compression level to use; invalid in plaintext mode. Default: {ZSTD_DEFAULT}",
+        help="Compression level to use; invalid in plaintext mode",
     )
     write_g.add_argument(
         "--threads",
