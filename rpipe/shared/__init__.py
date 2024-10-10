@@ -6,9 +6,9 @@ from .request_response import (
     DownloadRequestParams,
     DownloadResponseHeaders,
     QueryResponse,
+    AdminMessage,
 )
 from .error_code import UploadEC, DownloadEC, QueryEC, AdminEC
-from .admin import AdminMessage, ChannelInfo
 from .util import restrict_umask, total_len
 from .stats import AdminStats, Stats
 from .log import TRACE, LFS

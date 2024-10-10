@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import load_ssh_private_key
 from cryptography.exceptions import UnsupportedAlgorithm
 from requests import Session
 
-from ..shared import ChannelInfo, AdminMessage, AdminEC, version
+from ..shared import QueryResponse, AdminMessage, AdminEC, version
 from .config import ConfigFile, UsageError, Option
 
 if TYPE_CHECKING:
@@ -167,8 +167,8 @@ class _Methods:
             print("Server is empty")
             return
         for i in raw.values():
-            i["expire"] = datetime.fromisoformat(i["expire"])
-        data = {i: ChannelInfo(**k) for i, k in raw.items()}
+            i["expiration"] = datetime.fromisoformat(i["expiration"])
+        data = {i: QueryResponse(**k) for i, k in raw.items()}
         mx = max(len(i) for i in data)
         print("\n".join(f"{i.ljust(mx)} : {k}" for i, k in data.items()))
 

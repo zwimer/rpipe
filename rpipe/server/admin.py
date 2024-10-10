@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from flask import Response, request
 
-from ..shared import ChannelInfo, AdminMessage, AdminStats, AdminEC, Version
+from ..shared import AdminMessage, AdminStats, AdminEC, Version
 from .util import plaintext, json_response
 
 if TYPE_CHECKING:
@@ -154,15 +154,8 @@ class Admin:
         """
         Return a list of the server's current channels and stats
         """
-        ci = lambda x: ChannelInfo(
-            version=x.version,
-            packets=len(x.data),
-            size=len(x),
-            encrypted=x.encrypted,
-            expire=x.expire,
-        )
         with state as s:
-            output = {i: asdict(ci(k)) for i, k in s.streams.items()}
+            output = {i: asdict(k.query()) for i, k in s.streams.items()}
         return json_response(output)
 
     #

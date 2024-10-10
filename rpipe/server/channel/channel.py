@@ -5,7 +5,7 @@ from logging import getLogger
 
 from flask import request
 
-from ...shared import QueryEC, QueryResponse, total_len
+from ...shared import QueryEC
 from ..util import plaintext, json_response
 from ..server import ServerShutdown
 from .write import write
@@ -56,13 +56,6 @@ def query(state: State, channel: str) -> Response:
         if (s := u.streams.get(channel, None)) is None:
             log.debug("Channel not found: %s", channel)
             return plaintext("No data on this channel", status=QueryEC.no_data)
-        q = QueryResponse(
-            new=s.new,
-            upload_complete=s.upload_complete,
-            size=total_len(s.data),
-            encrypted=s.encrypted,
-            version=s.version,
-            expiration=s.expire,
-        )
+        q = s.query()
     log.debug("Channel found: %s", q)
     return json_response(asdict(q))

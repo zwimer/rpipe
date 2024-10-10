@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 from typing import TYPE_CHECKING, TypeVar
 from datetime import datetime
+from json import dumps
 
 from .version_ import Version, WEB_VERSION
 
@@ -130,7 +131,7 @@ class DownloadResponseHeaders(_ResponseHeaders):
 
 
 #
-# Query
+# Other
 #
 
 
@@ -138,7 +139,18 @@ class DownloadResponseHeaders(_ResponseHeaders):
 class QueryResponse:
     new: bool
     upload_complete: bool
+    packets: int
     size: int
     encrypted: bool
     version: Version
     expiration: datetime
+
+
+@dataclass(kw_only=True, frozen=True)
+class AdminMessage:
+    body: str
+    path: str
+    uid: str
+
+    def bytes(self) -> bytes:
+        return dumps(asdict(self)).encode()

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import random
 import string
 
-from ...shared import total_len
+from ...shared import QueryResponse, total_len
 
 if TYPE_CHECKING:
     from ...version import Version
@@ -71,3 +71,14 @@ class Stream:  # pylint: disable=too-many-instance-attributes
         :return: True if the server pipe is full, else False
         """
         return len(self) >= self._capacity
+
+    def query(self) -> QueryResponse:
+        return QueryResponse(
+            new=self.new,
+            upload_complete=self.upload_complete,
+            packets=len(self.data),
+            size=len(self),
+            encrypted=self.encrypted,
+            version=self.version,
+            expiration=self.expire,
+        )
