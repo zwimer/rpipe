@@ -6,7 +6,7 @@ from zstandard import ZstdCompressor
 from human_readable import listing
 
 
-from ...shared import TRACE, QueryEC
+from ...shared import TRACE, QueryEC, Version, version
 from ..config import ConfigFile, Option, PartialConfig
 from .util import REQUEST_TIMEOUT, request
 from .errors import UsageError, VersionError
@@ -29,6 +29,7 @@ class Mode:
     # Priority modes (in order)
     print_config: bool
     save_config: bool
+    outdated: bool
     server_version: bool
     query: bool
     # Read/Write/Delete modes
@@ -48,6 +49,10 @@ class Mode:
     progress: bool | int
 
 
+def _n_priority(mode: Mode) -> int:
+    return (mode.print_config, mode.save_config, mode.outdated, mode.server_version, mode.query).count(True)
+
+
 def _check_mode_flags(mode: Mode) -> None:
     def tru(x) -> bool:
         rv = getattr(mode, x)
@@ -59,8 +64,7 @@ def _check_mode_flags(mode: Mode) -> None:
     if mode.progress is not False and mode.progress <= 0:
         raise UsageError("--progress argument must be positive if passed")
     # Sanity check
-    n_priority = (mode.print_config, mode.save_config, mode.server_version).count(True)
-    if n_priority > 1:
+    if (n_pri := _n_priority(mode)) > 1:
         raise UsageError("Only one priority mode may be used at a time")
     if (mode.read, mode.write, mode.delete).count(True) != 1:
         raise UsageError("Can only read, write, or delete at a time")
@@ -70,7 +74,7 @@ def _check_mode_flags(mode: Mode) -> None:
     delete_bad = read_bad | write_bad | {"progress", "encrypt"}
     bad = lambda x: [f"--{i}" for i in x if tru(i)]
     fmt = lambda x: f"argument{'' if len(x) == 1 else 's'} {listing(x, ',', 'and') }: may not be used "
-    if n_priority > 0 and (args := bad(delete_bad)):
+    if n_pri > 0 and (args := bad(delete_bad)):
         raise UsageError(fmt(args) + "with priority modes")
     # Mode specific flags
     if mode.read and (args := bad(read_bad)):
@@ -81,11 +85,21 @@ def _check_mode_flags(mode: Mode) -> None:
         raise UsageError(fmt(args) + "when deleting data from the pipe")
 
 
+def _check_outdated(conf: PartialConfig) -> None:
+    log = getLogger(_LOG)
+    log.info("Mode: Outdated")
+    r = request("GET", f"{conf.url.value}/supported")
+    if not r.ok:
+        raise RuntimeError(f"Failed to get server minimum version: {r}")
+    info = r.json()
+    log.info("Server supports clients: %s", info)
+    ok = Version(info["min"]) <= version and all(version != Version(i) for i in info["banned"])
+    print(f"{'' if ok else 'NOT '}SUPPORTED")
+
+
 def _query(conf: PartialConfig) -> None:
     log = getLogger(_LOG)
     log.info("Mode: Query")
-    if conf.url is None:
-        raise UsageError("URL unknown; try again with --url")
     if conf.channel is None:
         raise UsageError("Channel unknown; try again with --channel")
     log.info("Querying channel %s ...", conf.channel)
@@ -94,7 +108,7 @@ def _query(conf: PartialConfig) -> None:
     log.log(TRACE, "Data: %s", r.content)
     match r.status_code:
         case QueryEC.illegal_version:
-            raise VersionError(f"Server requires version >= {r.text}")
+            raise VersionError(r.text)
         case QueryEC.no_data:
             print(f"No data on channel: {conf.channel.value}")
             return
@@ -103,34 +117,31 @@ def _query(conf: PartialConfig) -> None:
     print(f"{conf.channel.value}: {dumps(r.json(), indent=4)}")
 
 
-def _priority_actions(conf: PartialConfig, mode: Mode, config_file) -> PartialConfig | None:
+def _priority_actions(conf: PartialConfig, mode: Mode, config_file) -> bool:
+    if not (np := _n_priority(mode)):
+        return False
+    assert np == 1, "Sanity check on priority mode count failed"
     log = getLogger(_LOG)
-    # Print config if requested
-    if mode.print_config:
-        config_file.print()
-        return None
-    # Load pipe config and save is requested
-    conf = config_file.load_onto(conf, mode.encrypt.is_false())
-    log.info("Loaded %s", conf)
     if mode.save_config:
+        log.info("Mode: Save Config")
         config_file.save(conf, mode.encrypt.is_true())
-        return None
+        return True
+    # Everything after this requires the URL
+    if conf.url is None:
+        raise UsageError("Missing: --url")
+    # Check if supported
+    if mode.outdated:
+        _check_outdated(conf)
     # Print server version if requested
     if mode.server_version:
-        log.info("Mode: Server version")
-        if conf.url is None:
-            raise UsageError("URL unknown; try again with --url")
-        log.info("Requesting server version...")
+        log.info("Mode: Server Version")
         r = request("GET", f"{conf.url.value}/version")
         if not r.ok:
             raise RuntimeError(f"Failed to get version: {r}")
         print(f"rpipe_server {r.text}")
-        return None
     if mode.query:
         _query(conf)
-        return None
-
-    return conf
+    return True
 
 
 def rpipe(conf: PartialConfig, mode: Mode) -> None:
@@ -138,17 +149,22 @@ def rpipe(conf: PartialConfig, mode: Mode) -> None:
     rpipe: A remote piping tool
     Assumes no UsageError's in mode that argparse would catch
     """
-    config_file = ConfigFile()
-    log = getLogger(_LOG)
-    log.info("Config file: %s", config_file.path)
     _check_mode_flags(mode)
-    loaded: PartialConfig | None = _priority_actions(conf, mode, config_file)
-    if loaded is None:
+    log = getLogger(_LOG)
+    config_file = ConfigFile()
+    log.info("Config file: %s", config_file.path)
+    # Print config if requested, else load it
+    if mode.print_config:
+        log.info("Mode: Print Config")
+        config_file.print()
         return
-    # Finish creating config
+    conf = config_file.load_onto(conf, mode.encrypt.is_false())
+    # Remaining priority actions + finish creating config
+    if _priority_actions(conf, mode, config_file):
+        return
     if mode.write and not mode.encrypt.is_none():
         log.info("Write mode: No password found, falling back to plaintext mode")
-    full_conf = config_file.verify(loaded, mode.encrypt.is_true())
+    full_conf = config_file.verify(conf, mode.encrypt.is_true())
     if (mode.read or mode.write) and not conf.password:
         log.warning("Encryption disabled: plaintext mode")
         if mode.zstd is not None:

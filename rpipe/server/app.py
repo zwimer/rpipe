@@ -10,7 +10,7 @@ from flask import Response, Flask, request
 import waitress
 
 from ..shared import restrict_umask, log, __version__
-from .util import MAX_SIZE_HARD, plaintext
+from .util import MAX_SIZE_HARD, MIN_VERSION, json_response, plaintext
 from .channel import handler, query
 from .server import Server
 from .admin import Admin
@@ -77,6 +77,12 @@ def _help() -> Response:
 def _show_version() -> Response:
     getLogger(_LOG).info("Request for /version")
     return plaintext(__version__)
+
+
+@app.route("/supported")
+def _supported() -> Response:
+    getLogger(_LOG).info("Request for /supported")
+    return json_response({"min": str(MIN_VERSION), "banned": []})
 
 
 @app.route("/c/<channel>", methods=["DELETE", "GET", "POST", "PUT"])

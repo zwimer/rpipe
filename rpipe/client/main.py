@@ -155,7 +155,7 @@ def cli() -> None:
     priority_mode.add_argument("-h", "--help", action="help", help="show this help message and exit")
     priority_mode.add_argument("-V", "--version", action="version", version=f"{parser.prog} {__version__}")
     priority_mode.add_argument(
-        "-X", "--print-config", action="store_true", help="Print out the saved config information then exit"
+        "-X", "--print-config", action="store_true", help="Print out the saved config information"
     )
     priority_mode.add_argument(
         "-S",
@@ -164,8 +164,9 @@ def cli() -> None:
         help="Update the existing rpipe config then exit; allows incomplete configs to be saved",
     )
     priority_mode.add_argument(
-        "-Q", "--server-version", action="store_true", help="Print the server version then exit"
+        "-O", "--outdated", action="store_true", help="Check if this client is too old for the server"
     )
+    priority_mode.add_argument("-Q", "--server-version", action="store_true", help="Print the server version")
     priority_mode.add_argument(
         "-q",
         "--query",
