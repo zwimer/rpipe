@@ -81,7 +81,7 @@ def read(state: State, channel: str) -> Response:
     args = DownloadRequestParams.from_dict(request.args)
     log_params(log, args)
     if args.version != WEB_VERSION and (args.version < MIN_VERSION or args.version.invalid()):
-        return plaintext(f"Bad version. Requires >= {MIN_VERSION}", DownloadEC.illegal_version)
+        return plaintext(f"Bad version. Server requires >= {MIN_VERSION}", DownloadEC.illegal_version)
     with state as u:
         s: Stream | None = u.streams.get(channel, None)
         if (err := _read_error_check(s, args)) is not None:

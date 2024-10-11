@@ -31,7 +31,7 @@ def _recv_error_helper(r: Response, config: Config, peek: bool, put: bool, waite
             v = r.text.split(":")[-1].strip()
             raise VersionError(f"Version mismatch; uploader version = {v}; force a read with --force")
         case DownloadEC.illegal_version:
-            raise VersionError(f"Server requires version >= {r.text}")
+            raise VersionError(r.text)
         case DownloadEC.no_data:
             if put:
                 msg = "This data stream no longer exists; maybe the sender cancelled sending?"

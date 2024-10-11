@@ -35,7 +35,7 @@ def _send_known_error(r: Response) -> None:
     """
     match r.status_code:
         case UploadEC.illegal_version:
-            raise VersionError(f"Server requires version >= {r.text}")
+            raise VersionError(r.text)
         case UploadEC.conflict:
             raise MultipleClients("The stream ID changed mid-upload; maybe the receiver broke the pipe?")
         case UploadEC.wrong_version | UploadEC.too_big | UploadEC.forbidden | UploadEC.stream_id:

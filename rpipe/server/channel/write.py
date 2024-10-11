@@ -47,7 +47,7 @@ def write(state: State, channel: str) -> Response:
     log_params(log, args)
     # Version and size check
     if args.version != WEB_VERSION and (args.version < MIN_VERSION or args.version.invalid()):
-        return plaintext(f"Bad version. Requires >= {MIN_VERSION}", UploadEC.illegal_version)
+        return plaintext(f"Bad version. Server requires >= {MIN_VERSION}", UploadEC.illegal_version)
     add = request.get_data()
     if len(add) > MAX_SIZE_HARD:
         return plaintext(f"Too much data sent. Max data size: {MAX_SIZE_SOFT}", UploadEC.too_big)
