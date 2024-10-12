@@ -1,4 +1,15 @@
-from ..config import UsageError
+from logging import getLogger
+
+
+class UsageError(ValueError):
+    """
+    Raised when the user used the client incorrectly (ex. CLI args)
+    """
+
+    def __init__(self, msg: str):
+        # This is likely CRITICAL, but also likely to be printed out anyway, so log it as info
+        getLogger("UsageError").info("%s", msg)
+        super().__init__(msg)
 
 
 class VersionError(UsageError):

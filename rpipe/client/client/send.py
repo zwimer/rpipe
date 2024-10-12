@@ -13,7 +13,7 @@ from ...shared import (
     version,
 )
 from .errors import MultipleClients, ReportThis, VersionError
-from .util import wait_delay_sec, request, channel_url
+from .util import wait_delay_sec, request
 from .delete import DeleteOnFail
 from .crypt import encrypt
 from .pbar import PBar
@@ -22,7 +22,7 @@ from .io import IO
 if TYPE_CHECKING:
     from collections.abc import Callable
     from requests import Response
-    from ..config import Config
+    from .data import Config
 
 
 _LOG = "send"
@@ -47,7 +47,7 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams, *, lvl
     Upload the given block of data; updates params for next block
     """
     typ = "POST" if params.stream_id is None else "PUT"
-    r = request(typ, channel_url(config), params=params.to_dict(), data=data)
+    r = request(typ, config.channel_url(), params=params.to_dict(), data=data)
     if r.ok:
         return r
     elif r.status_code == UploadEC.wait:

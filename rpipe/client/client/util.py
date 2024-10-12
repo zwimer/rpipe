@@ -1,12 +1,9 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from urllib.parse import quote
 from logging import getLogger
 from functools import cache
 
 from requests import Session, Request
-
-from ..config import Config
 
 if TYPE_CHECKING:
     from requests import Response
@@ -23,10 +20,6 @@ def wait_delay_sec(lvl: int) -> float:
     if lvl < 0:
         raise ValueError("Invalid level")
     return _WAIT_DELAY_SEC[max(i for i in _WAIT_DELAY_SEC if i <= lvl)]
-
-
-def channel_url(c: Config) -> str:
-    return f"{c.url}/c/{quote(c.channel)}"
 
 
 @cache

@@ -2,18 +2,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from logging import getLogger
 
-from .util import request, channel_url
+from .util import request
 
 if TYPE_CHECKING:
-    from ..config import Config
+    from .data import Config
 
 
-def delete(full_conf: Config) -> None:
+def delete(conf: Config) -> None:
     """
     Delete the channel
     """
-    getLogger("delete").info("Deleting channel %s", full_conf.channel)
-    r = request("DELETE", channel_url(full_conf))
+    getLogger("delete").info("Deleting channel %s", conf.channel)
+    r = request("DELETE", conf.channel_url())
     if not r.ok:
         raise RuntimeError(r)
 

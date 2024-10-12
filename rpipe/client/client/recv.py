@@ -8,14 +8,14 @@ from zstandard import ZstdDecompressor
 
 from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadEC, LFS, version
 from .errors import MultipleClients, ReportThis, VersionError, StreamError, NoData
-from .util import wait_delay_sec, request, channel_url
+from .util import wait_delay_sec, request
 from .delete import DeleteOnFail
 from .crypt import decrypt
 from .pbar import PBar
 
 if TYPE_CHECKING:
     from requests import Response
-    from ..config import Config
+    from .data import Config
 
 
 _LOG = "recv"
@@ -106,7 +106,7 @@ def recv(config: Config, block: bool, peek: bool, force: bool, progress: bool | 
     Receive data from the remote pipe
     """
     log = getLogger(_LOG)
-    url = channel_url(config)
+    url = config.channel_url()
     log.info("Reading from channel %s with peek=%s and force=%s", config.channel, peek, force)
     params = DownloadRequestParams(version=version, override=force, delete=not peek)
     lvl: int | None = 0

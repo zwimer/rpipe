@@ -2,21 +2,75 @@ from __future__ import annotations
 from logging import basicConfig, getLevelName, getLogger
 from multiprocessing import cpu_count
 from typing import TYPE_CHECKING
-from dataclasses import fields
+from dataclasses import asdict
 from pathlib import Path
+from os import getenv
 import argparse
 import sys
 
-from .config import PASSWORD_ENV, UsageError, PartialConfig, Option
+from human_readable import listing
+
 from ..shared import log, __version__
-from .client import Mode, rpipe
+from .client import UsageError, Config, Mode, rpipe
 from .admin import Admin
 
 if TYPE_CHECKING:
     from argparse import Namespace
 
 
+PASSWORD_ENV: str = "RPIPE_PASSWORD"
 _SI_UNITS: str = "KMGT"
+_DEFAULT_CF = Path.home() / ".config" / "rpipe.json"
+_LOG = "main"
+
+
+def _check_mode_flags(mode: Mode) -> None:
+    if (mode.read, mode.write, mode.delete).count(True) != 1:
+        raise UsageError("Can only read, write, or delete at a time")
+    # Flag specific checks
+    if mode.ttl is not None and mode.ttl <= 0:
+        raise UsageError("--ttl must be positive")
+    if mode.progress is not False and mode.progress <= 0:
+        raise UsageError("--progress argument must be positive if passed")
+    # Mode flags
+    read_bad = {"ttl"}
+    write_bad = {"block", "peek", "force"}
+    delete_bad = read_bad | write_bad | {"progress", "encrypt"}
+    bad = lambda x: [f"--{i}" for i in x if bool(getattr(mode, i))]
+    fmt = lambda x: f"argument{'' if len(x) == 1 else 's'} {listing(x, ',', 'and') }: may not be used "
+    if mode.priority() and (args := bad(delete_bad)):
+        raise UsageError(fmt(args) + "with priority modes")
+    # Mode specific flags
+    if mode.read and (args := bad(read_bad)):
+        raise UsageError(fmt(args) + "when reading data from the pipe")
+    if mode.write and (args := bad(write_bad)):
+        raise UsageError(fmt(args) + "when writing data to the pipe")
+    if mode.delete and (args := bad(delete_bad)):
+        raise UsageError(fmt(args) + "when deleting data from the pipe")
+
+
+def _main(raw_ns: Namespace, conf: Config):
+    ns = vars(raw_ns)
+    # Load Mode
+    mode_d = {i: k for i, k in ns.items() if i in Mode.keys()}
+    read: bool = sys.stdin.isatty() and not mode_d["delete"]
+    mode = Mode(read=read, write=not (read or mode_d["delete"]), **mode_d)
+    # Adjustments, error check, then execute
+    _check_mode_flags(mode)
+    if ns["encrypt"] is None:
+        mode = Mode(**(asdict(mode) | {"encrypt": bool(conf.password)}))
+    if mode.encrypt and not conf.password:
+        raise UsageError(f"--encrypt flag requires a password; set via {PASSWORD_ENV}")
+    rpipe(conf, mode, ns["config_file"])
+
+
+def _admin(ns: Namespace, conf: Config) -> None:
+    kw = []
+    if ns.method == "log":
+        kw.append("output_file")
+    if ns.method == "log-level":
+        kw.append("level")
+    getattr(Admin(conf), ns.method.replace("-", "_"))(**{i: getattr(ns, i) for i in kw})
 
 
 def _si_parse(size: str) -> int:
@@ -28,34 +82,6 @@ def _si_parse(size: str) -> int:
     except ValueError as e:
         raise UsageError(f"Invalid size: {size}") from e
     raise UsageError(f"Invalid size: {size}")
-
-
-def _admin(ns: Namespace):
-    kw = ["url", "key_file"]
-    if ns.method == "log":
-        kw.append("output_file")
-    if ns.method == "log-level":
-        kw.append("level")
-    getattr(Admin(), ns.method.replace("-", "_"))(**{i: getattr(ns, i) for i in kw})
-
-
-def _main(raw_ns: Namespace):
-    ns = vars(raw_ns)
-    opt = lambda a, b: Option(True if ns.pop(a) else (False if ns.pop(b) else None))
-    mode_d = {i: k for i, k in ns.items() if i in {i.name for i in fields(Mode) if i.name != "encrypt"}}
-    if mode_d["progress"] is None:
-        mode_d["progress"] = False
-    read: bool = sys.stdin.isatty() and not mode_d["delete"]
-    rpipe(
-        PartialConfig(
-            ssl=opt("ssl", "no_require_ssl"),
-            url=Option(ns.pop("url")),
-            channel=Option(ns.pop("channel")),
-            password=Option(),
-            key_file=Option(ns.pop("key_file")),
-        ),
-        Mode(read=read, write=not (read or mode_d["delete"]), encrypt=opt("encrypt", "plaintext"), **mode_d),
-    )
 
 
 # pylint: disable=too-many-locals,too-many-statements
@@ -123,7 +149,7 @@ def cli() -> None:
         " Values can be suffixed with K, M, G, or T, to multiply by powers of 1000"
     )
     read_write_g.add_argument(
-        "-P", "--progress", metavar="size", type=_si_parse, const=True, nargs="?", help=msg
+        "-P", "--progress", metavar="SIZE", type=_si_parse, default=False, const=True, nargs="?", help=msg
     )
     # Config options
     config = parser.add_argument_group("Config Options")
@@ -132,21 +158,17 @@ def cli() -> None:
     config.add_argument(
         "-k",
         "--key-file",
-        default=None,
         type=Path,
         help="SSH ed25519 private key file used to signed admin requests",
     )
-    enc_g = config.add_mutually_exclusive_group()
-    enc_g.add_argument(
+    config.add_argument("-C", "--config-file", type=Path, default=_DEFAULT_CF, help="The custom config file")
+    config.add_argument(
         "-e",
         "--encrypt",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         help=f"Encrypt the data; uses {PASSWORD_ENV} as the password if set, otherwise uses saved password",
     )
-    enc_g.add_argument("--plaintext", action="store_true", help="Do not encrypt or compress the data")
-    ssl_g = config.add_mutually_exclusive_group()
-    ssl_g.add_argument("-s", "--ssl", action="store_true", help="Require host use https")
-    ssl_g.add_argument("--no-require-ssl", action="store_true", help="Do not require host use https")
+    config.add_argument("-s", "--ssl", action=argparse.BooleanOptionalAction, help="Require host use https")
     # Priority Modes
     priority_mode = parser.add_argument_group(
         "Alternative Modes",
@@ -155,7 +177,7 @@ def cli() -> None:
     priority_mode.add_argument("-h", "--help", action="help", help="show this help message and exit")
     priority_mode.add_argument("-V", "--version", action="version", version=f"{parser.prog} {__version__}")
     priority_mode.add_argument(
-        "-X", "--print-config", action="store_true", help="Print out the saved config information"
+        "-X", "--print-config", action="store_true", help="Print out the config (including CLI args)"
     )
     priority_mode.add_argument(
         "-S",
@@ -179,7 +201,7 @@ def cli() -> None:
         title="Admin Commands",
         description=(
             "Server admin commands; must be used with --admin and should have a key file set before use."
-            " All arguments except --verbose, --url, and --key-file are ignored with admin commands."
+            " All arguments except --verbose, config arguments are ignored with admin commands."
             " Server must be configured to accept messages signed by your selected private key file"
         ),
         dest="method",
@@ -198,12 +220,18 @@ def cli() -> None:
     log.define_trace()
     lvl = log.level(parsed.verbose)
     basicConfig(level=lvl, datefmt=log.DATEFMT, format=log.FORMAT)
-    getLogger().info("Logging level set to %s", getLevelName(lvl))
+    getLogger(_LOG).info("Logging level set to %s", getLevelName(lvl))
     del parsed.verbose
+    # Load Config
+    conf_d = {i: k for i, k in vars(parsed).items() if i in Config.keys()}
+    if (pw := getenv(PASSWORD_ENV)) is not None:
+        getLogger(_LOG).debug("Taking password from: %s", PASSWORD_ENV)
+        conf_d["password"] = pw
+    conf = Config.load(conf_d, parsed.config_file)  # We do not validate conf yet
     # Invoke the correct function
     if (parsed.method is not None) != parsed.admin:
         raise UsageError("Admin command must be passed with --admin")
     try:
-        (_admin if parsed.admin else _main)(parsed)
+        (_admin if parsed.admin else _main)(parsed, conf)
     except UsageError as e:
         parser.error(str(e))

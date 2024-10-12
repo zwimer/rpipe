@@ -1,1 +1,3 @@
-from .client import Mode, rpipe
+from .errors import UsageError
+from .data import Config, Mode
+from .client import rpipe

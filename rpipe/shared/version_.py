@@ -2,7 +2,7 @@ from __future__ import annotations
 from functools import total_ordering
 
 
-__version__: str = "8.9.0"  # Must be "<major>.<minor>.<patch>", all numbers
+__version__: str = "8.10.0"  # Must be "<major>.<minor>.<patch>", all numbers
 
 
 @total_ordering

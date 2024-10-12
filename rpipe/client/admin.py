@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING
 from dataclasses import dataclass
 from datetime import datetime
 from collections import deque
+from functools import partial
 from logging import getLogger
 from json import loads, dumps
 from base64 import b85encode
-from functools import cache
 from pathlib import Path
 import zlib
 
@@ -15,7 +15,7 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from requests import Session
 
 from ..shared import QueryResponse, AdminMessage, AdminEC, version
-from .config import ConfigFile, UsageError, Option
+from .client import Config, UsageError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -35,12 +35,6 @@ _LOG = "admin"
 class AccessDenied(RuntimeError):
     """
     Raised when the server denies an admin request
-    """
-
-
-class IllegalVersion(UsageError):
-    """
-    Raised when the server is running a version that is not supported
     """
 
 
@@ -113,7 +107,7 @@ class _Methods:
                 self._log.critical("Admin access denied")
                 raise AccessDenied()
             case AdminEC.illegal_version:
-                raise IllegalVersion(ret.text, log=self._log.critical)
+                raise UsageError(ret.text)
         if not ret.ok:
             what = f"Error {ret.status_code}: {ret.text}"
             self._log.critical(what)
@@ -178,50 +172,30 @@ class Admin:
     A class used to ask the server to run admin functions
     """
 
-    def __init__(self):
+    def __init__(self, conf: Config):
         self._log = getLogger(_LOG)
         self._methods = _Methods()
+        if not conf.url or not conf.key_file:
+            raise UsageError("Admin mode requires a URL and key-file to be set")
+        self._conf = Conf(sign=self._load_ssh_key_file(conf.key_file), url=conf.url, session=Session())
 
     def _load_ssh_key_file(self, key_file: Path) -> Callable[[bytes], bytes]:
+        """
+        Load a private key from a file
+        :return: A function that can sign data using the key file
+        """
+        self._log.info("Extracting private key from %s", key_file)
         if not key_file.exists():
-            raise UsageError(f"Key file {key_file} does not exist", log=self._log.critical)
+            raise UsageError(f"Key file {key_file} does not exist")
         try:
             key = load_ssh_private_key(key_file.read_bytes(), None)
         except UnsupportedAlgorithm as e:
-            raise UsageError(f"Key file {key_file} is not a supported ssh key", log=self._log.critical) from e
+            raise UsageError(f"Key file {key_file} is not a supported ssh key") from e
         if not hasattr(key, "sign"):
-            raise UsageError(f"Key file {key_file} does not support signing", log=self._log.critical)
+            raise UsageError(f"Key file {key_file} does not support signing")
         if TYPE_CHECKING:
             return cast(Callable[[bytes], bytes], key.sign)
         return key.sign
-
-    @cache  # pylint: disable=method-cache-max-size-none
-    def _get_conf(self, raw_url: str | None, raw_key_file: Path | None):
-        """
-        Extract a Conf from the given arguments and existing config file
-        Saves the config internally
-        """
-        self._log.info("Determining Conf; defaults: url=%s, key_file=%s", raw_url, raw_key_file)
-        # Load data from config file
-        try:
-            path = ConfigFile().path
-            self._log.info("Querying config file %s if it exists", path)
-            raw = loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-            key_file = Path(Option(raw_key_file).opt(raw.get("key_file", None)).value)
-            url: str = Option(raw_url).opt(raw.get("url", None)).value
-        except Exception as e:
-            msg = "Admin mode requires a URL and key file to be set or provided via the CLI"
-            raise UsageError(msg, log=self._log.critical) from e
-        self._log.info("Found key file: %s, extracting private key", key_file)
-        # Load ssh key
-        return Conf(sign=self._load_ssh_key_file(key_file), url=url, session=Session())
-
-    def _give_conf(self, func):
-        def wrapper(*args, **kwargs):
-            conf = self._get_conf(kwargs.pop("url"), kwargs.pop("key_file"))
-            return func(*args, conf=conf, **kwargs)
-
-        return wrapper
 
     def __getattribute__(self, item: str) -> Any:
         """
@@ -229,4 +203,4 @@ class Admin:
         """
         if item.startswith("_"):
             return object.__getattribute__(self, item)
-        return self._give_conf(self._methods.get(item, require_ssl=item != "debug"))
+        return partial(self._methods.get(item, require_ssl=item != "debug"), conf=self._conf)
