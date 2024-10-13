@@ -65,6 +65,7 @@ def _recv_error(*args, **kwargs) -> None:
         raise e
 
 
+# pylint: disable=too-many-positional-arguments
 def _recv_body(
     config: Config,
     block: bool,
