@@ -1,8 +1,7 @@
 from __future__ import annotations
 from functools import total_ordering
 
-
-__version__: str = "8.10.0"  # Must be "<major>.<minor>.<patch>", all numbers
+from .. import __version__
 
 
 @total_ordering

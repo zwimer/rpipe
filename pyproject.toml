@@ -49,7 +49,7 @@ find = {namespaces = false}
 rpipe = ["py.typed"]
 
 [tool.setuptools.dynamic]
-version = {attr = "rpipe.shared.version_.__version__"}
+version = {attr = "rpipe.__version__"}
 
 # Tools
 
