@@ -32,7 +32,7 @@ def _logged(func):
         if not server.debug:  # Flask already does what we want
             if (fp := request.full_path).endswith("?"):
                 fp = fp[:-1]
-            getLogger(_LOG).info('%s - "%s %s" %d', request.host_url, request.method, fp, ret.status_code)
+            getLogger(_LOG).info('%s - "%s %s" %d', request.host, request.method, fp, ret.status_code)
         return ret
 
     return wrapper

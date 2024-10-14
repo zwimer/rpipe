@@ -178,7 +178,7 @@ class Admin:
         return None
 
     def _verify_signature(self, signature: bytes, msg: bytes) -> Path | None:
-        self._log.info("Verifying signature of message: %s", msg)
+        self._log.debug("Verifying signature of message: %s", msg)
         for fn, path in self._verifiers:
             try:
                 fn(signature, data=msg)
