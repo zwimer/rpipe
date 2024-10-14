@@ -3,6 +3,7 @@ from logging import StreamHandler, FileHandler, Formatter, getLevelName, getLogg
 from os import environ, close as fd_close
 from dataclasses import dataclass
 from tempfile import mkstemp
+from functools import wraps
 from pathlib import Path
 import atexit
 
@@ -17,10 +18,24 @@ from .admin import Admin
 
 
 app = Flask(f"rpipe_server {__version__}")
-_REUSE_DEBUG_LOG_FILE = "_REUSE_DEBUG_LOG_FILE"
 server = Server()
 admin = Admin()
+
+_REUSE_DEBUG_LOG_FILE = "_REUSE_DEBUG_LOG_FILE"
 _LOG = "app"
+
+
+def _logged(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        ret = func(*args, **kwargs)
+        if not server.debug:  # Flask already does what we want
+            if (fp := request.full_path).endswith("?"):
+                fp = fp[:-1]
+            getLogger(_LOG).info('%s - "%s %s" %d', request.host_url, request.method, fp, ret.status_code)
+        return ret
+
+    return wrapper
 
 
 #
@@ -51,17 +66,19 @@ class ServerConfig:
 
 
 @app.errorhandler(404)
+@_logged
 def _page_not_found(_, *, quiet=False) -> Response:
     lg = getLogger(_LOG)
-    lg.warning("404: Request from %s for %s", request.host_url, request.url)
+    if not quiet:
+        lg.warning("404: Not found: %s", request.path)
     (lg.debug if quiet else lg.info)("Headers: %s", request.headers)
     return Response("404: Not found", status=404)
 
 
 @app.route("/")
 @app.route("/help")
+@_logged
 def _help() -> Response:
-    getLogger(_LOG).info("Request for /help")
     msg = (
         "Welcome to the web UI of rpipe. "
         "To interact with a given channel, use the path /c/<channel>. "
@@ -83,23 +100,25 @@ def _mk_favicon(file: Path | None) -> None:
 
 
 @app.route("/version")
+@_logged
 def _show_version() -> Response:
-    getLogger(_LOG).info("Request for /version")
     return plaintext(__version__)
 
 
 @app.route("/supported")
+@_logged
 def _supported() -> Response:
-    getLogger(_LOG).info("Request for /supported")
     return json_response({"min": str(MIN_VERSION), "banned": []})
 
 
 @app.route("/c/<channel>", methods=["DELETE", "GET", "POST", "PUT"])
+@_logged
 def _channel(channel: str) -> Response:
     return handler(server.state, channel)
 
 
 @app.route("/q/<channel>")
+@_logged
 def _query(channel: str) -> Response:
     return query(server.state, channel)
 
@@ -108,6 +127,7 @@ def _query(channel: str) -> Response:
 
 
 @app.route("/admin/uid")
+@_logged
 def _admin_uid() -> Response:
     """
     Get a few UIDSs needed to sign admin requests
@@ -118,26 +138,31 @@ def _admin_uid() -> Response:
 
 
 @app.route("/admin/debug", methods=["POST"])
+@_logged
 def _admin_debug() -> Response:
     return admin.debug(server.state)
 
 
 @app.route("/admin/channels", methods=["POST"])
+@_logged
 def _admin_channels() -> Response:
     return admin.channels(server.state)
 
 
 @app.route("/admin/stats", methods=["POST"])
+@_logged
 def _admin_stats() -> Response:
     return admin.stats(server.state)
 
 
 @app.route("/admin/log", methods=["POST"])
+@_logged
 def _admin_log() -> Response:
     return admin.log(server.state)
 
 
 @app.route("/admin/log-level", methods=["POST"])
+@_logged
 def _admin_log_level() -> Response:
     return admin.log_level(server.state)
 

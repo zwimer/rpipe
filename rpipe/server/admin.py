@@ -51,11 +51,11 @@ class _UID:
         with self._lock:
             eol = datetime.now() + timedelta(seconds=self._UID_EXPIRE)
             self._uids.update({i: eol for i in ret})
-        self._log.info("Generated %s new UIDs", n)
+        self._log.debug("Generated %s new UIDs", n)
         return ret
 
     def verify(self, uid: str) -> bool:
-        self._log.info("Verifying UID: %s", uid)
+        self._log.debug("Verifying UID: %s", uid)
         with self._lock:
             if uid not in self._uids:
                 self._log.error("UID not found: %s", uid)
@@ -63,7 +63,7 @@ class _UID:
             if datetime.now() > self._uids.pop(uid):
                 self._log.warning("UID expired: %s", uid)
                 return False
-            self._log.info("UID verified.")
+            self._log.debug("UID verified")
         return True
 
 
@@ -220,7 +220,9 @@ class Admin:
                     return Response(status=AdminEC.unauthorized)
                 stat.signer = key_file
                 # Execute function
-                self._log.info("Signature verified. Executing %s", request.full_path)
+                if (fp := request.full_path).endswith("?"):
+                    fp = fp[:-1]
+                self._log.info("Signature verified. Executing %s", fp)
                 return func(state=state, body=msg.body)
             except Exception as e:  # pylint: disable=broad-except
                 self._log.error(e, exc_info=True)

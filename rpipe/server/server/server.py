@@ -15,9 +15,17 @@ class Server(metaclass=Singleton):
 
     def __init__(self):
         self._log = logging.getLogger("server")
+        self._debug: bool | None = None
         self.state = State()
 
+    @property
+    def debug(self) -> bool:
+        if self._debug is None:
+            raise RuntimeError("Server not started")
+        return self._debug
+
     def start(self, debug: bool, state_file: Path | None) -> None:
+        self._debug = debug
         with self.state as s:
             s.debug = debug
         self._log.info("Initializing server")
