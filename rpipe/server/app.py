@@ -1,5 +1,5 @@
 from __future__ import annotations
-from logging import StreamHandler, FileHandler, Formatter, getLevelName, getLogger, shutdown
+from logging import DEBUG, INFO, StreamHandler, FileHandler, Formatter, getLevelName, getLogger, shutdown
 from os import environ, close as fd_close
 from dataclasses import dataclass
 from tempfile import mkstemp
@@ -29,10 +29,12 @@ def _logged(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         ret = func(*args, **kwargs)
-        if not server.debug:  # Flask already does what we want
+        if not server.debug:  # Flask in debug mode already does what we want
             if (fp := request.full_path).endswith("?"):
                 fp = fp[:-1]
-            getLogger(_LOG).info('%s - "%s %s" %d', request.remote_addr, request.method, fp, ret.status_code)
+            lvl = DEBUG if (ret.status_code < 300 or ret.status_code == 425) else INFO
+            args = (request.remote_addr, request.method, fp, ret.status_code)
+            getLogger(_LOG).log(lvl, '%s - "%s %s" %d', *args)
         return ret
 
     return wrapper

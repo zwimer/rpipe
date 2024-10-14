@@ -5,7 +5,7 @@ from logging import getLogger
 
 from flask import request
 
-from ...shared import QueryEC
+from ...shared import TRACE, QueryEC
 from ..util import plaintext, json_response
 from ..server import ServerShutdown
 from .write import write
@@ -41,17 +41,17 @@ def _handler(state: State, channel: str) -> Response:
 
 def handler(state: State, channel: str) -> Response:
     log = getLogger("channel")
-    log.info("Invoking: %s %s", request.method, channel)
+    log.debug("Invoking: %s %s", request.method, channel)
     ret = _handler(state, channel)
-    log.info("Sending: %s", ret)
-    if ret.status_code >= 400:
-        log.debug("  body: %s", ret.get_data())
+    if ret.status_code >= 300:
+        log.debug("Sending: %s", ret)
+        log.log(TRACE, "Body: %s", ret.get_data())
     return ret
 
 
 def query(state: State, channel: str) -> Response:
     log = getLogger("query")
-    log.info("Query %s", channel)
+    log.debug("Query %s", channel)
     with state as u:
         if (s := u.streams.get(channel, None)) is None:
             log.debug("Channel not found: %s", channel)
