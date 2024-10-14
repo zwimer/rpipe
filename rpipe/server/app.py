@@ -51,7 +51,9 @@ class ServerConfig:
 
 @app.errorhandler(404)
 def page_not_found(_) -> Response:
-    getLogger(_LOG).warning("404: Request for %s", request.full_path)
+    lg = getLogger(_LOG)
+    lg.warning("404: Request from %s for %s", request.host_url, request.url)
+    lg.info("Headers: %s", request.headers)
     return Response("404: Not found", status=404)
 
 
