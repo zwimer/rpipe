@@ -6,7 +6,7 @@ from tempfile import mkstemp
 from pathlib import Path
 import atexit
 
-from flask import Response, Flask, request
+from flask import Response, Flask, send_file, request
 import waitress
 
 from ..shared import restrict_umask, log, __version__
@@ -42,6 +42,7 @@ class ServerConfig:
     debug: bool
     state_file: Path | None
     key_files: list[Path]
+    favicon: Path | None
 
 
 #
@@ -50,10 +51,10 @@ class ServerConfig:
 
 
 @app.errorhandler(404)
-def page_not_found(_) -> Response:
+def _page_not_found(_, *, quiet=False) -> Response:
     lg = getLogger(_LOG)
     lg.warning("404: Request from %s for %s", request.host_url, request.url)
-    lg.info("Headers: %s", request.headers)
+    (lg.debug if quiet else lg.info)("Headers: %s", request.headers)
     return Response("404: Not found", status=404)
 
 
@@ -73,6 +74,12 @@ def _help() -> Response:
         "Install the CLI via: pip install rpipe"
     )
     return plaintext(msg)
+
+
+def _mk_favicon(file: Path | None) -> None:
+    @app.route("/favicon.ico")
+    def _favicon() -> Response:
+        return _page_not_found(404, quiet=True) if file is None else send_file(file)
 
 
 @app.route("/version")
@@ -186,6 +193,8 @@ def _log_config(conf: LogConfig) -> Path:
 def serve(conf: ServerConfig, log_conf: LogConfig) -> None:
     log_file = _log_config(log_conf)
     lg = getLogger(_LOG)
+    lg.debug("Constructing favicon route given favicon.ico=%s", conf.favicon)
+    _mk_favicon(conf.favicon)
     lg.info("Setting max packet size: %s", log.LFS(MAX_SIZE_HARD))
     app.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
     app.url_map.strict_slashes = False

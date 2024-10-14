@@ -28,6 +28,7 @@ def cli() -> None:
         default=[],
         help="SSH ed25519 public keys to accept for admin access",
     )
+    parser.add_argument("-F", "--favicon", type=Path, help="The favicon file, if desired")
     log_group = parser.add_argument_group("Logging")
     log_group.add_argument(
         "-l", "--log-file", type=Path, default=None, help="The log file to append to, if desired"
