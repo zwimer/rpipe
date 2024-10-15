@@ -32,7 +32,7 @@ def _logged(func):
         if not server.debug:  # Flask in debug mode already does what we want
             if (fp := request.full_path).endswith("?"):
                 fp = fp[:-1]
-            lvl = DEBUG if (ret.status_code < 300 or ret.status_code == 425) else INFO
+            lvl = DEBUG if (ret.status_code < 300 or ret.status_code in (410, 425)) else INFO
             args = (request.remote_addr, request.method, fp, ret.status_code)
             getLogger(_LOG).log(lvl, '%s - "%s %s" %d', *args)
         return ret
