@@ -48,7 +48,7 @@ def _logged(func):
 @dataclass(frozen=True, kw_only=True)
 class LogConfig:
     log_file: Path
-    verbose: bool
+    verbose: int
     debug: bool
 
 
@@ -232,4 +232,4 @@ def serve(conf: ServerConfig, log_conf: LogConfig) -> None:
     if conf.debug:
         app.run(host=conf.host, port=conf.port, debug=True)
     else:
-        waitress.serve(app, host=conf.host, port=conf.port)
+        waitress.serve(app, host=conf.host, port=conf.port, clear_untrusted_proxy_headers=False)
