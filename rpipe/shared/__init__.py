@@ -9,6 +9,6 @@ from .request_response import (
     AdminMessage,
 )
 from .error_code import UploadEC, DownloadEC, QueryEC, AdminEC
-from .util import restrict_umask, total_len
+from .util import restrict_umask, remote_addr, total_len
 from .stats import AdminStats, Stats
 from .log import TRACE, LFS

@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from flask import Response, request
 
-from ..shared import AdminMessage, AdminStats, AdminEC, Version
+from ..shared import AdminMessage, AdminStats, AdminEC, Version, remote_addr
 from .util import plaintext, json_response
 
 if TYPE_CHECKING:
@@ -195,7 +195,7 @@ class Admin:
         def _verify(state: State) -> Response:
             try:
                 # Log the request and verify initialization
-                stat = AdminStats(host=request.remote_addr, command=func.__name__[len(self._UNSAFE) :])
+                stat = AdminStats(host=remote_addr(), command=func.__name__[len(self._UNSAFE) :])
                 with state as s:
                     s.stats.admin.append(stat)
                 if not self._init:

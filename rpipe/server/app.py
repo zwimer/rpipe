@@ -10,7 +10,7 @@ import atexit
 from flask import Response, Flask, send_file, request
 import waitress
 
-from ..shared import restrict_umask, log, __version__
+from ..shared import restrict_umask, remote_addr, log, __version__
 from .util import MAX_SIZE_HARD, MIN_VERSION, json_response, plaintext
 from .channel import handler, query
 from .server import Server
@@ -33,7 +33,7 @@ def _logged(func):
             if (fp := request.full_path).endswith("?"):
                 fp = fp[:-1]
             lvl = DEBUG if (ret.status_code < 300 or ret.status_code in (410, 425)) else INFO
-            args = (request.remote_addr, request.method, fp, ret.status_code)
+            args = (remote_addr(), request.method, fp, ret.status_code)
             getLogger(_LOG).log(lvl, '%s - "%s %s" %d', *args)
         return ret
 
