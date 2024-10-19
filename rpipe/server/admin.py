@@ -128,7 +128,7 @@ class Admin:
         self._log.debug("Sending compressed log of size: %s", len(data))
         return Response(data, status=200, mimetype="application/octet-stream")
 
-    def _unsafe_log_level(self, state: State, body: str, **_) -> Response:
+    def _unsafe_log_level(self, state: State, body: str) -> Response:
         root = getLogger()
         new = (old := getLevelName(root.getEffectiveLevel()))
         if body:
@@ -235,8 +235,8 @@ class Admin:
                     fp = fp[:-1]
                 self._log.info("Signature verified. Executing %s", fp)
                 return func(state=state, body=msg.body)
-            except Exception as e:  # pylint: disable=broad-except
-                self._log.error(e, exc_info=True)
+            except Exception:  # pylint: disable=broad-except
+                self._log.error("Failed due to:", exc_info=True)
                 return Response(status=500)
 
         return _verify

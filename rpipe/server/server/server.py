@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 class Server(Singleton):
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._log = logging.getLogger("server")
         self._debug: bool | None = None
         self.state = State()
