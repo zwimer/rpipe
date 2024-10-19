@@ -6,7 +6,7 @@ import atexit
 import signal
 import sys
 
-from ..util import Singleton
+from zstdlib import Singleton
 
 if TYPE_CHECKING:
     from .state import State
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 _LOG = "ShutdownHandler"
 
 
-class ShutdownHandler(metaclass=Singleton):
+class ShutdownHandler(Singleton):
     def __init__(self, state: State, file: Path):
         self._state = state
         self.file: Path = file

@@ -1,39 +1,8 @@
-# Note that we don't use real enums in this file for multiple reasons
-# One of which is that these enums are incomplete and other error codes exist
-# Enum just adds extra overhead and code bloat
+from zstdlib import Enum
 
 
 # pylint: disable=bad-mcs-method-argument,bad-mcs-classmethod-argument
-class _UniqueEnum(type):
-    """
-    Metaclass for 'Enum' classes to ensure that their values are unique and the class is never instantiated
-    """
-
-    def __new__(mcls, name, bases, attrs, **kwargs):
-        def _ni(*_, **__):
-            raise NotImplementedError("Cannot instantiate this class")
-
-        for bad in ("__init__", "__new__"):
-            if bad in attrs:
-                raise ValueError("Cannot define __init__ or __new__")
-            attrs[bad] = _ni
-        values = set()
-        for v in (k for i, k in attrs.items() if not i.startswith("__")):
-            if v in values:
-                raise ValueError(f"Duplicate value: {v}")
-            if not isinstance(v, int):
-                raise ValueError(f"Value must be an int: {v}")
-            values.add(v)
-        return type.__new__(mcls, name, bases, attrs, **kwargs)
-
-    def __delattr__(self, *_):
-        raise AttributeError("Cannot modify this class")
-
-    def __setattr__(self, *_):
-        raise AttributeError("Cannot modify this class")
-
-
-class UploadEC(metaclass=_UniqueEnum):
+class UploadEC(Enum):
     """
     HTTP error codes the rpipe client may be sent when uploading data
     Others may be sent, but these are the ones the client should be prepared to handle
@@ -48,7 +17,7 @@ class UploadEC(metaclass=_UniqueEnum):
     forbidden: int = 403  #        Writing to finalized stream
 
 
-class DownloadEC(metaclass=_UniqueEnum):
+class DownloadEC(Enum):
     """
     HTTP error codes the rpipe client may be sent when downloading data
     Others may be sent, but these are the ones the client should be prepared to handle
@@ -64,7 +33,7 @@ class DownloadEC(metaclass=_UniqueEnum):
     in_use: int = 453  #           Someone else is reading from the pipe
 
 
-class QueryEC(metaclass=_UniqueEnum):
+class QueryEC(Enum):
     """
     HTTP error codes the rpipe client may be sent when in query mode
     Others may be sent, but these are the ones the client should be prepared to handle
@@ -74,7 +43,7 @@ class QueryEC(metaclass=_UniqueEnum):
     no_data: int = 410  #          No data on this channel
 
 
-class AdminEC(metaclass=_UniqueEnum):
+class AdminEC(Enum):
     """
     HTTP error codes the rpipe client may be sent when in admin mode
     Others may be sent, but these are the ones the client should be prepared to handle

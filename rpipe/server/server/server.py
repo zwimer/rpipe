@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING
 from os import environ
 import logging
 
-from ..util import Singleton
+from zstdlib import Singleton
+
 from .prune_thread import PruneThread
 from .state import State
 
@@ -11,7 +12,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-class Server(metaclass=Singleton):
+class Server(Singleton):
 
     def __init__(self):
         self._log = logging.getLogger("server")

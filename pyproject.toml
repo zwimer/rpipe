@@ -24,6 +24,7 @@ dependencies = [
     "tqdm",
     # Server
     "waitress",
+    "zstdlib==0.0.5",
     "flask",
     # Both
     "human_readable",
