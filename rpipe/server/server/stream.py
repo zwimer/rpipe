@@ -39,7 +39,7 @@ class Stream:  # pylint: disable=too-many-instance-attributes
     def __post_init__(self) -> None:
         self.expire: datetime  # Set by __setattr__
         self._capacity: int = _PIPE_MAX_BYTES
-        self._CONSTANTS = ("encrypted", "version", "id_", "_CONSTANTS")
+        self._constants = ("encrypted", "version", "id_", "_constants")
 
     def __setattr__(self, key, value):
         """
@@ -47,7 +47,7 @@ class Stream:  # pylint: disable=too-many-instance-attributes
         """
         if key == "expire":
             raise AttributeError("Expiration date is automatically set; do not change it manually")
-        if key in getattr(self, "_CONSTANTS", {}):
+        if key in getattr(self, "_constants", {}):
             raise AttributeError("Cannot change constant values")
         super().__setattr__(key, value)
         if hasattr(self, "ttl"):  # hasattr b/c we might not during init

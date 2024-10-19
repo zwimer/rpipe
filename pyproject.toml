@@ -53,6 +53,16 @@ version = {attr = "rpipe.__version__"}
 
 # Tools
 
+[tool.pylint]
+disable = [
+	"unnecessary-lambda-assignment",
+	"missing-function-docstring",
+	"missing-module-docstring",
+	"missing-class-docstring",
+	"too-few-public-methods",
+	"line-too-long"
+]
+
 [tool.black]
 line-length = 110
 target-version = ["py312", "py313"]

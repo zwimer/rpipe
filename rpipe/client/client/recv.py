@@ -91,15 +91,14 @@ def _recv_body(
             return None  # Stream complete
         params.stream_id = headers.stream_id
         return 0
-    elif (block and r.status_code == DownloadEC.no_data) or (r.status_code == DownloadEC.wait):
+    if (block and r.status_code == DownloadEC.no_data) or (r.status_code == DownloadEC.wait):
         delay = wait_delay_sec(lvl)
         log.info("No data available yet, sleeping for %s second(s)", delay)
         sleep(delay)
         return lvl + 1
-    else:
-        log.error("Error reading from channel %s. Status Code: %s", config.channel, r.status_code)
-        _recv_error(r, config, peek, params.stream_id is not None, lvl != 0)
-        raise NotImplementedError("Unreachable code")
+    log.error("Error reading from channel %s. Status Code: %s", config.channel, r.status_code)
+    _recv_error(r, config, peek, params.stream_id is not None, lvl != 0)
+    raise NotImplementedError("Unreachable code")
 
 
 def recv(config: Config, block: bool, peek: bool, force: bool, progress: bool | int) -> None:

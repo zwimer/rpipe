@@ -50,14 +50,13 @@ def _send_block(data: bytes, config: Config, params: UploadRequestParams, *, lvl
     r = request(typ, config.channel_url(), params=params.to_dict(), data=data)
     if r.ok:
         return r
-    elif r.status_code == UploadEC.wait:
+    if r.status_code == UploadEC.wait:
         delay = wait_delay_sec(lvl)
         getLogger(_LOG).info("Pipe full, sleeping for %s second(s).", delay)
         sleep(delay)
         return _send_block(data, config, params, lvl=lvl + 1)
-    else:
-        _send_known_error(r)
-        raise RuntimeError(f"Error {r.status_code}", r.text)
+    _send_known_error(r)
+    raise RuntimeError(f"Error {r.status_code}", r.text)
 
 
 def _send(
