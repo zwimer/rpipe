@@ -18,6 +18,12 @@ class VersionError(UsageError):
     """
 
 
+class ChannelLocked(RuntimeError):
+    """
+    Raised when attempting to modify a channel is locked
+    """
+
+
 class NoData(ValueError):
     """
     Raised when there is no data available on a channel

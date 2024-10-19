@@ -8,7 +8,7 @@ from .request_response import (
     QueryResponse,
     AdminMessage,
 )
-from .error_code import UploadEC, DownloadEC, QueryEC, AdminEC
+from .error_code import UploadEC, DownloadEC, DeleteEC, QueryEC, AdminEC
 from .util import restrict_umask, remote_addr, total_len
 from .stats import AdminStats, Stats
 from .log import TRACE, LFS

@@ -5,7 +5,7 @@ from logging import getLogger
 
 from flask import request
 
-from ...shared import TRACE, QueryEC
+from ...shared import TRACE, DeleteEC, QueryEC
 from ..util import plaintext, json_response
 from ..server import ServerShutdown
 from .write import write
@@ -16,17 +16,25 @@ if TYPE_CHECKING:
     from ..server import State
 
 
+def _delete(state: State, channel: str) -> Response:
+    log = getLogger("delete")
+    with state as u:
+        u.stats.delete(channel)
+        if (s := u.streams.get(channel, None)) is None:
+            return plaintext("Channel already gone", status=204)
+        if s.locked:
+            return plaintext("Channel is locked", status=DeleteEC.locked)
+        log.info("Deleting channel %s", channel)
+        del u.streams[channel]
+    return plaintext("Deleted", status=202)
+
+
 def _handler(state: State, channel: str) -> Response:
     log = getLogger("channel")
     try:
         match request.method:
             case "DELETE":
-                with state as u:
-                    u.stats.delete(channel)
-                    if channel in u.streams:
-                        log.info("Deleting channel %s", channel)
-                        del u.streams[channel]
-                return plaintext("Deleted", status=202)
+                return _delete(state, channel)
             case "GET":
                 return read(state, channel)
             case "POST" | "PUT":

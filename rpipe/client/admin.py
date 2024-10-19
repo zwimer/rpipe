@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from dataclasses import dataclass
 from datetime import datetime
 from collections import deque
@@ -19,8 +19,8 @@ from .client import Config, UsageError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from typing import Any, cast
     from requests import Response
+    from typing import Any
 
 
 ADMIN_REQUEST_TIMEOUT: int = 60
@@ -51,6 +51,7 @@ class Conf:
 
     sign: Callable[[bytes], bytes]
     session: Session
+    channel: str  # May be empty / unset !
     url: str
 
 
@@ -166,6 +167,24 @@ class _Methods:
         mx = max(len(i) for i in data)
         print("\n".join(f"{i.ljust(mx)} : {k}" for i, k in data.items()))
 
+    def _lock(self, lock_: bool) -> None:
+        assert self._conf is not None, "Sanity check failed"
+        if not (conf := cast(Conf, self._conf)).channel:
+            raise UsageError("Channel must be set to lock/unlock")
+        print(self._request("/admin/lock", dumps({"channel": conf.channel, "lock": lock_})).text)
+
+    def lock(self) -> None:
+        """
+        Lock a channel
+        """
+        self._lock(True)
+
+    def unlock(self) -> None:
+        """
+        Unlock a channel
+        """
+        self._lock(False)
+
 
 class Admin:
     """
@@ -177,7 +196,8 @@ class Admin:
         self._methods = _Methods()
         if not conf.url or not conf.key_file:
             raise UsageError("Admin mode requires a URL and key-file to be set")
-        self._conf = Conf(sign=self._load_ssh_key_file(conf.key_file), url=conf.url, session=Session())
+        sign_f = self._load_ssh_key_file(conf.key_file)
+        self._conf = Conf(sign=sign_f, url=conf.url, channel=conf.channel, session=Session())
 
     def _load_ssh_key_file(self, key_file: Path) -> Callable[[bytes], bytes]:
         """
@@ -193,9 +213,7 @@ class Admin:
             raise UsageError(f"Key file {key_file} is not a supported ssh key") from e
         if not hasattr(key, "sign"):
             raise UsageError(f"Key file {key_file} does not support signing")
-        if TYPE_CHECKING:
-            return cast(Callable[[bytes], bytes], key.sign)
-        return key.sign
+        return cast(Callable[[bytes], bytes], key.sign) if TYPE_CHECKING else key.sign
 
     def __getattribute__(self, item: str) -> Any:
         """

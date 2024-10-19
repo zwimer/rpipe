@@ -164,4 +164,6 @@ def cli() -> None:
     )
     log_lvl_p = admin.add_parser("log-level", help="Get/set the server log level")
     log_lvl_p.add_argument("level", default=None, nargs="?", help="The log level for the server to use")
+    admin.add_parser("lock", help="Lock the channel")
+    admin.add_parser("unlock", help="Unlock the channel")
     _cli(parser, parser.parse_args())

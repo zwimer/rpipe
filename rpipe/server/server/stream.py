@@ -30,6 +30,7 @@ class Stream:  # pylint: disable=too-many-instance-attributes
     data: deque[bytes]
     upload_complete: bool  # If more data will be added
     new: bool = True  # If no data has been read
+    locked: bool = False  # May only be set by admin
     # Constants
     encrypted: bool
     version: Version
@@ -56,9 +57,9 @@ class Stream:  # pylint: disable=too-many-instance-attributes
 
     def expired(self) -> bool:
         """
-        Return true if the stream is expired
+        Return true if the stream is expired and unlocked
         """
-        return self.expire < datetime.now()
+        return not self.locked and self.expire < datetime.now()
 
     def __len__(self) -> int:
         """
@@ -81,4 +82,5 @@ class Stream:  # pylint: disable=too-many-instance-attributes
             encrypted=self.encrypted,
             version=self.version,
             expiration=self.expire,
+            locked=self.locked,
         )

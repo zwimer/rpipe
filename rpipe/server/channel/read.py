@@ -67,6 +67,9 @@ def _read_error_check(s: Stream | None, args: DownloadRequestParams) -> Response
     # Not data currently available
     if not s.upload_complete and not s.data:
         return plaintext("No data available; wait for the uploader to send more", DownloadEC.wait)
+    # Lock check
+    if s.locked and args.delete:
+        return plaintext("This channel is locked and cannot be edited; consider --peek", DownloadEC.locked)
     return None
 
 

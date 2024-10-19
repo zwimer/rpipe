@@ -158,6 +158,17 @@ class Admin:
             output = {i: asdict(k.query()) for i, k in s.streams.items()}
         return json_response(output)
 
+    def _unsafe_lock(self, state: State, body: str) -> Response:
+        js = loads(body.strip())
+        self._log.critical(js)
+        with state as unlocked:
+            if (s := unlocked.streams.get(channel := js["channel"], None)) is None:
+                return Response(f"Channel {channel} not found", status=AdminEC.invalid)
+            lock_s = f"{('' if (lock := js['lock']) else 'UN')}LOCKED"
+            self._log.info("Setting channel %s to %s", channel, lock_s)
+            s.locked = lock
+        return Response(f"Channel {channel} is now {lock_s}", status=200)
+
     #
     # Helpers
     #

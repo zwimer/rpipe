@@ -15,6 +15,7 @@ class UploadEC(Enum):
     conflict: int = 409  #         Stream ID indicates a different stream than exists
     wait: int = 425  #             Try again in a bit, waiting on the other end of the pipe
     forbidden: int = 403  #        Writing to finalized stream
+    locked: int = 423  #           Channel is locked and cannot be edited
 
 
 class DownloadEC(Enum):
@@ -31,6 +32,16 @@ class DownloadEC(Enum):
     forbidden: int = 403  #        StreamID passed for new stream or while peeking
     cannot_peek: int = 452  #      Cannot peek, too much data
     in_use: int = 453  #           Someone else is reading from the pipe
+    locked: int = 423  #           Channel is locked and cannot be edited
+
+
+class DeleteEC(Enum):
+    """
+    HTTP error codes the rpipe client may be sent when deleting a channel
+    Others may be sent, but these are the ones the client should be prepared to handle
+    """
+
+    locked: int = 423  #           Channel is locked and cannot be edited
 
 
 class QueryEC(Enum):

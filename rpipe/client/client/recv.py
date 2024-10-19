@@ -7,7 +7,7 @@ import sys
 from zstandard import ZstdDecompressor
 
 from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadEC, LFS, version
-from .errors import MultipleClients, ReportThis, VersionError, StreamError, NoData
+from .errors import MultipleClients, ChannelLocked, ReportThis, VersionError, StreamError, NoData
 from .util import wait_delay_sec, request
 from .delete import DeleteOnFail
 from .crypt import decrypt
@@ -48,6 +48,8 @@ def _recv_error_helper(r: Response, config: Config, peek: bool, put: bool, waite
             if peek and waited:
                 raise MultipleClients("Another client started reading the data before peek was complete")
             raise MultipleClients(r.text)
+        case DownloadEC.locked:
+            raise ChannelLocked(r.text)
         case DownloadEC.forbidden:
             raise ReportThis("Attempt to read from stream with stream ID.")
         case _:

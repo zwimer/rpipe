@@ -135,6 +135,7 @@ class DownloadResponseHeaders(_ResponseHeaders):
 #
 
 
+# pylint: disable=too-many-instance-attributes
 @dataclass(kw_only=True, frozen=True)
 class QueryResponse:
     new: bool
@@ -144,6 +145,7 @@ class QueryResponse:
     encrypted: bool
     version: Version
     expiration: datetime
+    locked: bool
 
 
 @dataclass(kw_only=True, frozen=True)

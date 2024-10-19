@@ -169,6 +169,12 @@ def _admin_log_level() -> Response:
     return admin.log_level(server.state)
 
 
+@app.route("/admin/lock", methods=["POST"])
+@_logged
+def _admin_lock() -> Response:
+    return admin.lock(server.state)
+
+
 # Serve
 
 

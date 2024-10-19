@@ -12,7 +12,7 @@ from ...shared import (
     UploadEC,
     version,
 )
-from .errors import MultipleClients, ReportThis, VersionError
+from .errors import MultipleClients, ChannelLocked, ReportThis, VersionError
 from .util import wait_delay_sec, request
 from .delete import DeleteOnFail
 from .crypt import encrypt
@@ -40,6 +40,8 @@ def _send_known_error(r: Response) -> None:
             raise MultipleClients("The stream ID changed mid-upload; maybe the receiver broke the pipe?")
         case UploadEC.wrong_version | UploadEC.too_big | UploadEC.forbidden | UploadEC.stream_id:
             raise ReportThis(r.text)
+        case UploadEC.locked:
+            raise ChannelLocked(r.text)
 
 
 def _send_block(data: bytes, config: Config, params: UploadRequestParams, *, lvl: int = 0) -> Response:

@@ -64,6 +64,8 @@ def write(state: State, channel: str) -> Response:
         )
         headers = UploadResponseHeaders(stream_id=new.id_, max_size=MAX_SIZE_SOFT)
         with state as u:
+            if (existing := u.streams.get(channel, None)) is not None and existing.locked:
+                return plaintext("Channel is locked and cannot be edited.", UploadEC.locked)
             u.streams[channel] = new
             u.stats.write(channel)
         return plaintext("", 201, headers=headers.to_dict())
@@ -76,6 +78,8 @@ def write(state: State, channel: str) -> Response:
             return err
         if TYPE_CHECKING:
             s = cast(Stream, s)  # For type checker
+        if s.locked:
+            return plaintext("Channel is locked and cannot be edited.", UploadEC.locked)
         s.upload_complete = args.final
         if add:
             s.data.append(add)
