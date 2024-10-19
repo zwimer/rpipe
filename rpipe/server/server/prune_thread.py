@@ -28,11 +28,8 @@ class PruneThread(Thread):
                 if rw_state.shutdown:
                     log.debug("Quitting, state is shutdown")
                     return
-                expired = []
                 log.log(TRACE, "Checking for expired streams")
-                for i, k in rw_state.streams.items():
-                    if k.expired():
-                        expired.append(i)
+                expired = [i for i, k in rw_state.streams.items() if k.expired()]
                 log.log(TRACE, "Pruning %d expired streams", len(expired))
                 for i in expired:
                     log.info("Pruning expired channel %s", i)

@@ -52,7 +52,7 @@ class Stream:  # pylint: disable=too-many-instance-attributes
         super().__setattr__(key, value)
         if hasattr(self, "ttl"):  # hasattr b/c we might not during init
             # pylint: disable=attribute-defined-outside-init
-            super().__setattr__("expire", datetime.now() + timedelta(self.ttl))
+            super().__setattr__("expire", datetime.now() + timedelta(seconds=self.ttl))
 
     def expired(self) -> bool:
         """
