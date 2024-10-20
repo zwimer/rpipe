@@ -50,7 +50,6 @@ class App(Flask):
         self.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
         self.url_map.strict_slashes = False
 
-    # pylint: disable=attribute-defined-outside-init
     def start(self, conf: ServerConfig, log_file: Path, favicon: Path | None):
         lg = getLogger(_LOG)
         if favicon is not None and not favicon.is_file():
@@ -58,6 +57,7 @@ class App(Flask):
             favicon = None
         admin = Admin(log_file, conf.key_files)
         lg.info("Starting server version: %s", __version__)
+        # pylint: disable=attribute-defined-outside-init
         self._objs = self.Objs(admin, Server(conf.debug, conf.state_file), favicon)
         lg.info("Serving on %s:%s", conf.host, conf.port)
         if conf.debug:
