@@ -95,11 +95,7 @@ class Admin:
 
     __slots__ = ("_verify", "_methods")
 
-    def __init__(self) -> None:
-        self._verify: Verify | None = None
-        self._methods: Methods | None = None
-
-    def init(self, log_file: Path, key_files: list[Path]) -> None:
+    def __init__(self, log_file: Path, key_files: list[Path]) -> None:
         self._verify = Verify(key_files)
         self._methods = Methods(log_file)
 
@@ -107,8 +103,6 @@ class Admin:
         """
         Override the getattribute method to wrap most public members with signature verification
         """
-        if self._verify is None or self._methods is None:
-            raise RuntimeError("Admin not initialized")
         if item.startswith("_"):
             raise AttributeError(f"{item} is a private member")
 
@@ -124,6 +118,4 @@ class Admin:
         """
         Get a few UIDSs that may each be used in a signature to access the server exactly once
         """
-        if self._verify is None:
-            raise RuntimeError("Admin not initialized")
         return json_response(self._verify.uid.new(_UIDS_PER_QUERY))

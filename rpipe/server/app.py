@@ -17,49 +17,102 @@ from .server import Server
 from .admin import Admin
 
 
-app = Flask(f"rpipe_server {__version__}")
-server = Server()
-admin = Admin()
-
-_REUSE_DEBUG_LOG_FILE = "_REUSE_DEBUG_LOG_FILE"
 _LOG = "app"
 
 
-def _logged(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        ret = func(*args, **kwargs)
-        if not server.debug:  # Flask in debug mode already does what we want
-            if (fp := request.full_path).endswith("?"):
-                fp = fp[:-1]
-            lvl = DEBUG if (ret.status_code < 300 or ret.status_code in (410, 425)) else INFO
-            args = (remote_addr(), request.method, fp, ret.status_code)
-            getLogger(_LOG).log(lvl, '%s - "%s %s" %d', *args)
-        return ret
-
-    return wrapper
-
-
-#
-# Dataclasses
-#
-
-
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class LogConfig:
     log_file: Path
     verbose: int
     debug: bool
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ServerConfig:
     host: str
     port: int
     debug: bool
     state_file: Path | None
     key_files: list[Path]
-    favicon: Path | None
+
+
+class App(Flask):
+
+    @dataclass(frozen=True, slots=True)
+    class Objs:
+        admin: Admin
+        server: Server
+        favicon: Path | None
+
+    def __init__(self) -> None:
+        super().__init__(f"rpipe_server {__version__}")
+        getLogger(_LOG).info("Setting max packet size: %s", log.LFS(MAX_SIZE_HARD))
+        self.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
+        self.url_map.strict_slashes = False
+
+    # pylint: disable=attribute-defined-outside-init
+    def start(self, conf: ServerConfig, log_file: Path, favicon: Path | None):
+        lg = getLogger(_LOG)
+        if favicon is not None and not favicon.is_file():
+            lg.error("Favicon file not found: %s", favicon)
+            favicon = None
+        admin = Admin(log_file, conf.key_files)
+        lg.info("Starting server version: %s", __version__)
+        self._objs = self.Objs(admin, Server(conf.debug, conf.state_file), favicon)
+        lg.info("Serving on %s:%s", conf.host, conf.port)
+        if conf.debug:
+            self.run(host=conf.host, port=conf.port, debug=True)
+        else:
+            waitress.serve(self, host=conf.host, port=conf.port, clear_untrusted_proxy_headers=False)
+
+    def give(self, *, objs: bool = False, logged: bool = True):
+        """
+        Give the wrapped function self.objs and log requests as requested
+        """
+        lg = getLogger(_LOG)
+
+        def decorator(func):
+            @wraps(func)
+            def inner(*args, **kwargs):
+                ret = func(*args, self._objs, **kwargs) if objs else func(*args, **kwargs)
+                if not logged:
+                    return ret
+                with self._objs.server.state as s:
+                    if s.debug:
+                        return ret
+                # Release mode: Log the request before returning it, Flask in debug mode does automatically
+                quiet = ret.status_code == 404 and request.full_path.strip("?") == "/favicon.ico"
+                lvl = DEBUG if (quiet or ret.status_code in (410, 425) or ret.status_code < 300) else INFO
+                args = (remote_addr(), request.method, request.full_path.strip("?"), ret.status_code)
+                lg.log(lvl, '%s - "%s %s" %d', *args)
+                return ret
+
+            return inner
+
+        return decorator
+
+    def route(self, *paths, admin: bool = False, objs: bool = False, logged: bool = True, **kwargs):
+        """
+        Route decorator that allows for multiple paths to be routed to the same function
+        Automatically applies the give decorator with objs=objs and logged=logged
+        If admin, set objs=True and set methods=["POST"] if not set
+        """
+        if not paths:
+            raise ValueError("At least one path is required")
+        if admin and "methods" not in kwargs:
+            kwargs["methods"] = ["POST"]
+        super_route = super().route
+
+        def wrapper(func):
+            ret = self.give(objs=admin or objs, logged=logged)(func)
+            for p in paths:
+                ret = super_route(p, **kwargs)(ret)
+            return ret
+
+        return wrapper
+
+
+app = App()
 
 
 #
@@ -68,7 +121,7 @@ class ServerConfig:
 
 
 @app.errorhandler(404)
-@_logged
+@app.give()
 def _page_not_found(_, *, quiet=False) -> Response:
     lg = getLogger(_LOG)
     if not quiet:
@@ -77,9 +130,7 @@ def _page_not_found(_, *, quiet=False) -> Response:
     return Response("404: Not found", status=404)
 
 
-@app.route("/")
-@app.route("/help")
-@_logged
+@app.route("/", "/help")
 def _help() -> Response:
     msg = (
         "Welcome to the web UI of rpipe. "
@@ -95,87 +146,75 @@ def _help() -> Response:
     return plaintext(msg)
 
 
-def _mk_favicon(file: Path | None) -> None:
-    @app.route("/favicon.ico")
-    def _favicon() -> Response:
-        return _page_not_found(404, quiet=True) if file is None else send_file(file)
+@app.route("/favicon.ico", objs=True, logged=False)
+def _favicon(o: App.Objs) -> Response:
+    return _page_not_found(404, quiet=True) if o.favicon is None else send_file(o.favicon)
 
 
 @app.route("/version")
-@_logged
 def _show_version() -> Response:
     return plaintext(__version__)
 
 
 @app.route("/supported")
-@_logged
 def _supported() -> Response:
     return json_response({"min": str(MIN_VERSION), "banned": []})
 
 
-@app.route("/c/<channel>", methods=["DELETE", "GET", "POST", "PUT"])
-@_logged
-def _channel(channel: str) -> Response:
-    return handler(server.state, channel)
+@app.route("/c/<channel>", objs=True, methods=["DELETE", "GET", "POST", "PUT"])
+def _channel(o: App.Objs, channel: str) -> Response:
+    return handler(o.server.state, channel)
 
 
-@app.route("/q/<channel>")
-@_logged
-def _query(channel: str) -> Response:
-    return query(server.state, channel)
+@app.route("/q/<channel>", objs=True)
+def _query(o: App.Objs, channel: str) -> Response:
+    return query(o.server.state, channel)
 
 
 # Admin routes
 
 
-@app.route("/admin/uid")
-@_logged
-def _admin_uid() -> Response:
+@app.route("/admin/uid", admin=True, methods=["GET"])
+def _admin_uid(o: App.Objs) -> Response:
     """
     Get a few UIDSs needed to sign admin requests
     The exact number is up to the server, if you need more, request more
     These UIDs will expire after a short period of time
     """
-    return admin.uids()
+    return o.admin.uids()
 
 
-@app.route("/admin/debug", methods=["POST"])
-@_logged
-def _admin_debug() -> Response:
-    return admin.debug(server.state)
+@app.route("/admin/debug", admin=True)
+def _admin_debug(o: App.Objs) -> Response:
+    return o.admin.debug(o.server.state)
 
 
-@app.route("/admin/channels", methods=["POST"])
-@_logged
-def _admin_channels() -> Response:
-    return admin.channels(server.state)
+@app.route("/admin/channels", admin=True)
+def _admin_channels(o: App.Objs) -> Response:
+    return o.admin.channels(o.server.state)
 
 
-@app.route("/admin/stats", methods=["POST"])
-@_logged
-def _admin_stats() -> Response:
-    return admin.stats(server.state)
+@app.route("/admin/stats", admin=True)
+def _admin_stats(o: App.Objs) -> Response:
+    return o.admin.stats(o.server.state)
 
 
-@app.route("/admin/log", methods=["POST"])
-@_logged
-def _admin_log() -> Response:
-    return admin.log(server.state)
+@app.route("/admin/log", admin=True)
+def _admin_log(o: App.Objs) -> Response:
+    return o.admin.log(o.server.state)
 
 
-@app.route("/admin/log-level", methods=["POST"])
-@_logged
-def _admin_log_level() -> Response:
-    return admin.log_level(server.state)
+@app.route("/admin/log-level", admin=True)
+def _admin_log_level(o: App.Objs) -> Response:
+    return o.admin.log_level(o.server.state)
 
 
-@app.route("/admin/lock", methods=["POST"])
-@_logged
-def _admin_lock() -> Response:
-    return admin.lock(server.state)
+@app.route("/admin/lock", admin=True)
+def _admin_lock(o: App.Objs) -> Response:
+    return o.admin.lock(o.server.state)
 
 
-# Serve
+# Main functions
 
 
 def _log_shutdown(log_file: Path) -> None:
@@ -186,11 +225,12 @@ def _log_shutdown(log_file: Path) -> None:
 
 
 def _log_config(conf: LogConfig) -> Path:
+    rdlf_env: str = "_REUSE_DEBUG_LOG_FILE"
     log.define_trace()
     log_file = conf.log_file
     # Flask debug mode may restart the server without cleaning up, we reuse the log file here
-    if reuse_log_file := log_file is None and conf.debug and _REUSE_DEBUG_LOG_FILE in environ:
-        log_file = Path(environ[_REUSE_DEBUG_LOG_FILE])
+    if reuse_log_file := log_file is None and conf.debug and rdlf_env in environ:
+        log_file = Path(environ[rdlf_env])
     # Determine which file to log to
     with restrict_umask(0o6):
         if log_file is not None:
@@ -203,7 +243,7 @@ def _log_config(conf: LogConfig) -> Path:
             log_file = Path(fpath)
             atexit.register(_log_shutdown, log_file)
             if conf.debug:
-                environ[_REUSE_DEBUG_LOG_FILE] = str(log_file)
+                environ[rdlf_env] = str(log_file)
     # Setup logger
     fmt = Formatter(log.FORMAT, log.DATEFMT)
     fh = FileHandler(log_file, mode="a")
@@ -218,24 +258,9 @@ def _log_config(conf: LogConfig) -> Path:
     root.info("Logging level set to %s", getLevelName(lvl))
     if reuse_log_file:
         root.warning("Reusing debug log file: %s", log_file)
-    # Cleanup and return
+    # Cleanup and return the log file
     return log_file
 
 
-# pylint: disable=too-many-arguments
-def serve(conf: ServerConfig, log_conf: LogConfig) -> None:
-    log_file = _log_config(log_conf)
-    lg = getLogger(_LOG)
-    lg.debug("Constructing favicon route given favicon.ico=%s", conf.favicon)
-    _mk_favicon(conf.favicon)
-    lg.info("Setting max packet size: %s", log.LFS(MAX_SIZE_HARD))
-    app.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
-    app.url_map.strict_slashes = False
-    admin.init(log_file, conf.key_files)
-    lg.info("Starting server version: %s", __version__)
-    server.start(conf.debug, conf.state_file)
-    lg.info("Serving on %s:%s", conf.host, conf.port)
-    if conf.debug:
-        app.run(host=conf.host, port=conf.port, debug=True)
-    else:
-        waitress.serve(app, host=conf.host, port=conf.port, clear_untrusted_proxy_headers=False)
+def serve(conf: ServerConfig, log_conf: LogConfig, favicon: Path) -> None:
+    app.start(conf, _log_config(log_conf), favicon)

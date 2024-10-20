@@ -44,4 +44,4 @@ def cli() -> None:
     parser.add_argument("--debug", action="store_true", help="Run the server in debug mode")
     ns = parser.parse_args()
     gen = lambda C: C(**{i: getattr(ns, i) for i in (k.name for k in fields(C))})
-    serve(gen(ServerConfig), gen(LogConfig))
+    serve(gen(ServerConfig), gen(LogConfig), ns.favicon)
