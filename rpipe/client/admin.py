@@ -1,16 +1,15 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, cast
-from dataclasses import dataclass
-from datetime import datetime
+from collections.abc import Callable
 from collections import deque
-from functools import partial
+from datetime import datetime
 from logging import getLogger
 from json import loads, dumps
 from base64 import b85encode
 from pathlib import Path
 import zlib
 
-from cryptography.hazmat.primitives.serialization import load_ssh_private_key
+from cryptography.hazmat.primitives.serialization import load_ssh_private_key  # type: ignore[attr-defined]
 from cryptography.exceptions import UnsupportedAlgorithm
 from requests import Session
 
@@ -18,12 +17,11 @@ from ..shared import QueryResponse, AdminMessage, AdminEC, version
 from .client import Config, UsageError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from requests import Response
-    from typing import Any
 
 
 ADMIN_REQUEST_TIMEOUT: int = 60
+type _Signer = Callable[[bytes], bytes]
 _LOG = "admin"
 
 
@@ -39,23 +37,6 @@ class AccessDenied(RuntimeError):
 
 
 #
-# Helper Classes
-#
-
-
-@dataclass(frozen=True, kw_only=True)
-class Conf:
-    """
-    A mini-config required to ask the server to run admin commands
-    """
-
-    sign: Callable[[bytes], bytes]
-    session: Session
-    channel: str  # May be empty / unset !
-    url: str
-
-
-#
 # Main Classes
 #
 
@@ -68,23 +49,12 @@ class _Methods:
     All public functions besides 'get' may access self._conf (it will not be None)
     """
 
-    def __init__(self) -> None:
+    def __init__(self, sign: _Signer, conf: Config) -> None:
         self._log = getLogger(_LOG)
         self._uids: deque[str] = deque()
-        self._conf: Conf | None = None
-
-    def get(self, func: str, require_ssl: bool = True):
-        """
-        Get a method for use
-        """
-
-        def wrapper(*args, conf: Conf, **kwargs):
-            self._conf = conf
-            if require_ssl and not self._debug() and all(i not in conf.url for i in ("https", ":443/")):
-                raise RuntimeError("Refusing to send admin request to server in release mode over plaintext")
-            return getattr(self, func)(*args, **kwargs)
-
-        return wrapper
+        self._session = Session()
+        self._sign = sign
+        self._conf = conf
 
     # Helpers
 
@@ -92,17 +62,15 @@ class _Methods:
         """
         Send a request to the server
         """
-        assert self._conf is not None, "Sanity check failed"
-        # Get a UID
         if len(self._uids) == 0:
-            r = self._conf.session.get(f"{self._conf.url}/admin/uid", timeout=ADMIN_REQUEST_TIMEOUT)
+            r = self._session.get(f"{self._conf.url}/admin/uid", timeout=ADMIN_REQUEST_TIMEOUT)
             self._uids += r.json()
         uid: str = self._uids.popleft()
         # Sign and send POST request
         self._log.info("Signing request for path=%s with body=%s", path, body)
         msg = AdminMessage(path=path, body=body, uid=uid).bytes()
-        data = b"\n".join((bytes(version), b85encode(self._conf.sign(msg)), msg))
-        ret = self._conf.session.post(f"{self._conf.url}{path}", data=data, timeout=ADMIN_REQUEST_TIMEOUT)
+        data = b"\n".join((bytes(version), b85encode(self._sign(msg)), msg))
+        ret = self._session.post(f"{self._conf.url}{path}", data=data, timeout=ADMIN_REQUEST_TIMEOUT)
         match ret.status_code:
             case AdminEC.unauthorized:
                 self._log.critical("Admin access denied")
@@ -116,20 +84,13 @@ class _Methods:
         assert not ret.status_code == AdminEC.invalid, "Sanity check failed"
         return ret
 
-    def _debug(self) -> bool:
+    # Non-SSL-Protected methods
+
+    def debug(self) -> bool:
         """
         :return: True if the server is in debug mode, else False
         """
         return self._request("/admin/debug").text == "True"
-
-    # Non-SSL-Protected methods
-
-    def debug(self) -> None:
-        """
-        Check to see if the server is in debug mode
-        This method should only be used by an admin, but is safe to be used without SSL
-        """
-        print(f"Server is running in {'DEBUG' if self._debug() else 'RELEASE'} mode")
 
     # SSL-Protected methods
 
@@ -168,10 +129,9 @@ class _Methods:
         print("\n".join(f"{i.ljust(mx)} : {k}" for i, k in data.items()))
 
     def _lock(self, lock_: bool) -> None:
-        assert self._conf is not None, "Sanity check failed"
-        if not (conf := cast(Conf, self._conf)).channel:
+        if not self._conf.channel:
             raise UsageError("Channel must be set to lock/unlock")
-        print(self._request("/admin/lock", dumps({"channel": conf.channel, "lock": lock_})).text)
+        print(self._request("/admin/lock", dumps({"channel": self._conf.channel, "lock": lock_})).text)
 
     def lock(self) -> None:
         """
@@ -193,13 +153,12 @@ class Admin:
 
     def __init__(self, conf: Config):
         self._log = getLogger(_LOG)
-        self._methods = _Methods()
+        self._ssl: bool = any(i in conf.url for i in ("https", ":443/"))
         if not conf.url or not conf.key_file:
             raise UsageError("Admin mode requires a URL and key-file to be set")
-        sign_f = self._load_ssh_key_file(conf.key_file)
-        self._conf = Conf(sign=sign_f, url=conf.url, channel=conf.channel, session=Session())
+        self._methods = _Methods(self._load_ssh_key_file(conf.key_file), conf)
 
-    def _load_ssh_key_file(self, key_file: Path) -> Callable[[bytes], bytes]:
+    def _load_ssh_key_file(self, key_file: Path) -> _Signer:
         """
         Load a private key from a file
         :return: A function that can sign data using the key file
@@ -213,12 +172,17 @@ class Admin:
             raise UsageError(f"Key file {key_file} is not a supported ssh key") from e
         if not hasattr(key, "sign"):
             raise UsageError(f"Key file {key_file} does not support signing")
-        return cast(Callable[[bytes], bytes], key.sign) if TYPE_CHECKING else key.sign
+        return cast(_Signer, key.sign)
 
-    def __getattribute__(self, item: str) -> Any:
+    def __getitem__(self, item: str) -> Callable[..., None]:
         """
-        Override the getattribute method to expose all methods of Methods
+        Get the desired admin function
         """
         if item.startswith("_"):
-            return object.__getattribute__(self, item)
-        return partial(self._methods.get(item, require_ssl=item != "debug"), conf=self._conf)
+            raise KeyError(f"Admin method {item} is private")
+        debug = self._methods.debug()
+        if item == "debug":
+            return lambda: print(f"Server is running in {'DEBUG' if debug else 'RELEASE'} mode")
+        if not debug and not self._ssl:
+            raise RuntimeError("Refusing to send admin request to server in release mode over plaintext")
+        return getattr(self._methods, item)

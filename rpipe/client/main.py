@@ -73,7 +73,7 @@ def _admin(ns: Namespace, conf: Config) -> None:
         kw.append("output_file")
     if ns.method == "log-level":
         kw.append("level")
-    getattr(Admin(conf), ns.method.replace("-", "_"))(**{i: getattr(ns, i) for i in kw})
+    Admin(conf)[ns.method.replace("-", "_")](**{i: getattr(ns, i) for i in kw})
 
 
 # pylint: disable=too-many-locals,too-many-statements
