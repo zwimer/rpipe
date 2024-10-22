@@ -8,7 +8,6 @@ from .. import __version__  # Extract version without importing shared
 
 PASSWORD_ENV: str = "RPIPE_PASSWORD"
 _DEFAULT_CF = Path.home() / ".config" / "rpipe.json"
-_SI_UNITS: str = "KMGT"
 
 
 def _cli(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> None:
@@ -22,15 +21,15 @@ def _cli(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> None:
     main(parser, parsed)
 
 
-def _si_parse(size: str) -> int:
+def _si(size: str) -> int:
     if size.isdecimal():
         return int(size)
     try:
-        if (frv := float(size[:-1]) * (1000 ** (1 + _SI_UNITS.index(size[-1].upper())))) == (rv := int(frv)):
-            return int(rv)
+        if (frv := float(size[:-1]) * (1000 ** (1 + "KMGT".index(size[-1].upper())))) == (rv := int(frv)):
+            return rv
+        raise ValueError("Non-integer number of bytes requested")
     except ValueError as e:
         raise ValueError(f"Invalid size: {size}") from e
-    raise ValueError(f"Invalid size: {size}")
 
 
 # pylint: disable=too-many-locals,too-many-statements
@@ -38,8 +37,7 @@ def cli() -> None:
     """
     Parses arguments then invokes rpipe
     """
-    cpu = cpu_count()
-    threads = max(1, cpu - 1)
+    threads: int = max(1, (cpu := cpu_count()) - 1)
     parser = argparse.ArgumentParser(add_help=False)
     parser.set_defaults(method=None)
     read_g = parser.add_argument_group("Read Options")
@@ -98,7 +96,7 @@ def cli() -> None:
         " Values can be suffixed with K, M, G, or T, to multiply by powers of 1000"
     )
     read_write_g.add_argument(
-        "-P", "--progress", metavar="SIZE", type=_si_parse, default=False, const=True, nargs="?", help=msg
+        "-P", "--progress", metavar="SIZE", type=_si, default=False, const=True, nargs="?", help=msg
     )
     # Config options
     config = parser.add_argument_group("Config Options")

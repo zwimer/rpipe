@@ -7,6 +7,7 @@ Splitting the CLI into two files does cause a cyclic import
 
 from __future__ import annotations
 from logging import basicConfig, getLevelName, getLogger
+from inspect import Parameter, signature
 from typing import TYPE_CHECKING
 from dataclasses import asdict
 from os import getenv
@@ -68,12 +69,9 @@ def _main(raw_ns: Namespace, conf: Config):
 
 
 def _admin(ns: Namespace, conf: Config) -> None:
-    kw = []
-    if ns.method == "log":
-        kw.append("output_file")
-    if ns.method == "log-level":
-        kw.append("level")
-    Admin(conf)[ns.method.replace("-", "_")](**{i: getattr(ns, i) for i in kw})
+    kw = signature(func := Admin(conf)[ns.method.replace("-", "_")]).parameters
+    assert all(i.kind == Parameter.POSITIONAL_OR_KEYWORD for i in kw.values())
+    func(**{i: getattr(ns, i) for i in kw})
 
 
 # pylint: disable=too-many-locals,too-many-statements
