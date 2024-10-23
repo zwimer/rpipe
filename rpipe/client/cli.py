@@ -40,7 +40,7 @@ def cli() -> None:
     threads: int = max(1, (cpu := cpu_count()) - 1)
     parser = argparse.ArgumentParser(add_help=False)
     parser.set_defaults(method=None)
-    read_g = parser.add_argument_group("Read Options")
+    read_g = parser.add_argument_group("Read Mode")
     read_g.add_argument(
         "-b", "--block", action="store_true", help="Wait until a channel is available to read"
     )
@@ -56,7 +56,7 @@ def cli() -> None:
         action="store_true",
         help="Attempt to read data even if this is a upload/download client version mismatch",
     )
-    write_g = parser.add_argument_group("Write Options")
+    write_g = parser.add_argument_group("Write Mode")
     write_g.add_argument(
         "-t",
         "--ttl",
@@ -79,17 +79,9 @@ def cli() -> None:
         type=int,
         help=f"The number of threads to use for compression. Default: {threads}",
     )
-    delete_g = parser.add_argument_group("Delete Options")
+    delete_g = parser.add_argument_group("Delete Mode")
     delete_g.add_argument("-d", "--delete", action="store_true", help="Delete all entries in the channel")
-    read_write_g = parser.add_argument_group("Read/Write Options")
-    # pylint: disable=duplicate-code
-    read_write_g.add_argument(
-        "-v",
-        "--verbose",
-        action="count",
-        default=0,
-        help="Increase Log verbosity, pass more than once to increase verbosity",
-    )
+    read_write_g = parser.add_argument_group("Read Mode / Write Mode")
     msg = (
         "Show a progress bar, if a value is passed, assume that's the number"
         " of bytes to be passed. Only valid while sending or receiving data."
@@ -99,7 +91,7 @@ def cli() -> None:
         "-P", "--progress", metavar="SIZE", type=_si, default=False, const=True, nargs="?", help=msg
     )
     # Config options
-    config = parser.add_argument_group("Config Options")
+    config = parser.add_argument_group("Configuration")
     config.add_argument("-u", "--url", help="The pipe url to use")
     config.add_argument("-c", "--channel", help="The channel to use")
     config.add_argument(
@@ -116,6 +108,16 @@ def cli() -> None:
         help=f"Encrypt the data; uses {PASSWORD_ENV} as the password if set, otherwise uses saved password",
     )
     config.add_argument("-s", "--ssl", action=argparse.BooleanOptionalAction, help="Require host use https")
+    log_g = parser.add_argument_group("Logging")
+    # pylint: disable=duplicate-code
+    log_g.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase Log verbosity, pass more than once to increase verbosity",
+    )
+    log_g.add_argument("-N", "--no-color-log", action="store_true", help="Disable color in the log output")
     # Priority Modes
     priority_mode = parser.add_argument_group(
         "Alternative Modes",
@@ -148,7 +150,7 @@ def cli() -> None:
         title="Admin Commands",
         description=(
             "Server admin commands; must be used with --admin and should have a key file set before use."
-            " All arguments except --verbose, config arguments are ignored with admin commands."
+            " All arguments except logging and config arguments are ignored with admin commands."
             " Server must be configured to accept messages signed by your selected private key file"
         ),
         dest="method",

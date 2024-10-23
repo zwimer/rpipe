@@ -29,18 +29,19 @@ def cli() -> None:
         help="SSH ed25519 public keys to accept for admin access",
     )
     parser.add_argument("-F", "--favicon", type=Path, help="The favicon file, if desired")
-    log_group = parser.add_argument_group("Logging")
-    log_group.add_argument(
+    log_g = parser.add_argument_group("Logging")
+    log_g.add_argument(
         "-l", "--log-file", type=Path, default=None, help="The log file to append to, if desired"
     )
     # pylint: disable=duplicate-code
-    log_group.add_argument(
+    log_g.add_argument(
         "-v",
         "--verbose",
         action="count",
         default=0,
         help="Increase Log verbosity, pass more than once to increase verbosity",
     )
+    log_g.add_argument("-C", "--colored", action="store_true", help="Enable color in the log output")
     parser.add_argument("--debug", action="store_true", help="Run the server in debug mode")
     ns = parser.parse_args()
     gen = lambda C: C(**{i: getattr(ns, i) for i in (k.name for k in fields(C))})

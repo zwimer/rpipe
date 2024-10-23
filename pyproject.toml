@@ -23,8 +23,8 @@ dependencies = [
     "requests",
     "tqdm",
     # Server
+    "zstdlib>=0.0.8",
     "waitress",
-    "zstdlib",
     "flask",
     # Both
     "human_readable",

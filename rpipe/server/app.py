@@ -1,5 +1,5 @@
 from __future__ import annotations
-from logging import DEBUG, INFO, StreamHandler, FileHandler, Formatter, getLevelName, getLogger, shutdown
+from logging import DEBUG, INFO, StreamHandler, FileHandler, getLevelName, getLogger, shutdown
 from os import environ, close as fd_close
 from dataclasses import dataclass
 from tempfile import mkstemp
@@ -8,6 +8,7 @@ from pathlib import Path
 import atexit
 
 from flask import Response, Flask, send_file, request
+from zstdlib.log import CuteFormatter
 import waitress
 
 from ..shared import TRACE, restrict_umask, remote_addr, log, __version__
@@ -22,6 +23,7 @@ _LOG = "app"
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class LogConfig:
+    colored: bool
     log_file: Path
     verbose: int
     debug: bool
@@ -59,7 +61,7 @@ class App(Flask):
         lg.info("Starting server version: %s", __version__)
         # pylint: disable=attribute-defined-outside-init
         self._objs = self.Objs(admin, Server(conf.debug, conf.state_file), favicon)
-        lg.info("Serving on %s:%s", conf.host, conf.port)
+        lg.info("Binding to %s:%s", conf.host, conf.port)
         if conf.debug:
             self.run(host=conf.host, port=conf.port, debug=True)
         else:
@@ -243,7 +245,7 @@ def _log_config(conf: LogConfig) -> Path:
             if conf.debug:
                 environ[rdlf_env] = str(log_file)
     # Setup logger
-    fmt = Formatter(log.FORMAT, log.DATEFMT)
+    fmt = CuteFormatter(log.FORMAT, log.DATEFMT, colored=conf.colored)
     fh = FileHandler(log_file, mode="a")
     stream = StreamHandler()
     root = getLogger()

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 DATEFMT = "%H:%M:%S"
-FORMAT = "%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)-10s - %(message)s"
+FORMAT = "%(cute_asctime)s.%(msecs)03d - %(cute_levelname)-8s - %(cute_name)-10s - %(cute_message)s"
 
 TRACE = DEBUG - 5
 assert TRACE > 0

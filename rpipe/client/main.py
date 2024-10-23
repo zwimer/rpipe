@@ -6,7 +6,7 @@ Splitting the CLI into two files does cause a cyclic import
 """
 
 from __future__ import annotations
-from logging import basicConfig, getLevelName, getLogger
+from logging import StreamHandler, getLevelName, getLogger
 from inspect import Parameter, signature
 from typing import TYPE_CHECKING
 from dataclasses import asdict
@@ -14,6 +14,7 @@ from os import getenv
 import argparse
 import sys
 
+from zstdlib.log import CuteFormatter
 from human_readable import listing
 
 from ..shared import log
@@ -74,14 +75,24 @@ def _admin(ns: Namespace, conf: Config) -> None:
     func(**{i: getattr(ns, i) for i in kw})
 
 
-# pylint: disable=too-many-locals,too-many-statements
-def main(parser: argparse.ArgumentParser, parsed: Namespace) -> None:
+def _config_log(parsed: Namespace) -> None:
     # Log config
     log.define_trace()
-    lvl = log.level(parsed.verbose)
-    basicConfig(level=lvl, datefmt=log.DATEFMT, format=log.FORMAT)
-    getLogger(_LOG).info("Logging level set to %s", getLevelName(lvl))
-    del parsed.verbose
+    root = getLogger()
+    root.setLevel(lvl := log.level(parsed.verbose))
+    assert len(root.handlers) == 0, "Root logger should not have any handlers"
+    root.addHandler(sh := StreamHandler())
+    sh.setFormatter(CuteFormatter(fmt=log.FORMAT, datefmt=log.DATEFMT, colored=not parsed.no_color_log))
+    getLogger(_LOG).info(
+        "Logging level set to %s with colors %sABLED",
+        getLevelName(lvl),
+        "DIS" if parsed.no_color_log else "EN",
+    )
+
+
+# pylint: disable=too-many-locals,too-many-statements
+def main(parser: argparse.ArgumentParser, parsed: Namespace) -> None:
+    _config_log(parsed)
     # Load Config
     conf_d = {i: k for i, k in vars(parsed).items() if i in Config.keys()}
     if (pw := getenv(PASSWORD_ENV)) is not None:
