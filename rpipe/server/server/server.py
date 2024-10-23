@@ -17,9 +17,7 @@ class Server(Singleton):
 
     def __init__(self, debug: bool, state_file: Path | None) -> None:
         log = logging.getLogger("server")
-        self.state = State()
-        with self.state as s:
-            s.debug = debug
+        self.state = State(debug)
         log.info("Initializing server")
         # Load state
         if state_file is not None:

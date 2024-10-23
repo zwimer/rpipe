@@ -46,12 +46,13 @@ class UnlockedState:
     This class is not thread safe and access to it should be protected by a lock
     """
 
+    __slots__ = ("streams", "shutdown", "stats")
+
     _log = getLogger("UnlockedState")
 
     def __init__(self) -> None:
         self.streams: dict[str, Stream] = {}
         self.shutdown: bool = False
-        self._debug: bool = False
         self.stats = Stats()
 
     def load(self, file: Path) -> None:
@@ -116,34 +117,29 @@ class UnlockedState:
                 self.streams[main[0].decode()] = Stream(**body)
         return True
 
-    @property
-    def debug(self):
-        return self._debug
-
-    @debug.setter
-    def debug(self, value: bool):
-        """
-        Allow enabling of debug mode- disabling is not allowed
-        """
-        if not value and self._debug:
-            raise ValueError("Cannot unset debug mode")
-        if value:
-            self._debug = True
-            self._log.warning("Debug mode enabled")
-
 
 class State:
     """
     A thread safe wrapper for ServerState
     """
 
-    def __init__(self) -> None:
+    __slots__ = ("_lock", "_shutdown_handler", "_log", "_state", "_debug")
+
+    def __init__(self, debug: bool) -> None:
         self._lock = RLock()
         self._shutdown_handler: ShutdownHandler | None = None
         self._log = getLogger("State")
         self._state = UnlockedState()
+        self._debug: bool = debug
+
+    @property
+    def debug(self) -> bool:
+        return self._debug
 
     def install_shutdown_handler(self, state_file: Path) -> None:
+        """
+        Install a shutdown handler that will save the state of the server
+        """
         with self._lock:
             if self._shutdown_handler is not None:
                 self._log.error("Shutdown handler already installed")

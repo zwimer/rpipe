@@ -10,7 +10,7 @@ import atexit
 from flask import Response, Flask, send_file, request
 import waitress
 
-from ..shared import restrict_umask, remote_addr, log, __version__
+from ..shared import TRACE, restrict_umask, remote_addr, log, __version__
 from .util import MAX_SIZE_HARD, MIN_VERSION, json_response, plaintext
 from .channel import handler, query
 from .server import Server
@@ -75,14 +75,12 @@ class App(Flask):
             @wraps(func)
             def inner(*args, **kwargs):
                 ret = func(*args, self._objs, **kwargs) if objs else func(*args, **kwargs)
-                if not logged:
+                if not logged or self._objs.server.state.debug:
                     return ret
-                with self._objs.server.state as s:
-                    if s.debug:
-                        return ret
                 # Release mode: Log the request before returning it, Flask in debug mode does automatically
                 quiet = ret.status_code == 404 and request.full_path.strip("?") == "/favicon.ico"
                 lvl = DEBUG if (quiet or ret.status_code in (410, 425) or ret.status_code < 300) else INFO
+                lvl = TRACE if request.method in ("OPTIONS", "HEAD") else lvl
                 args = (remote_addr(), request.method, request.full_path.strip("?"), ret.status_code)
                 lg.log(lvl, '%s - "%s %s" %d', *args)
                 return ret

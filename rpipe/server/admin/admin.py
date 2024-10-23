@@ -31,9 +31,7 @@ class Methods:
 
     @staticmethod
     def debug(state: State, _: str) -> Response:
-        with state as s:
-            debug = s.debug
-        return plaintext(str(debug))
+        return plaintext(str(state.debug))
 
     def log(self, *_) -> Response:
         for i in getLogger().handlers:
@@ -52,9 +50,8 @@ class Methods:
                 new = getLevelName(lvl := int(getLevelNamesMapping().get(body.upper(), body)))
                 self._log.info("Setting log level to %s", new)
                 root.setLevel(lvl)
-                with state as s:
-                    if s.debug:
-                        getLogger("werkzeug").setLevel(lvl)
+                if state.debug:
+                    getLogger("werkzeug").setLevel(lvl)
                 self._log.debug("Log level set to %s", new)
             except ValueError:
                 return Response(f"Invalid log level: {body}", status=AdminEC.invalid, mimetype="text/plain")
