@@ -7,7 +7,6 @@ from threading import RLock
 import json
 
 from ...shared import Stats, Version, restrict_umask, version
-from .shutdown_handler import ShutdownHandler
 from .stream import Stream
 
 if TYPE_CHECKING:
@@ -123,11 +122,10 @@ class State:
     A thread safe wrapper for ServerState
     """
 
-    __slots__ = ("_lock", "_shutdown_handler", "_log", "_state", "_debug")
+    __slots__ = ("_lock", "_log", "_state", "_debug")
 
     def __init__(self, debug: bool) -> None:
         self._lock = RLock()
-        self._shutdown_handler: ShutdownHandler | None = None
         self._log = getLogger("State")
         self._state = UnlockedState()
         self._debug: bool = debug
@@ -135,17 +133,6 @@ class State:
     @property
     def debug(self) -> bool:
         return self._debug
-
-    def install_shutdown_handler(self, state_file: Path) -> None:
-        """
-        Install a shutdown handler that will save the state of the server
-        """
-        with self._lock:
-            if self._shutdown_handler is not None:
-                self._log.error("Shutdown handler already installed")
-                raise RuntimeError("Shutdown handler already installed")
-            self._log.info("Installing shutdown handler")
-            self._shutdown_handler = ShutdownHandler(self, state_file)
 
     def __enter__(self) -> UnlockedState:
         """
