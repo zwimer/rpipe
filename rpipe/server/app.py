@@ -255,7 +255,9 @@ def _log_config(conf: LogConfig) -> Path:
     # Set level
     lvl: int = log.level(conf.verbose)
     root.setLevel(lvl)
-    root.info("Logging level set to %s", getLevelName(lvl))
+    root.info(
+        "Logging level set to %s with colors %sABLED", getLevelName(lvl), "EN" if conf.colored else "DIS"
+    )
     if reuse_log_file:
         root.warning("Reusing debug log file: %s", log_file)
     # Cleanup and return the log file
