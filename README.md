@@ -9,7 +9,7 @@ A little python remote pipe server and client.
 
 Before anything else, you should set your pipe server URL and default channel (the default channel can be any string)
 ```bash
-RPIPE_PASSWORD="my password"  # Only need to set when saving config
+export RPIPE_PASSWORD="my password"  # Only need to set when saving config
 rpipe --url <url> -c <channel> --password-env --save_config
 ```
 
