@@ -20,6 +20,7 @@ dependencies = [
     "zstandard[cffi]",
     "pycryptodomex",
 	"cryptography",
+	"argcomplete",
     "requests",
     "tqdm",
     # Server

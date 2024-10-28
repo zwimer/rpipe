@@ -3,6 +3,8 @@ from multiprocessing import cpu_count
 from pathlib import Path
 import argparse
 
+import argcomplete
+
 from .. import __version__  # Extract version without importing shared
 
 
@@ -166,4 +168,5 @@ def cli() -> None:
     log_lvl_p.add_argument("level", default=None, nargs="?", help="The log level for the server to use")
     admin.add_parser("lock", help="Lock the channel")
     admin.add_parser("unlock", help="Unlock the channel")
+    argcomplete.autocomplete(parser)  # Tab completion
     _cli(parser, parser.parse_args())

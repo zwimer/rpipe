@@ -63,7 +63,7 @@ class Server(Singleton):
             self._log.info("Skipping initialization until reload")
             return
         if not debug:  # Don't do this for debug, it will be overridden
-            self._log.warning("Installing signal handlers to ensure graceful shutdown")
+            self._log.info("Installing signal handlers to ensure graceful shutdown")
             for i in self.SIGNALS:
                 signal.signal(i, _ctrlc)
         # Load state file as needed
