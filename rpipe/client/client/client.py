@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from logging import getLogger
 from json import dumps
+from sys import stderr
 
 from ...shared import TRACE, QueryEC, Version, version
 from .errors import UsageError, VersionError
@@ -114,6 +115,6 @@ def rpipe(conf: Config, mode: Mode, config_file: Path) -> None:
         return
     # Print results
     if rv.checksum is not None:
-        print(f"Blake2s: {rv.checksum.hexdigest()}")
+        print(f"Blake2s: {rv.checksum.hexdigest()}", file=stderr)
     if rv.total is not None:
-        print(f"Total bytes {'sent' if mode.write else 'received'}: {rv.total}")
+        print(f"Total bytes {'sent' if mode.write else 'received'}: {rv.total}", file=stderr)
