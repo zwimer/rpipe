@@ -4,6 +4,8 @@ from logging import getLogger
 from time import sleep
 import sys
 
+from zstandard import ZstdCompressor
+
 from ...shared import (
     MAX_SOFT_SIZE_MIN,
     LFS,
@@ -14,18 +16,18 @@ from ...shared import (
 )
 from .errors import MultipleClients, ChannelLocked, ReportThis, VersionError
 from .util import wait_delay_sec, request
-from .delete import DeleteOnFail
+from .progress import Progress
 from .crypt import encrypt
-from .pbar import PBar
 from .io import IO
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from requests import Response
-    from .data import Config
+    from collections.abc import Callable
+    from .data import Result, Config, Mode
 
 
 _LOG = "send"
+_DEFAULT_LVL: int = 3
 
 
 def _send_known_error(r: Response) -> None:
@@ -44,34 +46,34 @@ def _send_known_error(r: Response) -> None:
             raise ChannelLocked(r.text)
 
 
-def _send_block(data: bytes, config: Config, params: UploadRequestParams, *, lvl: int = 0) -> Response:
+def _send_block(data: bytes, conf: Config, params: UploadRequestParams, *, lvl: int = 0) -> Response:
     """
     Upload the given block of data; updates params for next block
     """
     typ = "POST" if params.stream_id is None else "PUT"
-    r = request(typ, config.channel_url(), params=params.to_dict(), data=data)
+    r = request(typ, conf.channel_url(), params=params.to_dict(), data=data, timeout=conf.timeout)
     if r.ok:
         return r
     if r.status_code == UploadEC.wait:
         delay = wait_delay_sec(lvl)
         getLogger(_LOG).info("Pipe full, sleeping for %s second(s).", delay)
         sleep(delay)
-        return _send_block(data, config, params, lvl=lvl + 1)
+        return _send_block(data, conf, params, lvl=lvl + 1)
     _send_known_error(r)
     raise RuntimeError(f"Error {r.status_code}", r.text)
 
 
 def _send(
-    config: Config, io: IO, compress: Callable[[bytes], bytes], params: UploadRequestParams, pbar: PBar
+    conf: Config, progress: Progress, io: IO, compress: Callable[[bytes], bytes], params: UploadRequestParams
 ) -> None:
     log = getLogger(_LOG)
     while not params.final:
         block, params.final = io.read()
         log.info("Processing block of %s", LFS(block))
-        enc = encrypt(block, compress, config.password)
-        r = _send_block(enc, config, params)
-        pbar.update(len(block))
-        if params.stream_id is None:  # Configure following PUTs
+        enc = encrypt(block, compress, conf.password)
+        r = _send_block(enc, conf, params)
+        progress.update(block)
+        if params.stream_id is None:  # confure following PUTs
             if params.final:
                 return
             headers = UploadResponseHeaders.from_dict(r.headers)
@@ -80,21 +82,24 @@ def _send(
             sleep(0.025)  # Avoid being over-eager with sending data; let the read thread read
 
 
-def send(config: Config, ttl: int | None, progress: bool | int, compress: Callable[[bytes], bytes]) -> None:
+def send(conf: Config, mode: Mode) -> Result:
     """
     Send data to the remote pipe
     """
     log = getLogger(_LOG)
+    lvl = _DEFAULT_LVL if mode.zstd is None else mode.zstd
+    log.debug("Using compression level %d and %d threads", lvl, mode.threads)
+    compress = ZstdCompressor(write_checksum=True, level=lvl, threads=mode.threads).compress
     io = IO(sys.stdin.fileno(), MAX_SOFT_SIZE_MIN)
     sleep(0.025)  # Avoid being over-eager with sending data; let the read thread read
     params = UploadRequestParams(
         version=version,
         final=False,
-        ttl=ttl,
-        encrypted=config.password is not None,
+        ttl=mode.ttl,
+        encrypted=conf.password is not None,
     )
-    log.info("Writing to channel %s", config.channel)
-    with PBar(progress) as pbar:
-        with DeleteOnFail(config):
-            _send(config, io, compress, params, pbar)
+    log.info("Writing to channel %s", conf.channel)
+    with Progress(conf, mode) as progress:
+        _send(conf, progress, io, compress, params)
     log.info("Stream complete")
+    return progress.result

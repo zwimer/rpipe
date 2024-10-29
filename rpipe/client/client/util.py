@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from requests import Response
 
 
-REQUEST_TIMEOUT: int = 60
+_DEFAULT_TIMEOUT: int = 60
 _WAIT_DELAY_SEC: dict[int, float] = {0: 0.3, 1: 0.5, 5: 1.0, 60: 2.0, 300: 5.0}
 
 
@@ -27,9 +27,9 @@ def _session() -> Session:
     return Session()
 
 
-def request(*args, **kwargs) -> Response:
+def request(*args, timeout: int | None, **kwargs) -> Response:
     r = Request(*args, **kwargs).prepare()
     if r.body:
         getLogger("request").debug("Making %s request with %d bytes of data", r.method, len(r.body))
-    ret = _session().send(r, timeout=REQUEST_TIMEOUT)
+    ret = _session().send(r, timeout=_DEFAULT_TIMEOUT if timeout is None else timeout)
     return ret

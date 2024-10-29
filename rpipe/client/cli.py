@@ -67,6 +67,7 @@ def cli() -> None:
         help="Pipe TTL in seconds; use server default if not passed",
     )
     write_g.add_argument(  # Do not use default= for better error checking w.r.t. plaintext mode
+        "-Z",
         "--zstd",
         metavar="[1-22]",
         choices=range(1, 23),
@@ -74,6 +75,7 @@ def cli() -> None:
         help="Compression level to use; invalid in plaintext mode",
     )
     write_g.add_argument(
+        "-j",
         "--threads",
         metavar=f"[1-{cpu}]" if cpu > 1 else "1",
         choices=range(1, cpu + 1),
@@ -92,10 +94,17 @@ def cli() -> None:
     read_write_g.add_argument(
         "-P", "--progress", metavar="SIZE", type=_si, default=False, const=True, nargs="?", help=msg
     )
+    read_write_g.add_argument(
+        "-Y", "--total", action="store_true", help="Print the total number of bytes sent/received"
+    )
+    read_write_g.add_argument(
+        "-K", "--checksum", action="store_true", help="Checksum the data being sent/received"
+    )
     # Config options
     config = parser.add_argument_group("Configuration")
     config.add_argument("-u", "--url", help="The pipe url to use")
     config.add_argument("-c", "--channel", help="The channel to use")
+    config.add_argument("-T", "--timeout", type=float, help="The timeout for the HTTP requests")
     config.add_argument(
         "-k",
         "--key-file",

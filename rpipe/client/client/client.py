@@ -3,22 +3,19 @@ from typing import TYPE_CHECKING
 from logging import getLogger
 from json import dumps
 
-from zstandard import ZstdCompressor
-
 from ...shared import TRACE, QueryEC, Version, version
-from .util import REQUEST_TIMEOUT, request
 from .errors import UsageError, VersionError
-from .data import Config, Mode
 from .delete import delete
+from .util import request
 from .recv import recv
 from .send import send
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from .data import Result, Config, Mode
 
 
 _LOG: str = "client"
-_DEFAULT_LVL: int = 3
 
 
 def _print_config(conf: Config, config_file: Path) -> None:
@@ -36,7 +33,7 @@ def _print_config(conf: Config, config_file: Path) -> None:
 def _check_outdated(conf: Config) -> None:
     log = getLogger(_LOG)
     log.info("Mode: Outdated")
-    r = request("GET", f"{conf.url}/supported")
+    r = request("GET", f"{conf.url}/supported", timeout=conf.timeout)
     if not r.ok:
         raise RuntimeError(f"Failed to get server minimum version: {r}")
     info = r.json()
@@ -51,7 +48,7 @@ def _query(conf: Config) -> None:
     if not conf.channel:
         raise UsageError("Channel unknown; try again with --channel")
     log.info("Querying channel %s ...", conf.channel)
-    r = request("GET", f"{conf.url}/q/{conf.channel}")
+    r = request("GET", f"{conf.url}/q/{conf.channel}", timeout=conf.timeout)
     log.debug("Got response %s", r)
     log.log(TRACE, "Data: %s", r.content)
     match r.status_code:
@@ -82,7 +79,7 @@ def _priority_actions(conf: Config, mode: Mode, config_file: Path) -> None:
         _check_outdated(conf)
     if mode.server_version:
         log.info("Mode: Server Version")
-        r = request("GET", f"{conf.url}/version")
+        r = request("GET", f"{conf.url}/version", timeout=conf.timeout)
         if not r.ok:
             raise RuntimeError(f"Failed to get version: {r}")
         print(f"rpipe_server {r.text}")
@@ -107,13 +104,16 @@ def rpipe(conf: Config, mode: Mode, config_file: Path) -> None:
         if mode.zstd is not None:
             raise UsageError("Cannot compress data in plaintext mode")
     # Invoke mode
-    log.info("HTTP timeout set to %d seconds", REQUEST_TIMEOUT)
+    log.info("HTTP timeout set to: %s", "DEFAULT" if conf.timeout is None else f"{conf.timeout} seconds")
     if mode.read:
-        recv(conf, mode.block, mode.peek, mode.force, mode.progress)
+        rv: Result = recv(conf, mode)
     elif mode.write:
-        lvl = _DEFAULT_LVL if mode.zstd is None else mode.zstd
-        log.debug("Using compression level %d and %d threads", lvl, mode.threads)
-        compress = ZstdCompressor(write_checksum=True, level=lvl, threads=mode.threads).compress
-        send(conf, mode.ttl, mode.progress, compress)
+        rv = send(conf, mode)
     else:
         delete(conf)
+        return
+    # Print results
+    if rv.checksum is not None:
+        print(f"Blake2s: {rv.checksum.hexdigest()}")
+    if rv.total is not None:
+        print(f"Total bytes {'sent' if mode.write else 'received'}: {rv.total}")

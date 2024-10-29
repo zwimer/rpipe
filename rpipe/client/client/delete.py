@@ -15,23 +15,8 @@ def delete(conf: Config) -> None:
     Delete the channel
     """
     getLogger("delete").info("Deleting channel %s", conf.channel)
-    r = request("DELETE", conf.channel_url())
+    r = request("DELETE", conf.channel_url(), timeout=conf.timeout)
     if r.status_code == DeleteEC.locked:
         raise ChannelLocked(r.text)
     if not r.ok:
         raise RuntimeError(r)
-
-
-class DeleteOnFail:
-    def __init__(self, config: Config):
-        self.catch = KeyboardInterrupt | Exception
-        self.config = config
-        self.armed = False
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.armed and isinstance(exc_val, self.catch):
-            getLogger("DeleteOnFail").warning("Caught %s; deleting channel", type(exc_val))
-            delete(self.config)

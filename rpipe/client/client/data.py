@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import quote
 from json import loads, dumps
 from logging import getLogger
+from hashlib import blake2s
 from pathlib import Path
 
 from human_readable import listing
@@ -17,7 +18,21 @@ if TYPE_CHECKING:
 _CONFIG_LOG: str = "Config"
 
 
-@dataclass(kw_only=True, frozen=True)
+@dataclass(init=False, slots=True)
+class Result:
+    """
+    Result of a successful send/receive
+    """
+
+    checksum: blake2s | None
+    total: int | None
+
+    def __init__(self, total: bool, checksum: bool) -> None:
+        self.checksum = blake2s(usedforsecurity=False) if checksum else None
+        self.total = 0 if total else None
+
+
+@dataclass(kw_only=True, frozen=True, slots=True)
 class Config:
     """
     Information about where the remote pipe is
@@ -27,6 +42,7 @@ class Config:
     url: str = ""
     channel: str = ""
     password: str = ""
+    timeout: int | None = None
     key_file: Path | None = None
 
     def __post_init__(self):
@@ -91,7 +107,7 @@ class Config:
 
 
 # pylint: disable=too-many-instance-attributes
-@dataclass(kw_only=True, frozen=True)
+@dataclass(kw_only=True, frozen=True, slots=True)
 class Mode:
     """
     Arguments used to decide how rpipe should operate
@@ -119,6 +135,8 @@ class Mode:
     # Read / Write options
     encrypt: bool
     progress: bool | int
+    total: bool
+    checksum: bool
 
     @classmethod
     def keys(cls) -> tuple[str, ...]:
