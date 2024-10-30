@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 
 _CONFIG_LOG: str = "Config"
+_CONFIG_FILE_PERMISSIONS: int = 0o600
 
 
 @dataclass(init=False, slots=True)
@@ -82,6 +83,11 @@ class Config:
             log.debug("Creating directory %s", file.parent)
             file.parent.mkdir(exist_ok=True)
         log.info("Saving config %s", self)
+        if not file.exists():
+            log.warning("Creating config file: %s", file)
+            file.touch(mode=_CONFIG_FILE_PERMISSIONS)
+            log.debug("Permissions set to: %s", oct(_CONFIG_FILE_PERMISSIONS))
+        file.chmod(_CONFIG_FILE_PERMISSIONS)  # Update permissions in case permissions are bad
         file.write_text(dumps(asdict(self), default=str), encoding="utf-8")
         log.info("Config saved to %s", file)
 
