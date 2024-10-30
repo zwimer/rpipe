@@ -66,6 +66,7 @@ class Config:
         conf = asdict(Config())
         # Load config file then cli args
         if file.exists():
+            file.chmod(_CONFIG_FILE_PERMISSIONS)  # Update permissions in case permissions are bad
             log.debug("Loading config file %s", file)
             conf.update(loads(file.read_text(encoding="utf-8")))
         else:
@@ -87,8 +88,8 @@ class Config:
             log.warning("Creating config file: %s", file)
             file.touch(mode=_CONFIG_FILE_PERMISSIONS)
             log.debug("Permissions set to: %s", oct(_CONFIG_FILE_PERMISSIONS))
-        file.chmod(_CONFIG_FILE_PERMISSIONS)  # Update permissions in case permissions are bad
         file.write_text(dumps(asdict(self), default=str), encoding="utf-8")
+        file.chmod(_CONFIG_FILE_PERMISSIONS)  # Update permissions in case permissions are bad
         log.info("Config saved to %s", file)
 
     def validate(self) -> None:
