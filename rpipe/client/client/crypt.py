@@ -67,9 +67,9 @@ def decrypt(data: bytes, decompress: Callable[[bytes], bytes], password: str | N
     es = _EncryptedData.decode(data)
     sfx = "s" if len(es) != 1 else ""
     log.debug("Decrypting %d chunk%s", len(es), sfx)
-    r = tuple(_aes(e.salt, password, e.nonce).decrypt_and_verify(e.text, e.tag) for e in es)
+    r = [_aes(e.salt, password, e.nonce).decrypt_and_verify(e.text, e.tag) for e in es]
     log.debug("Decompressing %d chunk%s", len(es), sfx)
-    r = tuple(decompress(i) for i in r)
+    r = [decompress(i) for i in r]
     if len(es) > 1:
         log.debug("Merging chunks")
     return r[0] if len(r) == 1 else b"".join(r)

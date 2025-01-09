@@ -69,7 +69,7 @@ class UnlockedState:
             return
         self._log.debug("Creating server Stats")
         self.stats = Stats()
-        _ = tuple(self.stats.channels[i] for i in self.streams)
+        _ = [self.stats.channels[i] for i in self.streams]
         self._log.info("State loaded successfully")
 
     def save(self, file: Path) -> None:

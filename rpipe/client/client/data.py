@@ -54,8 +54,8 @@ class Config:
         return f"{self.url}/c/{quote(self.channel)}"
 
     @classmethod
-    def keys(cls) -> tuple[str, ...]:
-        return tuple(i.name for i in fields(cls))
+    def keys(cls) -> list[str]:
+        return [i.name for i in fields(cls)]
 
     @classmethod
     def load(cls, cli: dict[str, bool | str | Path | None], file: Path) -> Self:
@@ -146,8 +146,8 @@ class Mode:
     checksum: bool
 
     @classmethod
-    def keys(cls) -> tuple[str, ...]:
-        return tuple(i.name for i in fields(cls))
+    def keys(cls) -> list[str]:
+        return [i.name for i in fields(cls)]
 
     def priority(self) -> bool:
         c = (self.print_config, self.save_config, self.outdated, self.server_version, self.query).count(True)

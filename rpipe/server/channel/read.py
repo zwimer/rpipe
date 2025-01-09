@@ -95,7 +95,7 @@ def read(state: State, channel: str) -> Response:
         if not args.delete:  # Peek mode (could also be web version)
             log.debug("Reading channel %s in peek mode", channel)
             u.stats.peek(channel)
-            rdata: Sequence[bytes] = tuple(s.data)
+            rdata: Sequence[bytes] = s.data
             final = True
         elif args.version == WEB_VERSION:
             log.debug("Reading channel %s from WEB_VERSION", channel)
