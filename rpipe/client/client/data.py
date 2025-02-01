@@ -126,6 +126,7 @@ class Mode:
     save_config: bool
     outdated: bool
     server_version: bool
+    blocked: bool
     query: bool
     # Read/Write/Delete modes
     read: bool
@@ -150,6 +151,13 @@ class Mode:
         return [i.name for i in fields(cls)]
 
     def priority(self) -> bool:
-        c = (self.print_config, self.save_config, self.outdated, self.server_version, self.query).count(True)
+        c = (
+            self.print_config,
+            self.save_config,
+            self.outdated,
+            self.server_version,
+            self.blocked,
+            self.query,
+        ).count(True)
         assert c <= 1, "Sanity check on priority mode count failed"
         return c > 0

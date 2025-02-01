@@ -111,6 +111,8 @@ class App(Flask):
             @wraps(func)
             def inner(*args, **kwargs):
                 if self._objs.blocked():
+                    if lg.isEnabledFor(DEBUG):
+                        lg.debug("Blocked request by %s to: %s", remote_addr(), request.path)
                     return Response(status=BLOCKED_EC)
                 ret = func(*args, self._objs, **kwargs) if objs else func(*args, **kwargs)
                 if not logged or self._objs.server.state.debug:

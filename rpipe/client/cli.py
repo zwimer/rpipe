@@ -156,6 +156,9 @@ def cli() -> None:
         help="Get information on the given channel",
     )
     priority_mode.add_argument("-A", "--admin", action="store_true", help="Allow use of admin commands")
+    priority_mode.add_argument(
+        "-B", "--blocked", action="store_true", help="Determine if the client is blocked from the server"
+    )
     # Admin commands
     admin = parser.add_subparsers(
         title="Admin Commands",
@@ -178,7 +181,10 @@ def cli() -> None:
     admin.add_parser("lock", help="Lock the channel")
     admin.add_parser("unlock", help="Unlock the channel")
     ip_p = admin.add_parser("ip", help="Block / unblock ip addresses, or get a list of blocked addresses")
-    m_g = ip_p.add_mutually_exclusive_group(required=False)
+    m_g = ip_p.add_argument_group(
+        "Block / Unblock a given IP",
+        "If none of these are passed, the command will return the list of banned IP addresses",
+    ).add_mutually_exclusive_group(required=False)
     m_g.add_argument("--block", help="Block a given IP address")
     m_g.add_argument("--unblock", help="Unblock a given IP address")
     argcomplete.autocomplete(parser)  # Tab completion

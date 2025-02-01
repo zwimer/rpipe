@@ -2,10 +2,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from logging import getLogger
 from json import dumps
-from sys import stderr
+import sys
 
 from ...shared import TRACE, QueryEC, Version, version
-from .errors import UsageError, VersionError
+from .errors import UsageError, VersionError, BlockedError
 from .delete import delete
 from .util import request
 from .recv import recv
@@ -78,9 +78,18 @@ def _priority_actions(conf: Config, mode: Mode, config_file: Path) -> None:
     # Remaining priority modes
     if mode.outdated:
         _check_outdated(conf)
-    if mode.server_version:
+    if mode.server_version or mode.blocked:
         log.info("Mode: Server Version")
-        r = request("GET", f"{conf.url}/version", timeout=conf.timeout)
+        try:
+            r = request("GET", f"{conf.url}/version", timeout=conf.timeout)
+        except BlockedError:
+            if mode.blocked:
+                print("Server is blocking this IP address")
+                sys.exit(1)
+            raise
+        if mode.blocked:
+            print("Server is not blocking this IP address")
+            return
         if not r.ok:
             raise RuntimeError(f"Failed to get version: {r}")
         print(f"rpipe_server {r.text}")
@@ -115,6 +124,6 @@ def rpipe(conf: Config, mode: Mode, config_file: Path) -> None:
         return
     # Print results
     if rv.checksum is not None:
-        print(f"Blake2s: {rv.checksum.hexdigest()}", file=stderr)
+        print(f"Blake2s: {rv.checksum.hexdigest()}", file=sys.stderr)
     if rv.total is not None:
-        print(f"Total bytes {'sent' if mode.write else 'received'}: {rv.total}", file=stderr)
+        print(f"Total bytes {'sent' if mode.write else 'received'}: {rv.total}", file=sys.stderr)
