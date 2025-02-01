@@ -10,6 +10,7 @@ from zstdlib import Singleton
 
 from .prune_thread import PruneThread
 from .state import State
+from ...shared import version
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -53,7 +54,7 @@ class Server(Singleton):
 
     def __init__(self, debug: bool, state_file: Path | None) -> None:
         self._log = getLogger(_LOG)
-        self._log.info("Initializing server")
+        self._log.info("Initializing server v%s", version)
         self._state_file: Path | None = state_file
         self.state = State(debug)
         # Flask reloader will just relaunch this so we skip most configuration (such as persistent items)

@@ -58,7 +58,8 @@ class Blocked:
     def __call__(self) -> bool:
         if self.file is None:
             return False
-        if (ip := request.remote_addr) in self.data["ips"]:
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+        if ip in self.data["ips"]:
             return True
         pth = request.path
         if any(fnmatch(pth, i) for i in self.data["routes"]):
