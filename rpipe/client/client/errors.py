@@ -12,6 +12,15 @@ class UsageError(ValueError):
         super().__init__(msg)
 
 
+class BlockedError(UsageError):
+    """
+    Raised when the server has blocked this IP address
+    """
+
+    def __init__(self) -> None:
+        super().__init__("This IP address is blocked by the server")
+
+
 class VersionError(UsageError):
     """
     Raised when the server has rejected the client version

@@ -1,6 +1,9 @@
 from zstdlib import Enum
 
 
+BLOCKED_EC: int = 401
+
+
 # pylint: disable=bad-mcs-method-argument,bad-mcs-classmethod-argument
 class UploadEC(Enum):
     """
@@ -14,7 +17,7 @@ class UploadEC(Enum):
     too_big: int = 413  #          Too much data sent to server
     conflict: int = 409  #         Stream ID indicates a different stream than exists
     wait: int = 425  #             Try again in a bit, waiting on the other end of the pipe
-    forbidden: int = 403  #        Writing to finalized stream
+    forbidden: int = 406  #        Writing to finalized stream
     locked: int = 423  #           Channel is locked and cannot be edited
 
 
@@ -29,7 +32,7 @@ class DownloadEC(Enum):
     no_data: int = 410  #          No data on this channel; takes priority over stream_id error
     conflict: int = 409  #         Stream ID indicates a different stream than exists
     wait: int = 425  #             Try again in a bit, waiting on the other end of the pipe
-    forbidden: int = 403  #        StreamID passed for new stream or while peeking
+    forbidden: int = 406  #        StreamID passed for new stream or while peeking
     cannot_peek: int = 452  #      Cannot peek, too much data
     in_use: int = 453  #           Someone else is reading from the pipe
     locked: int = 423  #           Channel is locked and cannot be edited
@@ -61,5 +64,5 @@ class AdminEC(Enum):
     """
 
     invalid: int = 400
-    unauthorized: int = 401
+    unauthorized: int = 403
     illegal_version: int = 426

@@ -4,6 +4,7 @@ from os import environ, close as fd_close
 from dataclasses import dataclass
 from tempfile import mkstemp
 from functools import wraps
+from fnmatch import fnmatch
 from pathlib import Path
 import atexit
 import typing
@@ -13,7 +14,7 @@ from flask import Response, Flask, send_file, request
 from zstdlib.log import CuteFormatter
 import waitress
 
-from ..shared import TRACE, restrict_umask, remote_addr, log, __version__
+from ..shared import BLOCKED_EC, TRACE, restrict_umask, remote_addr, log, __version__
 from .util import MAX_SIZE_HARD, MIN_VERSION, json_response, plaintext
 from .channel import handler, query
 from .server import Server
@@ -52,14 +53,15 @@ class Blocked:
     def commit(self) -> None:
         if self.file is None:
             raise ValueError("Cannot save a block file when block-file not set")
-        self.file.write_text(json.dumps(self.data))
+        self.file.write_text(json.dumps(self.data, indent=4))
 
     def __call__(self) -> bool:
         if self.file is None:
             return False
         if (ip := request.remote_addr) in self.data["ips"]:
             return True
-        if (pth := request.path) in self.data["routes"]:
+        pth = request.path
+        if any(fnmatch(pth, i) for i in self.data["routes"]):
             self._lg.info("Blocking IP %s based on route: %s", ip, pth)
             self.data["ips"].append(typing.cast(str, ip))
             self.commit()
@@ -109,7 +111,7 @@ class App(Flask):
             @wraps(func)
             def inner(*args, **kwargs):
                 if self._objs.blocked():
-                    return Response(status=401)
+                    return Response(status=BLOCKED_EC)
                 ret = func(*args, self._objs, **kwargs) if objs else func(*args, **kwargs)
                 if not logged or self._objs.server.state.debug:
                     return ret

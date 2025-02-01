@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from enum import Enum
 
 
-MIN_VERSION = Version("6.3.0")
+MIN_VERSION = Version("9.6.1")
 
 # Maximum size of a request
 # Note: The soft limit is soft to allow overhead of encryption headers and such

@@ -5,6 +5,9 @@ from functools import cache
 
 from requests import Session, Request
 
+from .errors import BlockedError
+from ...shared import BLOCKED_EC
+
 if TYPE_CHECKING:
     from requests import Response
 
@@ -32,4 +35,6 @@ def request(*args, timeout: int | None, **kwargs) -> Response:
     if r.body:
         getLogger("request").debug("Making %s request with %d bytes of data", r.method, len(r.body))
     ret = _session().send(r, timeout=_DEFAULT_TIMEOUT if timeout is None else timeout)
+    if ret.status_code == BLOCKED_EC:
+        raise BlockedError()
     return ret

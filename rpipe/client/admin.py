@@ -14,7 +14,8 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from requests import Session
 
 from ..shared import QueryResponse, AdminMessage, AdminEC, version
-from .client import Config, UsageError
+from .. import shared  # Let BLOCKED_EC be used in match statements
+from .client import Config, UsageError, BlockedError
 
 if TYPE_CHECKING:
     from requests import Response
@@ -64,6 +65,8 @@ class _Methods:
         """
         if len(self._uids) == 0:
             r = self._session.get(f"{self._conf.url}/admin/uid", timeout=ADMIN_REQUEST_TIMEOUT)
+            if r.status_code == shared.BLOCKED_EC:
+                raise BlockedError()
             self._uids += r.json()
         uid: str = self._uids.popleft()
         # Sign and send POST request
@@ -72,6 +75,8 @@ class _Methods:
         data = b"\n".join((bytes(version), b85encode(self._sign(msg)), msg))
         ret = self._session.post(f"{self._conf.url}{path}", data=data, timeout=ADMIN_REQUEST_TIMEOUT)
         match ret.status_code:
+            case shared.BLOCKED_EC:
+                raise BlockedError()
             case AdminEC.unauthorized:
                 self._log.critical("Admin access denied")
                 raise AccessDenied()
