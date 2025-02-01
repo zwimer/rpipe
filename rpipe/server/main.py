@@ -19,6 +19,7 @@ def cli() -> None:
     )
     parser.add_argument("port", type=int, help="The port waitress will listen on")
     parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
+    parser.add_argument("--block-file", type=Path, help="A json of IP addresses and routes to ban")
     parser.add_argument("-s", "--state-file", type=Path, help="The save state file, if desired")
     parser.add_argument(
         "-k",

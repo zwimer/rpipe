@@ -6,6 +6,8 @@ from tempfile import mkstemp
 from functools import wraps
 from pathlib import Path
 import atexit
+import typing
+import json
 
 from flask import Response, Flask, send_file, request
 from zstdlib.log import CuteFormatter
@@ -35,7 +37,34 @@ class ServerConfig:
     port: int
     debug: bool
     state_file: Path | None
+    block_file: Path | None
     key_files: list[Path]
+
+
+class Blocked:
+    _DEFAULT: dict[str, list[str]] = {"ips": [], "routes": []}
+
+    def __init__(self, file: Path | None) -> None:
+        self.data = dict(self._DEFAULT) if file is None else json.loads(file.read_text())
+        self.file: Path | None = file
+        self._lg = getLogger("Blocked")
+
+    def commit(self) -> None:
+        if self.file is None:
+            raise ValueError("Cannot save a block file when block-file not set")
+        self.file.write_text(json.dumps(self.data))
+
+    def __call__(self) -> bool:
+        if self.file is None:
+            return False
+        if (ip := request.remote_addr) in self.data["ips"]:
+            return True
+        if (pth := request.path) in self.data["routes"]:
+            self._lg.info("Blocking IP %s based on route: %s", ip, pth)
+            self.data["ips"].append(typing.cast(str, ip))
+            self.commit()
+            return True
+        return False
 
 
 class App(Flask):
@@ -44,6 +73,7 @@ class App(Flask):
     class Objs:
         admin: Admin
         server: Server
+        blocked: Blocked
         favicon: Path | None
 
     def __init__(self) -> None:
@@ -57,10 +87,11 @@ class App(Flask):
         if favicon is not None and not favicon.is_file():
             lg.error("Favicon file not found: %s", favicon)
             favicon = None
-        admin = Admin(log_file, conf.key_files)
+        blocked = Blocked(conf.block_file)
+        admin = Admin(log_file, conf.key_files, blocked)
         lg.info("Starting server version: %s", __version__)
         # pylint: disable=attribute-defined-outside-init
-        self._objs = self.Objs(admin, Server(conf.debug, conf.state_file), favicon)
+        self._objs = self.Objs(admin, Server(conf.debug, conf.state_file), blocked, favicon)
         lg.info("Binding to %s:%s", conf.host, conf.port)
         if conf.debug:
             self.run(host=conf.host, port=conf.port, debug=True)
@@ -70,12 +101,15 @@ class App(Flask):
     def give(self, *, objs: bool = False, logged: bool = True):
         """
         Give the wrapped function self.objs and log requests as requested
+        Also handles blocked IP addresses and routes
         """
         lg = getLogger(_LOG)
 
         def decorator(func):
             @wraps(func)
             def inner(*args, **kwargs):
+                if self._objs.blocked():
+                    return Response(status=401)
                 ret = func(*args, self._objs, **kwargs) if objs else func(*args, **kwargs)
                 if not logged or self._objs.server.state.debug:
                     return ret
@@ -212,6 +246,11 @@ def _admin_log_level(o: App.Objs) -> Response:
 @app.route("/admin/lock", admin=True)
 def _admin_lock(o: App.Objs) -> Response:
     return o.admin.lock(o.server.state)
+
+
+@app.route("/admin/ip", admin=True)
+def _admin_ip(o: App.Objs) -> Response:
+    return o.admin.ip(o.server.state)
 
 
 # Main functions

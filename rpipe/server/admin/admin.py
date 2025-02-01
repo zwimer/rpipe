@@ -13,6 +13,7 @@ from .verify import Verify
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from ..app import Blocked
     from ..server import State
 
 
@@ -24,9 +25,10 @@ class Methods:
     Protected methods that can be accessed by the Admin class
     """
 
-    def __init__(self, log_file: Path | None) -> None:
+    def __init__(self, log_file: Path | None, blocked: Blocked) -> None:
         self._log = getLogger("Admin")
         self._log_file = log_file
+        self._blocked = blocked
         self._log.debug("Log file set to %s", log_file)
 
     @staticmethod
@@ -63,7 +65,8 @@ class Methods:
             stats = asdict(s.stats)
         return json_response(stats)
 
-    def channels(self, state: State, _: str) -> Response:
+    @staticmethod
+    def channels(state: State, _: str) -> Response:
         """
         Return a list of the server's current channels and stats
         """
@@ -81,6 +84,21 @@ class Methods:
             s.locked = lock
         return Response(f"Channel {channel} is now {lock_s}", status=200)
 
+    def ip(self, _: State, body: str) -> Response:
+        js = loads(body.strip())
+        if (addr := js["ip"]) is None:
+            return json_response(self._blocked.data["ips"])
+        lst = self._blocked.data["ips"]
+        if js["block"]:
+            if addr not in lst:
+                lst.append(addr)
+                self._blocked.commit()
+        elif addr in lst:
+            while addr in lst:
+                lst.remove(addr)
+            self._blocked.commit()
+        return Response(status=200)
+
 
 class Admin:
     """
@@ -92,9 +110,9 @@ class Admin:
 
     __slots__ = ("_verify", "_methods")
 
-    def __init__(self, log_file: Path, key_files: list[Path]) -> None:
+    def __init__(self, log_file: Path, key_files: list[Path], blocked: Blocked) -> None:
         self._verify = Verify(key_files)
-        self._methods = Methods(log_file)
+        self._methods = Methods(log_file, blocked)
 
     def __getattr__(self, item: str) -> Any:
         """

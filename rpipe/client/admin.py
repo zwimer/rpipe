@@ -145,6 +145,21 @@ class _Methods:
         """
         self._lock(False)
 
+    def ip(self, block: str | None, unblock: str | None) -> None:
+        """
+        Request the blocked ip addresses, or block / unblock an ip address
+        """
+        if block is not None and unblock is not None:
+            raise ValueError("block and unblock may not both be non-None")
+        if block is None and unblock is None:
+            blocked = self._request("/admin/ip", '{"ip": null}').text
+            print(f"Blocked IP addresses: {blocked}")
+            return
+        ban = block is not None
+        addr = block if ban else unblock
+        self._request("/admin/ip", dumps({"ip": addr, "block": ban}))
+        print(f"{"" if ban else "UN"}BLOCKED: {addr}")
+
 
 class Admin:
     """
