@@ -180,12 +180,13 @@ def cli() -> None:
     log_lvl_p.add_argument("level", default=None, nargs="?", help="The log level for the server to use")
     admin.add_parser("lock", help="Lock the channel")
     admin.add_parser("unlock", help="Unlock the channel")
-    ip_p = admin.add_parser("ip", help="Block / unblock ip addresses, or get a list of blocked addresses")
-    m_g = ip_p.add_argument_group(
-        "Block / Unblock a given IP",
-        "If none of these are passed, the command will return the list of banned IP addresses",
-    ).add_mutually_exclusive_group(required=False)
-    m_g.add_argument("--block", help="Block a given IP address")
-    m_g.add_argument("--unblock", help="Unblock a given IP address")
+    for name in ("ip", "route"):
+        p2 = admin.add_parser(name, help=f"Block / unblock {name}s, or get a list of blocked {name}s")
+        m_g = p2.add_argument_group(
+            f"Block / Unblock a given {name}",
+            f"If none of these are passed, the command will return the list of banned {name}s",
+        ).add_mutually_exclusive_group(required=False)
+        m_g.add_argument("--block", help=f"Block a given {name}")
+        m_g.add_argument("--unblock", help=f"Unblock a given {name}")
     argcomplete.autocomplete(parser)  # Tab completion
     _cli(parser, parser.parse_args())

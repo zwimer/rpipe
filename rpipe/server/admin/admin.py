@@ -84,20 +84,28 @@ class Methods:
             s.locked = lock
         return Response(f"Channel {channel} is now {lock_s}", status=200)
 
-    def ip(self, _: State, body: str) -> Response:
+    def _block(self, name: str, body: str) -> Response:
         js = loads(body.strip())
-        if (addr := js["ip"]) is None:
-            return json_response(self._blocked.data["ips"])
-        lst = self._blocked.data["ips"]
+        if (obj := js[name]) is None:
+            return json_response(getattr(self._blocked.data, f"{name}s"))
+        lst = getattr(self._blocked.data, f"{name}s")
         if js["block"]:
-            if addr not in lst:
-                lst.append(addr)
+            if obj not in lst:
+                self._log.info("Blocking %s: %s", name, obj)
+                lst.append(obj)
                 self._blocked.commit()
-        elif addr in lst:
-            while addr in lst:
-                lst.remove(addr)
+        elif obj in lst:
+            while obj in lst:
+                self._log.info("Unblocking %s: %s", name, obj)
+                lst.remove(obj)
             self._blocked.commit()
         return Response(status=200)
+
+    def ip(self, _: State, body: str) -> Response:
+        return self._block("ip", body)
+
+    def route(self, _: State, body: str) -> Response:
+        return self._block("route", body)
 
 
 class Admin:

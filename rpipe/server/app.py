@@ -4,11 +4,8 @@ from os import environ, close as fd_close
 from dataclasses import dataclass
 from tempfile import mkstemp
 from functools import wraps
-from fnmatch import fnmatch
 from pathlib import Path
 import atexit
-import typing
-import json
 
 from flask import Response, Flask, send_file, request
 from zstdlib.log import CuteFormatter
@@ -17,6 +14,7 @@ import waitress
 from ..shared import BLOCKED_EC, TRACE, restrict_umask, remote_addr, log, __version__
 from .util import MAX_SIZE_HARD, MIN_VERSION, json_response, plaintext
 from .channel import handler, query
+from .blocked import Blocked
 from .server import Server
 from .admin import Admin
 
@@ -40,34 +38,6 @@ class ServerConfig:
     state_file: Path | None
     block_file: Path | None
     key_files: list[Path]
-
-
-class Blocked:
-    _DEFAULT: dict[str, list[str]] = {"ips": [], "routes": []}
-
-    def __init__(self, file: Path | None) -> None:
-        self.data = dict(self._DEFAULT) if file is None else json.loads(file.read_text())
-        self.file: Path | None = file
-        self._lg = getLogger("Blocked")
-
-    def commit(self) -> None:
-        if self.file is None:
-            raise ValueError("Cannot save a block file when block-file not set")
-        self.file.write_text(json.dumps(self.data, indent=4))
-
-    def __call__(self) -> bool:
-        if self.file is None:
-            return False
-        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-        if ip in self.data["ips"]:
-            return True
-        pth = request.path
-        if any(fnmatch(pth, i) for i in self.data["routes"]):
-            self._lg.info("Blocking IP %s based on route: %s", ip, pth)
-            self.data["ips"].append(typing.cast(str, ip))
-            self.commit()
-            return True
-        return False
 
 
 class App(Flask):
@@ -256,6 +226,11 @@ def _admin_lock(o: App.Objs) -> Response:
 @app.route("/admin/ip", admin=True)
 def _admin_ip(o: App.Objs) -> Response:
     return o.admin.ip(o.server.state)
+
+
+@app.route("/admin/route", admin=True)
+def _admin_route(o: App.Objs) -> Response:
+    return o.admin.route(o.server.state)
 
 
 # Main functions
