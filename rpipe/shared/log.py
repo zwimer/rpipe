@@ -11,8 +11,14 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
-DATEFMT = "%H:%M:%S"
-FORMAT = "%(cute_asctime)s.%(msecs)03d - %(cute_levelname)-8s - %(cute_name)-10s - %(cute_message)s"
+CF_KWARGS = {
+    "fmt": "%(cute_asctime)s.%(msecs)03d - %(cute_levelname)s - %(cute_name)s - %(cute_message)s",
+    "datefmt": "%H:%M:%S",
+    "cute_widths": {
+        "cute_levelname": 8,
+        "cute_name": 13,
+    },
+}
 
 TRACE = DEBUG - 5
 assert TRACE > 0

@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol, cast
 from logging import getLogger
 from base64 import b85decode
+from threading import Lock
 from pathlib import Path
 from json import loads
 from time import sleep
@@ -10,7 +11,7 @@ from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from flask import request
 
-from ...shared import AdminMessage, AdminStats, AdminEC, Version, remote_addr
+from ...shared import TRACE, AdminMessage, AdminStats, AdminEC, Version, remote_addr
 from .uid import UID
 
 
@@ -31,7 +32,9 @@ class Verify:
     A class to manage signature verification of Admin requests
     """
 
-    __slots__ = ("uid", "_verifiers", "_log")
+    _BRUTE_FORCE_DELAY = 0.02
+
+    __slots__ = ("uid", "_verifiers", "_log", "_brute_force_lock")
 
     def __init__(self, key_files: list[Path]):
         self._log = getLogger("Verify")
@@ -39,6 +42,7 @@ class Verify:
         verifiers = {self._load_verifier(k): k for k in key_files}
         _ = verifiers.pop(None, None)
         self._verifiers = cast(dict[_Verifier, Path], verifiers)
+        self._brute_force_lock = Lock()
         self.uid = UID()
 
     def __call__(self, name: str, state: State) -> Response | str:
@@ -57,7 +61,7 @@ class Verify:
                 return None
             return cast(_Verifier | None, getattr(load_ssh_public_key(key_file.read_bytes()), "verify", None))
         except UnsupportedAlgorithm:
-            self._log.error("Signature verification is not supported for %s - Skipping", key_file)
+            self._log.error("Skipping %s - Signature verification algorithm not supported", key_file)
             return None
 
     def _verify_signature(self, signature: bytes, msg: bytes) -> Path | None:
@@ -78,25 +82,30 @@ class Verify:
         self._log.debug("Checking version")
         version, post = request.get_data().split(b"\n", 1)
         stat.version = version.decode()
-        if Version(version) < MIN_VERSION:
+        pth = request.full_path.strip("?")
+        if (ver := Version(version)) < MIN_VERSION:
+            self._log.warning("Rejecting request; path: %s; client too old: %s < %s", pth, ver, MIN_VERSION)
             _msg = f"Minimum supported client version: {MIN_VERSION}"
             return Response(_msg, status=AdminEC.illegal_version)
         # Extract parameters
-        self._log.info("Extracting request signature and message")
+        self._log.debug("Extracting request signature and message")
         signature, msg_bytes = post.split(b"\n", 1)
         msg = AdminMessage(**loads(msg_bytes.decode()))
         stat.uid = msg.uid
         # Verify UID
-        sleep(0.01)  # Slow down brute force attacks
+        with self._brute_force_lock:  # Slow down brute force attacks
+            self._log.log(TRACE, "Sleeping %s seconds to prevent brute forcing", self._BRUTE_FORCE_DELAY)
+            sleep(self._BRUTE_FORCE_DELAY)
         if not self.uid.verify(msg.uid):
-            self._log.warning("Rejecting request due to invalid UID: %s", msg.uid)
+            self._log.error("Rejecting request; invalid UID: %s and path: %s", pth, msg.uid)
             return Response(status=AdminEC.unauthorized)
         stat.uid_valid = True
         # Verify signature
         if (key_file := self._verify_signature(b85decode(signature), msg_bytes)) is None:
-            self._log.warning("Signature verification failed.")
+            self._log.error("Signature verification failed; path: %s", pth)
             return Response(status=AdminEC.unauthorized)
         stat.signer = key_file
         # Success
-        self._log.info("Signature verified. Executing %s", request.full_path.strip("?"))
+        self._log.debug("Signature verified")
+        self._log.info("Executing %s", pth)
         return msg.body

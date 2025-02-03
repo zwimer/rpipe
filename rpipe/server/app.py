@@ -265,7 +265,7 @@ def _log_config(conf: LogConfig) -> Path:
             if conf.debug:
                 environ[rdlf_env] = str(log_file)
     # Setup logger
-    fmt = CuteFormatter(log.FORMAT, log.DATEFMT, colored=conf.colored)
+    fmt = CuteFormatter(**log.CF_KWARGS, colored=conf.colored)
     fh = FileHandler(log_file, mode="a")
     stream = StreamHandler()
     root = getLogger()

@@ -82,7 +82,7 @@ def _config_log(parsed: Namespace) -> None:
     root.setLevel(lvl := log.level(parsed.verbose))
     assert len(root.handlers) == 0, "Root logger should not have any handlers"
     root.addHandler(sh := StreamHandler())
-    sh.setFormatter(CuteFormatter(fmt=log.FORMAT, datefmt=log.DATEFMT, colored=not parsed.no_color_log))
+    sh.setFormatter(CuteFormatter(**log.CF_KWARGS, colored=not parsed.no_color_log))
     getLogger(_LOG).info(
         "Logging level set to %s with colors %sABLED",
         getLevelName(lvl),

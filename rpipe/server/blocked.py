@@ -40,6 +40,8 @@ class Blocked:  # Move into server? Move stats into Stats?
 
     def __init__(self, file: Path | None, debug: bool) -> None:
         self._log = getLogger("Blocked")
+        if file is not None:
+            self._log.info("Loading blocklist: %s", file)
         js = self._INIT if file is None or not file.is_file() else json.loads(file.read_text())
         if (old := Version(js.pop("version", ""))) < self.MIN_VERSION:
             raise ValueError(f"Blocklist version too old: {old} <= {self.MIN_VERSION}")
