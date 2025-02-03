@@ -36,7 +36,7 @@ class ServerConfig:
     port: int
     debug: bool
     state_file: Path | None
-    block_file: Path | None
+    blocklist: Path | None
     key_files: list[Path]
 
 
@@ -60,7 +60,7 @@ class App(Flask):
         if favicon is not None and not favicon.is_file():
             lg.error("Favicon file not found: %s", favicon)
             favicon = None
-        blocked = Blocked(conf.block_file)
+        blocked = Blocked(conf.blocklist, conf.debug)
         admin = Admin(log_file, conf.key_files, blocked)
         lg.info("Starting server version: %s", __version__)
         # pylint: disable=attribute-defined-outside-init
@@ -205,7 +205,8 @@ def _admin_channels(o: App.Objs) -> Response:
 
 @app.route("/admin/stats", admin=True)
 def _admin_stats(o: App.Objs) -> Response:
-    return o.admin.stats(o.server.state)
+    with o.blocked as data:
+        return o.admin.stats(o.server.state, data.stats)
 
 
 @app.route("/admin/log", admin=True)

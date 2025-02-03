@@ -60,10 +60,10 @@ class Methods:
         return Response(f"{old}\n{new}", status=200, mimetype="text/plain")
 
     @staticmethod
-    def stats(state: State, _: str) -> Response:
+    def stats(state: State, _: str, blocked: dict[str, list[list[str]]]) -> Response:
         with state as s:
             stats = asdict(s.stats)
-        return json_response(stats)
+        return json_response({"server": stats, "blocked": blocked})
 
     @staticmethod
     def channels(state: State, _: str) -> Response:
@@ -86,19 +86,18 @@ class Methods:
 
     def _block(self, name: str, body: str) -> Response:
         js = loads(body.strip())
-        if (obj := js[name]) is None:
-            return json_response(getattr(self._blocked.data, f"{name}s"))
-        lst = getattr(self._blocked.data, f"{name}s")
-        if js["block"]:
-            if obj not in lst:
-                self._log.info("Blocking %s: %s", name, obj)
-                lst.append(obj)
-                self._blocked.commit()
-        elif obj in lst:
-            while obj in lst:
-                self._log.info("Unblocking %s: %s", name, obj)
-                lst.remove(obj)
-            self._blocked.commit()
+        with self._blocked as data:
+            if (obj := js[name]) is None:
+                return json_response(getattr(data, f"{name}s"))
+            lst = getattr(data, f"{name}s")
+            if js["block"]:
+                if obj not in lst:
+                    self._log.info("Blocking %s: %s", name, obj)
+                    lst.append(obj)
+            elif obj in lst:
+                while obj in lst:
+                    self._log.info("Unblocking %s: %s", name, obj)
+                    lst.remove(obj)
         return Response(status=200)
 
     def ip(self, _: State, body: str) -> Response:
@@ -129,10 +128,10 @@ class Admin:
         if item.startswith("_"):
             raise AttributeError(f"{item} is a private member")
 
-        def wrapper(state: State) -> Response:
+        def wrapper(state: State, *args, **kwargs) -> Response:
             assert self._verify is not None, "Admin not initialized"
             if isinstance(rv := self._verify(item, state), str):
-                return getattr(self._methods, item)(state, rv)
+                return getattr(self._methods, item)(state, rv, *args, **kwargs)
             return rv
 
         return wrapper

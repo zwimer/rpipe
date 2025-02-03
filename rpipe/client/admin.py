@@ -7,6 +7,7 @@ from logging import getLogger
 from json import loads, dumps
 from base64 import b85encode
 from pathlib import Path
+import json
 import zlib
 
 from cryptography.hazmat.primitives.serialization import load_ssh_private_key  # type: ignore[attr-defined]
@@ -155,6 +156,7 @@ class _Methods:
             raise ValueError("block and unblock may not both be non-None")
         if block is None and unblock is None:
             blocked = self._request(f"/admin/{name}", f'{{"{name}": null}}').text
+            blocked = json.dumps(json.loads(blocked), indent=4)
             print(f"Blocked {name}s: {blocked}")
             return
         ban = block is not None
