@@ -11,7 +11,7 @@ import json
 from werkzeug.serving import is_running_from_reloader
 from flask import request
 
-from ..shared import Version, version, __version__, remote_addr
+from ..shared import TRACE, Version, version, __version__
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -86,13 +86,12 @@ class Blocked:  # Move into server? Move stats into Stats?
         except OSError:
             self._log.exception("Failed to save blocklist %s", self._file)
 
-    def _notate(self) -> None:
+    def _notate(self, ip: str) -> None:
         """
-        Log the blocked route (should be called by __call__)
+        Record the blocked route (should be called by __call__)
         """
-        ip = remote_addr()
         pth = request.path
-        self._log.info("Blocking IP %s based on route: %s", ip, pth)
+        self._log.log(TRACE, "%s blocked, attempted path: %s", ip, pth)
         with self as data:
             if ip not in data.stats:
                 data.stats[ip] = []
@@ -107,11 +106,12 @@ class Blocked:  # Move into server? Move stats into Stats?
             if ip in self._data.whitelist:
                 return False
             if ip in self._data.ips:
-                self._notate()
+                self._notate(ip)
                 return True
             pth = request.path
             if any(fnmatch(pth, i) for i in data.routes):
+                self._log.info("Blocking IP %s based on route: %s", ip, pth)
                 data.ips.append(ip)  # type: ignore
-                self._notate()
+                self._notate(ip)
                 return True
         return False
