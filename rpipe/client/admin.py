@@ -151,26 +151,26 @@ class _Methods:
         """
         self._lock(False)
 
-    def _block(self, name: str, block: str | None, unblock: str | None) -> None:
-        if block is not None and unblock is not None:
-            raise ValueError("block and unblock may not both be non-None")
+    def _block(self, name: str, block: list[str] | None, unblock: list[str] | None) -> None:
         if block is None and unblock is None:
             blocked = self._request(f"/admin/{name}", f'{{"{name}": null}}').text
             blocked = json.dumps(json.loads(blocked), indent=4)
             print(f"Blocked {name}s: {blocked}")
             return
-        ban = block is not None
-        obj = block if ban else unblock
-        self._request(f"/admin/{name}", dumps({name: obj, "block": ban}))
-        print(f"{"" if ban else "UN"}BLOCKED: {obj}")
+        for lst, ban in ((block, True), (unblock, False)):
+            if lst is None:
+                continue
+            for obj in lst:
+                self._request(f"/admin/{name}", dumps({name: obj, "block": ban}))
+                print(f"{"" if ban else "UN"}BLOCKED: {obj}")
 
-    def ip(self, block: str | None, unblock: str | None) -> None:
+    def ip(self, block: list[str] | None, unblock: list[str] | None) -> None:
         """
         Request the blocked ip addresses, or block / unblock an ip address
         """
         self._block("ip", block, unblock)
 
-    def route(self, block: str | None, unblock: str | None) -> None:
+    def route(self, block: list[str] | None, unblock: list[str] | None) -> None:
         """
         Request the blocked routes, or block / unblock a route
         """

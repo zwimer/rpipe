@@ -185,8 +185,8 @@ def cli() -> None:
         m_g = p2.add_argument_group(
             f"Block / Unblock a given {name}",
             f"If none of these are passed, the command will return the list of banned {name}s",
-        ).add_mutually_exclusive_group(required=False)
-        m_g.add_argument("--block", help=f"Block a given {name}")
-        m_g.add_argument("--unblock", help=f"Unblock a given {name}")
+        )
+        m_g.add_argument("--block", nargs="+", help=f"Block a given {name}")
+        m_g.add_argument("--unblock", nargs="+", help=f"Unblock a given {name}")
     argcomplete.autocomplete(parser)  # Tab completion
     _cli(parser, parser.parse_args())
