@@ -160,6 +160,11 @@ def _favicon(o: App.Objs) -> Response:
     return _page_not_found(404, quiet=True) if o.favicon is None else send_file(o.favicon)
 
 
+@app.route("/robots.txt")
+def _robots_txt() -> Response:
+    return plaintext("User-agent: *\nDisallow: /\nAllow: /help")
+
+
 @app.route("/version")
 def _show_version() -> Response:
     return plaintext(__version__)
