@@ -174,7 +174,8 @@ class _Methods:
         """
         Request the blocked routes, or block / unblock a route
         """
-        self._block("route", block, unblock)
+        fix = lambda b: None if b is None else [i if i.startswith("/") else f"/{i}" for i in b]
+        self._block("route", fix(block), fix(unblock))
 
 
 class Admin:
