@@ -1,15 +1,16 @@
 from __future__ import annotations
 from dataclasses import dataclass, asdict, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from logging import getLogger
 from datetime import datetime
-from fnmatch import fnmatch
+from os.path import normpath
 from threading import RLock
 import atexit
 import json
 
 from werkzeug.serving import is_running_from_reloader
 from flask import request
+from wcmatch import glob
 
 from ..shared import TRACE, Version, version, __version__
 
@@ -36,7 +37,7 @@ class Blocked:  # Move into server? Move stats into Stats?
     """
 
     _INIT = {"version": __version__}
-    MIN_VERSION = Version("9.6.6")
+    MIN_VERSION = Version("9.9.0")
 
     def __init__(self, file: Path | None, debug: bool) -> None:
         self._log = getLogger("Blocked")
@@ -97,21 +98,29 @@ class Blocked:  # Move into server? Move stats into Stats?
                 data.stats[ip] = []
             data.stats[ip].append([str(datetime.now()), pth])
 
+    @staticmethod
+    def _match(pth: str, patterns: list[str]) -> bool:
+        """
+        :param pth: The path string to check for matching
+        :param patterns: The patterns to test s against
+        :return: True iff s matches any of the given patterns
+        """
+        return glob.globmatch(normpath(pth), patterns, flags=glob.GLOBSTAR | glob.DOTGLOB | glob.IGNORECASE)
+
     def __call__(self) -> bool:
         """
         :return: True if the given request should be blocked
         """
-        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+        ip = cast(str, request.headers.get("X-Forwarded-For", request.remote_addr))
         with self as data:
             if ip in self._data.whitelist:
                 return False
             if ip in self._data.ips:
                 self._notate(ip)
                 return True
-            pth = request.path
-            if any(fnmatch(pth, i) for i in data.routes):
+            if self._match(pth := request.path, data.routes):
                 self._log.info("Blocking IP %s based on route: %s", ip, pth)
-                data.ips.append(ip)  # type: ignore
+                data.ips.append(ip)
                 self._notate(ip)
                 return True
         return False
