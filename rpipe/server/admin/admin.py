@@ -88,7 +88,7 @@ class Methods:
         js = loads(body.strip())
         with self._blocked as data:
             if (obj := js[name]) is None:
-                return json_response(getattr(data, f"{name}s"))
+                return json_response(list(getattr(data, f"{name}_blacklist")))
             lst = getattr(data, f"{name}_blacklist")
             if js["block"]:
                 if obj not in lst:
