@@ -89,11 +89,11 @@ class Methods:
         with self._blocked as data:
             if (obj := js[name]) is None:
                 return json_response(getattr(data, f"{name}s"))
-            lst = getattr(data, f"{name}s")
+            lst = getattr(data, f"{name}_blacklist")
             if js["block"]:
                 if obj not in lst:
                     self._log.info("Blocking %s: %s", name, obj)
-                    lst.append(obj)
+                    (lst.add if isinstance(lst, set) else lst.append)(obj)
             elif obj in lst:
                 while obj in lst:
                     self._log.info("Unblocking %s: %s", name, obj)

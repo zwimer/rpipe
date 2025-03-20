@@ -25,9 +25,10 @@ class Data:
     """
 
     version: Version = field(default_factory=lambda: Version("0.0.1"))
-    ips: list[str] = field(default_factory=list)
-    routes: list[str] = field(default_factory=list)
-    whitelist: list[str] = field(default_factory=list)
+    ip_whitelist: set[str] = field(default_factory=set)
+    ip_blacklist: set[str] = field(default_factory=set)
+    route_whitelist: list[str] = field(default_factory=list)
+    route_blacklist: list[str] = field(default_factory=list)
     stats: dict[str, list[list[str]]] = field(default_factory=dict)
 
 
@@ -37,7 +38,7 @@ class Blocked:  # Move into server? Move stats into Stats?
     """
 
     _INIT = {"version": __version__}
-    MIN_VERSION = Version("9.9.0")
+    MIN_VERSION = Version("9.10.0")
 
     def __init__(self, file: Path | None, debug: bool) -> None:
         self._log = getLogger("Blocked")
@@ -46,6 +47,7 @@ class Blocked:  # Move into server? Move stats into Stats?
         js = self._INIT if file is None or not file.is_file() else json.loads(file.read_text())
         if (old := Version(js.pop("version", ""))) < self.MIN_VERSION:
             raise ValueError(f"Blocklist version too old: {old} <= {self.MIN_VERSION}")
+        js.update({i: set(k) for i, k in js.items() if i.startswith("ip_")})
         self._data = Data(version=version, **js)  # Use new version
         self._file: Path | None = file
         self._lock = RLock()
@@ -83,7 +85,8 @@ class Blocked:  # Move into server? Move stats into Stats?
         try:
             self._log.info("Saving blocklist: %s", self._file)
             with self as data:
-                self._file.write_text(json.dumps(asdict(data), default=str, indent=4))
+                sstr = lambda x: list(x) if isinstance(x, set) else str(x)
+                self._file.write_text(json.dumps(asdict(data), default=sstr, indent=4))
         except OSError:
             self._log.exception("Failed to save blocklist %s", self._file)
 
@@ -113,14 +116,18 @@ class Blocked:  # Move into server? Move stats into Stats?
         """
         ip = cast(str, request.headers.get("X-Forwarded-For", request.remote_addr))
         with self as data:
-            if ip in self._data.whitelist:
+            # Block / allow based on ip first, then routes
+            if ip in data.ip_whitelist:
                 return False
-            if ip in self._data.ips:
+            if ip in data.ip_blacklist:
                 self._notate(ip)
                 return True
-            if self._match(pth := request.path, data.routes):
+            pth = request.path
+            if self._match(pth, data.route_whitelist):
+                return False
+            if self._match(pth, data.route_blacklist):
                 self._log.info("Blocking IP %s based on route: %s", ip, pth)
-                data.ips.append(ip)
+                data.ip_blacklist.add(ip)
                 self._notate(ip)
                 return True
         return False
