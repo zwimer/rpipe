@@ -90,7 +90,7 @@ class _Methods:
                 raise AccessDenied()
             case AdminEC.illegal_version:
                 raise UsageError(ret.text)
-        self._require_ok(r)
+        self._require_ok(ret)
         assert not ret.status_code == AdminEC.invalid, "Sanity check failed"
         return ret
 
