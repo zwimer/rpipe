@@ -60,12 +60,19 @@ class _Methods:
 
     # Helpers
 
+    def _require_ok(self, r: Response) -> None:
+        if not r.ok:
+            what = f"Error {r.status_code}: {r.text}"
+            self._log.critical(what)
+            raise RuntimeError(what)
+
     def _request(self, path: str, body: str = "") -> Response:
         """
         Send a request to the server
         """
         if len(self._uids) == 0:
             r = self._session.get(f"{self._conf.url}/admin/uid", timeout=ADMIN_REQUEST_TIMEOUT)
+            self._require_ok(r)
             if r.status_code == shared.BLOCKED_EC:
                 raise BlockedError()
             self._uids += r.json()
@@ -83,10 +90,7 @@ class _Methods:
                 raise AccessDenied()
             case AdminEC.illegal_version:
                 raise UsageError(ret.text)
-        if not ret.ok:
-            what = f"Error {ret.status_code}: {ret.text}"
-            self._log.critical(what)
-            raise RuntimeError(what)
+        self._require_ok(r)
         assert not ret.status_code == AdminEC.invalid, "Sanity check failed"
         return ret
 
