@@ -3,14 +3,13 @@ from dataclasses import dataclass, asdict, field
 from typing import TYPE_CHECKING, cast
 from logging import getLogger
 from datetime import datetime
-from os.path import normpath
 from threading import RLock
 import atexit
 import json
+import re
 
 from werkzeug.serving import is_running_from_reloader
 from flask import request
-from wcmatch import glob
 
 from ..shared import TRACE, Version, version, __version__
 
@@ -37,20 +36,24 @@ class Blocked:  # Move into server? Move stats into Stats?
     Used to determine if requests should be blocked or not
     """
 
-    _INIT = {"version": __version__}
-    MIN_VERSION = Version("9.10.0")
+    __slots__ = ("_log", "_data", "_file", "_lock", "_white_pat", "_black_pat")
+    MIN_VERSION = Version("9.11.0")
 
     def __init__(self, file: Path | None, debug: bool) -> None:
         self._log = getLogger("Blocked")
         if file is not None:
             self._log.info("Loading blocklist: %s", file)
-        js = self._INIT if file is None or not file.is_file() else json.loads(file.read_text())
+        js = {"version": __version__} if file is None or not file.is_file() else json.loads(file.read_text())
         if (old := Version(js.pop("version", ""))) < self.MIN_VERSION:
             raise ValueError(f"Blocklist version too old: {old} <= {self.MIN_VERSION}")
         js.update({i: set(k) for i, k in js.items() if i.startswith("ip_")})
         self._data = Data(version=version, **js)  # Use new version
+        self._white_pat: list[re.Pattern[str]] = []
+        self._black_pat: list[re.Pattern[str]] = []
         self._file: Path | None = file
         self._lock = RLock()
+        with self as _:
+            pass  # Generates patterns
         # Initialize file as needed
         if file is None:
             self._log.warning("No blocklist is set, blocklist changes will not persist across restarts")
@@ -64,6 +67,15 @@ class Blocked:  # Move into server? Move stats into Stats?
         self._log.info("Installing atexit shutdown handler for saving blocklist")
         atexit.register(self._save)
 
+    def _mk_pat_from(self, patterns: list[str]) -> list[re.Pattern[str]]:
+        ret = []
+        for i in patterns:
+            try:
+                ret.append(re.compile(i, re.IGNORECASE))
+            except re.PatternError:
+                self._log.error("Could not compile pattern: %s", i)
+        return ret
+
     def __enter__(self) -> Data:
         """
         Returns the Data object of Blocked
@@ -72,6 +84,8 @@ class Blocked:  # Move into server? Move stats into Stats?
         return self._data
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self._white_pat = self._mk_pat_from(self._data.route_whitelist)
+        self._black_pat = self._mk_pat_from(self._data.route_blacklist)
         self._lock.release()
 
     def _save(self) -> None:
@@ -102,13 +116,13 @@ class Blocked:  # Move into server? Move stats into Stats?
             data.stats[ip].append([str(datetime.now()), pth])
 
     @staticmethod
-    def _match(pth: str, patterns: list[str]) -> bool:
+    def _match(pth: str, patterns: list[re.Pattern[str]]) -> bool:
         """
         :param pth: The path string to check for matching
         :param patterns: The patterns to test s against
         :return: True iff s matches any of the given patterns
         """
-        return glob.globmatch(normpath(pth), patterns, flags=glob.GLOBSTAR | glob.DOTGLOB | glob.IGNORECASE)
+        return any(re.fullmatch(i, pth) is not None for i in patterns)
 
     def __call__(self) -> bool:
         """
@@ -123,9 +137,9 @@ class Blocked:  # Move into server? Move stats into Stats?
                 self._notate(ip)
                 return True
             pth = request.path
-            if self._match(pth, data.route_whitelist):
+            if self._match(pth, self._white_pat):
                 return False
-            if self._match(pth, data.route_blacklist):
+            if self._match(pth, self._black_pat):
                 self._log.info("Blocking IP %s based on route: %s", ip, pth)
                 data.ip_blacklist.add(ip)
                 self._notate(ip)

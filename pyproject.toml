@@ -26,7 +26,6 @@ dependencies = [
     # Server
     "zstdlib>=0.0.8",
     "waitress",
-    "wcmatch",
     "flask",
     # Both
     "human_readable",
