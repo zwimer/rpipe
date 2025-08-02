@@ -83,16 +83,27 @@ def cli() -> None:
         type=int,
         help=f"The number of threads to use for compression. Default: {threads}",
     )
+    write_g.add_argument(
+        "-F",
+        "--file",
+        default=None,
+        type=Path,
+        help="A file to upload rather than reading from stdin; implies --progress <file size> unless otherwise specified",
+    )
     delete_g = parser.add_argument_group("Delete Mode")
     delete_g.add_argument("-d", "--delete", action="store_true", help="Delete all entries in the channel")
     read_write_g = parser.add_argument_group("Read Mode / Write Mode")
-    msg = (
-        "Show a progress bar, if a value is passed, assume that's the number"
-        " of bytes to be passed. Only valid while sending or receiving data."
-        " Values can be suffixed with K, M, G, or T, to multiply by powers of 1000"
-    )
-    read_write_g.add_argument(
-        "-P", "--progress", metavar="SIZE", type=_si, default=False, const=True, nargs="?", help=msg
+    prog_g = read_write_g.add_mutually_exclusive_group()
+    prog_g.add_argument("-N", "--no-progress", action="store_true", help="Do not show a progress bar")
+    prog_g.add_argument(
+        "-P",
+        "--progress",
+        metavar="SIZE",
+        type=_si,
+        default=False,
+        const=True,
+        nargs="?",
+        help="Show a progress bar, if a value is passed, assume that's the number of bytes to be passed. Only valid while sending or receiving data. Values can be suffixed with K, M, G, or T, to multiply by powers of 1000",
     )
     read_write_g.add_argument(
         "-Y", "--total", action="store_true", help="Print the total number of bytes sent/received"
@@ -128,7 +139,7 @@ def cli() -> None:
         default=0,
         help="Increase Log verbosity, pass more than once to increase verbosity",
     )
-    log_g.add_argument("-N", "--no-color-log", action="store_true", help="Disable color in the log output")
+    log_g.add_argument("-n", "--no-color-log", action="store_true", help="Disable color in the log output")
     # Priority Modes
     priority_mode = parser.add_argument_group(
         "Alternative Modes",

@@ -137,6 +137,7 @@ class Mode:
     peek: bool
     force: bool
     # Write options
+    file: Path | None  # None -> sys.stdin
     ttl: int | None
     zstd: int | None
     threads: int

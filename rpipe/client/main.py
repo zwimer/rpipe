@@ -54,19 +54,26 @@ def _check_mode_flags(mode: Mode) -> None:
         raise UsageError(fmt(args) + "when deleting data from the pipe")
 
 
-def _main(raw_ns: Namespace, conf: Config):
-    ns = vars(raw_ns)
-    # Load Mode
-    mode_d = {i: k for i, k in ns.items() if i in Mode.keys()}
-    read: bool = sys.stdin.isatty() and not mode_d["delete"]
-    mode = Mode(read=read, write=not (read or mode_d["delete"]), **mode_d)
+def _main(ns: Namespace, conf: Config):
+    mode_d = {i: k for i, k in vars(ns).items() if i in Mode.keys()}
+    # Select input
+    if ns.file is not None:  # Edit if file upload requested
+        if ns.delete:
+            raise UsageError("Cannot delete with the --file flag")
+        if not ns.file.is_file():
+            raise FileNotFoundError(f"File to upload is missing: {ns.file}")
+        if not ns.progress and not ns.no_progress:
+            mode_d["progress"] = ns.file.stat().st_size
+    # Load mode
+    read: bool = ns.file is None and sys.stdin.isatty() and not ns.delete
+    mode = Mode(read=read, write=not (read or ns.delete), **mode_d)
     # Adjustments, error check, then execute
     _check_mode_flags(mode)
-    if ns["encrypt"] is None:
+    if ns.encrypt is None:
         mode = Mode(**(asdict(mode) | {"encrypt": bool(conf.password)}))
     if mode.encrypt and not conf.password:
         raise UsageError(f"--encrypt flag requires a password; set via {PASSWORD_ENV}")
-    rpipe(conf, mode, ns["config_file"])
+    rpipe(conf, mode, ns.config_file)
 
 
 def _admin(ns: Namespace, conf: Config) -> None:

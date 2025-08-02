@@ -63,9 +63,12 @@ def _send_block(data: bytes, conf: Config, params: UploadRequestParams, *, lvl: 
     raise RuntimeError(f"Error {r.status_code}", r.text)
 
 
-def _send(
+def _send_data(
     conf: Config, progress: Progress, io: IO, compress: Callable[[bytes], bytes], params: UploadRequestParams
 ) -> None:
+    """
+    Send data to the remote pipe, using the preconfigured parameters provided
+    """
     log = getLogger(_LOG)
     while not params.final:
         block, params.final = io.read()
@@ -73,7 +76,7 @@ def _send(
         enc = encrypt(block, compress, conf.password)
         r = _send_block(enc, conf, params)
         progress.update(block)
-        if params.stream_id is None:  # confure following PUTs
+        if params.stream_id is None:  # configure following PUTs
             if params.final:
                 return
             headers = UploadResponseHeaders.from_dict(r.headers)
@@ -82,15 +85,15 @@ def _send(
             sleep(0.025)  # Avoid being over-eager with sending data; let the read thread read
 
 
-def send(conf: Config, mode: Mode) -> Result:
+def _send(conf: Config, mode: Mode, fd: int) -> Result:
     """
-    Send data to the remote pipe
+    Send data to the remote pipe reading from fd fd
     """
     log = getLogger(_LOG)
     lvl = _DEFAULT_LVL if mode.zstd is None else mode.zstd
     log.debug("Using compression level %d and %d threads", lvl, mode.threads)
     compress = ZstdCompressor(write_checksum=True, level=lvl, threads=mode.threads).compress
-    io = IO(sys.stdin.fileno(), MAX_SOFT_SIZE_MIN)
+    io = IO(fd, MAX_SOFT_SIZE_MIN)
     sleep(0.025)  # Avoid being over-eager with sending data; let the read thread read
     params = UploadRequestParams(
         version=version,
@@ -100,6 +103,16 @@ def send(conf: Config, mode: Mode) -> Result:
     )
     log.info("Writing to channel %s", conf.channel)
     with Progress(conf, mode) as progress:
-        _send(conf, progress, io, compress, params)
+        _send_data(conf, progress, io, compress, params)
     log.info("Stream complete")
     return progress.result
+
+
+def send(conf: Config, mode: Mode) -> Result:
+    """
+    Send data to the remote pipe
+    """
+    if mode.file:
+        getLogger(_LOG).debug("Opening file: %s", mode.file)
+    with mode.file.open("rb") if mode.file else sys.stdin as fp:
+        return _send(conf, mode, fp.fileno())
