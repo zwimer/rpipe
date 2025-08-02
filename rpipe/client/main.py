@@ -9,7 +9,7 @@ from __future__ import annotations
 from logging import StreamHandler, getLevelName, getLogger
 from inspect import Parameter, signature
 from typing import TYPE_CHECKING
-from dataclasses import asdict
+from dataclasses import replace
 from os import getenv
 import argparse
 import sys
@@ -40,7 +40,7 @@ def _check_mode_flags(mode: Mode) -> None:
     # Mode flags
     read_bad = {"ttl"}
     write_bad = {"block", "peek", "force"}
-    delete_bad = read_bad | write_bad | {"progress", "encrypt"}
+    delete_bad = read_bad | write_bad | {"progress", "encrypt", "file", "dir"}
     bad = lambda x: [f"--{i}" for i in x if bool(getattr(mode, i))]
     fmt = lambda x: f"argument{'' if len(x) == 1 else 's'} {listing(x, ',', 'and') }: may not be used "
     if mode.priority() and (args := bad(delete_bad)):
@@ -56,21 +56,17 @@ def _check_mode_flags(mode: Mode) -> None:
 
 def _main(ns: Namespace, conf: Config):
     mode_d = {i: k for i, k in vars(ns).items() if i in Mode.keys()}
-    # Select input
-    if ns.file is not None:  # Edit if file upload requested
-        if ns.delete:
-            raise UsageError("Cannot delete with the --file flag")
-        if not ns.file.is_file():
-            raise FileNotFoundError(f"File to upload is missing: {ns.file}")
-        if not ns.progress and not ns.no_progress:
-            mode_d["progress"] = ns.file.stat().st_size
     # Load mode
-    read: bool = ns.file is None and sys.stdin.isatty() and not ns.delete
-    mode = Mode(read=read, write=not (read or ns.delete), **mode_d)
-    # Adjustments, error check, then execute
+    if (ns.file or ns.dir) and not ns.read and not ns.write:
+        raise UsageError("--file and --dir require either an explicit -r or -w")
+    if (ns.read, ns.write, ns.delete).count(True) == 0:
+        mode_d["read"] = ns.file is None and sys.stdin.isatty() and not ns.delete
+        mode_d["write"] = not (mode_d["read"] or ns.delete)
+    mode = Mode(**mode_d)
+    # Adjustments, error checks, then execute
     _check_mode_flags(mode)
     if ns.encrypt is None:
-        mode = Mode(**(asdict(mode) | {"encrypt": bool(conf.password)}))
+        mode = replace(mode, encrypt=bool(conf.password))
     if mode.encrypt and not conf.password:
         raise UsageError(f"--encrypt flag requires a password; set via {PASSWORD_ENV}")
     rpipe(conf, mode, ns.config_file)

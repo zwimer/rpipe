@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Self
 from logging import getLogger
-import sys
 
 from tqdm.contrib.logging import logging_redirect_tqdm
 import tqdm
@@ -10,6 +9,7 @@ from .delete import delete
 from .data import Result
 
 if TYPE_CHECKING:
+    from typing import IO
     from .data import Config, Mode
 
 
@@ -51,13 +51,13 @@ class Progress:
         r2 = bool(self._redir.__exit__(exc_type, exc_val, exc_tb))
         return r1 or r2
 
-    def update(self, data: bytes, *, stdout: bool = False) -> None:
+    def update(self, data: bytes, *, file: IO[bytes] | None = None) -> None:
         self.dof = True
         self._pbar.update(len(data))
         if self.result.total is not None:
             self.result.total += len(data)
         if self.result.checksum is not None:
             self.result.checksum.update(data)
-        if stdout:
-            sys.stdout.buffer.write(data)
-            sys.stdout.flush()
+        if file is not None:
+            file.write(data)
+            file.flush()

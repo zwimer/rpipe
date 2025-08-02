@@ -58,6 +58,12 @@ def cli() -> None:
         action="store_true",
         help="Attempt to read data even if this is a upload/download client version mismatch",
     )
+    read_g.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Overwrite output file (requires --file)",
+    )
     write_g = parser.add_argument_group("Write Mode")
     write_g.add_argument(
         "-t",
@@ -83,16 +89,26 @@ def cli() -> None:
         type=int,
         help=f"The number of threads to use for compression. Default: {threads}",
     )
-    write_g.add_argument(
+    read_write_g = parser.add_argument_group("Read Mode / Write Mode")
+    io_g = read_write_g.add_mutually_exclusive_group()
+    io_g.add_argument(
         "-F",
         "--file",
         default=None,
+        const=True,
+        nargs="?",
         type=Path,
-        help="A file to upload rather than reading from stdin; implies --progress <file size> unless otherwise specified",
+        help="A file use for input/output instead of stdin/stdout. For sending, implies --progress <file size> unless otherwise specified. Requires -r or -w",
     )
-    delete_g = parser.add_argument_group("Delete Mode")
-    delete_g.add_argument("-d", "--delete", action="store_true", help="Delete all entries in the channel")
-    read_write_g = parser.add_argument_group("Read Mode / Write Mode")
+    io_g.add_argument(
+        "-D",
+        "--dir",
+        default=None,
+        const=True,
+        nargs="?",
+        type=Path,
+        help="A dir to tar/output as input/output instead of stdin/stdout. For sending, implies --progress <file size> unless otherwise specified. Required -r or -w",
+    )
     prog_g = read_write_g.add_mutually_exclusive_group()
     prog_g.add_argument("-N", "--no-progress", action="store_true", help="Do not show a progress bar")
     prog_g.add_argument(
@@ -140,34 +156,37 @@ def cli() -> None:
         help="Increase Log verbosity, pass more than once to increase verbosity",
     )
     log_g.add_argument("-n", "--no-color-log", action="store_true", help="Disable color in the log output")
-    # Priority Modes
-    priority_mode = parser.add_argument_group(
-        "Alternative Modes",
-        "If one of these is passed, the client will execute the desired action then exit",
+    # Modes
+    mode_g = parser.add_argument_group(
+        "Mode Selection",
+        description="Force usage of a specific mode (automatically chosen by default)",
     ).add_mutually_exclusive_group()
-    priority_mode.add_argument("-h", "--help", action="help", help="show this help message and exit")
-    priority_mode.add_argument("-V", "--version", action="version", version=f"{parser.prog} {__version__}")
-    priority_mode.add_argument(
+    mode_g.add_argument("-r", "--read", action="store_true", help="Send data to server (read mode)")
+    mode_g.add_argument("-w", "--write", action="store_true", help="Receive data from server (write mode)")
+    mode_g.add_argument("-d", "--delete", action="store_true", help="Delete all entries in the channel")
+    mode_g.add_argument("-h", "--help", action="help", help="show this help message and exit")
+    mode_g.add_argument("-V", "--version", action="version", version=f"{parser.prog} {__version__}")
+    mode_g.add_argument(
         "-X", "--print-config", action="store_true", help="Print out the config (including CLI args)"
     )
-    priority_mode.add_argument(
+    mode_g.add_argument(
         "-S",
         "--save-config",
         action="store_true",
         help="Update the existing rpipe config then exit; allows incomplete configs to be saved",
     )
-    priority_mode.add_argument(
+    mode_g.add_argument(
         "-O", "--outdated", action="store_true", help="Check if this client is too old for the server"
     )
-    priority_mode.add_argument("-Q", "--server-version", action="store_true", help="Print the server version")
-    priority_mode.add_argument(
+    mode_g.add_argument("-Q", "--server-version", action="store_true", help="Print the server version")
+    mode_g.add_argument(
         "-q",
         "--query",
         action="store_true",
         help="Get information on the given channel",
     )
-    priority_mode.add_argument("-A", "--admin", action="store_true", help="Allow use of admin commands")
-    priority_mode.add_argument(
+    mode_g.add_argument("-A", "--admin", action="store_true", help="Allow use of admin commands")
+    mode_g.add_argument(
         "-B", "--blocked", action="store_true", help="Determine if the client is blocked from the server"
     )
     # Admin commands

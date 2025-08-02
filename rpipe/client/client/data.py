@@ -136,8 +136,10 @@ class Mode:
     block: bool
     peek: bool
     force: bool
+    yes: bool
     # Write options
-    file: Path | None  # None -> sys.stdin
+    file: Path | None  # None means sys.stdin if dir is None
+    dir: Path | None
     ttl: int | None
     zstd: int | None
     threads: int

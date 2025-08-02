@@ -1,7 +1,9 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+from dataclasses import replace
 from logging import getLogger
 from time import sleep
+import tarfile
 import sys
 
 from zstandard import ZstdCompressor
@@ -12,6 +14,7 @@ from ...shared import (
     UploadRequestParams,
     UploadResponseHeaders,
     UploadEC,
+    mk_temp_f,
     version,
 )
 from .errors import MultipleClients, ChannelLocked, ReportThis, VersionError
@@ -112,7 +115,26 @@ def send(conf: Config, mode: Mode) -> Result:
     """
     Send data to the remote pipe
     """
-    if mode.file:
-        getLogger(_LOG).debug("Opening file: %s", mode.file)
+    log = getLogger(_LOG)
+    # Tarball dir
+    old = mode
+    if mode.dir is not None:
+        if not mode.dir.is_dir():
+            raise FileNotFoundError(f"Upload directory missing: {mode.dir}")
+        temp_f = mk_temp_f(suffix=f" {mode.dir}.tar.gz")
+        log.info("Adding dir %s to tarball %s", mode.dir, temp_f)
+        with tarfile.open(temp_f, mode="w:gz") as tb:
+            tb.add(mode.dir, recursive=True)
+        mode = replace(mode, dir=None, file=temp_f)
+    # Update progress
+    if mode.file and not mode.progress:
+        size = mode.file.stat().st_size
+        log.debug("Setting: --progress %d", size)
+        mode = replace(mode, progress=size)
+    # Send file
     with mode.file.open("rb") if mode.file else sys.stdin as fp:
-        return _send(conf, mode, fp.fileno())
+        ret = _send(conf, mode, fp.fileno())
+    if old.dir:
+        log.debug("Removing tarball %s", mode.file)
+        temp_f.unlink()
+    return ret
