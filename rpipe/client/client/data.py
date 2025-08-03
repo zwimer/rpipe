@@ -123,27 +123,27 @@ class Mode:
 
     # Priority modes
     print_config: bool
-    save_config: bool
+    update_config: bool
     outdated: bool
     server_version: bool
     blocked: bool
     query: bool
-    # Read/Write/Delete modes
-    read: bool
+    # Recv/Send/Delete modes
+    recv: bool
+    send: bool
     delete: bool
-    write: bool
-    # Read options
+    # Recv options
     block: bool
     peek: bool
     force: bool
     yes: bool
-    # Write options
+    # Send options
     file: Path | None  # None means sys.stdin if dir is None
     dir: Path | None
     ttl: int | None
     zstd: int | None
     threads: int
-    # Read / Write options
+    # Recv / Send options
     encrypt: bool
     progress: bool | int
     total: bool
@@ -156,7 +156,7 @@ class Mode:
     def priority(self) -> bool:
         c = (
             self.print_config,
-            self.save_config,
+            self.update_config,
             self.outdated,
             self.server_version,
             self.blocked,

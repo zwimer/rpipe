@@ -30,26 +30,28 @@ _LOG = "main"
 
 
 def _check_mode_flags(mode: Mode) -> None:
-    if (mode.read, mode.write, mode.delete).count(True) != 1:
-        raise UsageError("Can only read, write, or delete at a time")
+    if (mode.recv, mode.send, mode.delete).count(True) != 1:
+        raise UsageError("Can only recv, send, or delete at a time")
     # Flag specific checks
     if mode.ttl is not None and mode.ttl <= 0:
         raise UsageError("--ttl must be positive")
     if mode.progress is not False and mode.progress <= 0:
         raise UsageError("--progress argument must be positive if passed")
+    if mode.yes and mode.file is None and mode.dir is None:
+        raise UsageError("--yes requires --file or --dir")
     # Mode flags
-    read_bad = {"ttl"}
-    write_bad = {"block", "peek", "force"}
-    delete_bad = read_bad | write_bad | {"progress", "encrypt", "file", "dir"}
+    recv_bad = {"ttl"}
+    send_bad = {"block", "peek", "force", "yes"}
+    delete_bad = recv_bad | send_bad | {"progress", "encrypt", "file", "dir"}
     bad = lambda x: [f"--{i}" for i in x if bool(getattr(mode, i))]
     fmt = lambda x: f"argument{'' if len(x) == 1 else 's'} {listing(x, ',', 'and') }: may not be used "
     if mode.priority() and (args := bad(delete_bad)):
         raise UsageError(fmt(args) + "with priority modes")
     # Mode specific flags
-    if mode.read and (args := bad(read_bad)):
-        raise UsageError(fmt(args) + "when reading data from the pipe")
-    if mode.write and (args := bad(write_bad)):
-        raise UsageError(fmt(args) + "when writing data to the pipe")
+    if mode.recv and (args := bad(recv_bad)):
+        raise UsageError(fmt(args) + "when receiving data from the pipe")
+    if mode.send and (args := bad(send_bad)):
+        raise UsageError(fmt(args) + "when sending data to the pipe")
     if mode.delete and (args := bad(delete_bad)):
         raise UsageError(fmt(args) + "when deleting data from the pipe")
 
@@ -57,11 +59,11 @@ def _check_mode_flags(mode: Mode) -> None:
 def _main(ns: Namespace, conf: Config):
     mode_d = {i: k for i, k in vars(ns).items() if i in Mode.keys()}
     # Load mode
-    if (ns.file or ns.dir) and not ns.read and not ns.write:
+    if (ns.file or ns.dir) and not ns.recv and not ns.send:
         raise UsageError("--file and --dir require either an explicit -r or -w")
-    if (ns.read, ns.write, ns.delete).count(True) == 0:
-        mode_d["read"] = ns.file is None and sys.stdin.isatty() and not ns.delete
-        mode_d["write"] = not (mode_d["read"] or ns.delete)
+    if (ns.recv, ns.send, ns.delete).count(True) == 0:
+        mode_d["recv"] = ns.file is None and sys.stdin.isatty() and not ns.delete
+        mode_d["send"] = not (mode_d["recv"] or ns.delete)
     mode = Mode(**mode_d)
     # Adjustments, error checks, then execute
     _check_mode_flags(mode)

@@ -68,7 +68,7 @@ def _priority_actions(conf: Config, mode: Mode, config_file: Path) -> None:
     if mode.print_config:
         _print_config(conf, config_file)
         return
-    if mode.save_config:
+    if mode.update_config:
         log.info("Mode: Save Config")
         conf.save(config_file)
         return
@@ -109,15 +109,15 @@ def rpipe(conf: Config, mode: Mode, config_file: Path) -> None:
         _priority_actions(conf, mode, config_file)
         return
     conf.validate()
-    if (mode.read or mode.write) and not conf.password:
+    if (mode.recv or mode.send) and not conf.password:
         log.warning("Encryption disabled: plaintext mode")
         if mode.zstd is not None:
             raise UsageError("Cannot compress data in plaintext mode")
     # Invoke mode
     log.info("HTTP timeout set to: %s", "DEFAULT" if conf.timeout is None else f"{conf.timeout} seconds")
-    if mode.read:
+    if mode.recv:
         rv: Result = recv(conf, mode)
-    elif mode.write:
+    elif mode.send:
         rv = send(conf, mode)
     else:
         delete(conf)
@@ -126,4 +126,4 @@ def rpipe(conf: Config, mode: Mode, config_file: Path) -> None:
     if rv.checksum is not None:
         print(f"Blake2s: {rv.checksum.hexdigest()}", file=sys.stderr)
     if rv.total is not None:
-        print(f"Total bytes {'sent' if mode.write else 'received'}: {rv.total}", file=sys.stderr)
+        print(f"Total bytes {'sent' if mode.send else 'received'}: {rv.total}", file=sys.stderr)

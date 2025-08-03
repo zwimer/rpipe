@@ -42,37 +42,37 @@ def cli() -> None:
     threads: int = max(1, (cpu := cpu_count()) - 1)
     parser = argparse.ArgumentParser(add_help=False)
     parser.set_defaults(method=None)
-    read_g = parser.add_argument_group("Read Mode")
-    read_g.add_argument(
+    recv_g = parser.add_argument_group("Recv Mode")
+    recv_g.add_argument(
         "-b", "--block", action="store_true", help="Wait until a channel is available to read"
     )
-    read_g.add_argument(
+    recv_g.add_argument(
         "-p",
         "--peek",
         action="store_true",
         help="Read pipe without emptying it; will not construct a persistent pipe like a normal read",
     )
-    read_g.add_argument(
+    recv_g.add_argument(
         "-f",
         "--force",
         action="store_true",
         help="Attempt to read data even if this is a upload/download client version mismatch",
     )
-    read_g.add_argument(
+    recv_g.add_argument(
         "-y",
         "--yes",
         action="store_true",
         help="Overwrite existing output path if it is not a non-empty directory (requires --file or --dir)",
     )
-    write_g = parser.add_argument_group("Write Mode")
-    write_g.add_argument(
+    send_g = parser.add_argument_group("Send Mode")
+    send_g.add_argument(
         "-t",
         "--ttl",
         type=int,
         default=None,
         help="Pipe TTL in seconds; use server default if not passed",
     )
-    write_g.add_argument(  # Do not use default= for better error checking w.r.t. plaintext mode
+    send_g.add_argument(  # Do not use default= for better error checking w.r.t. plaintext mode
         "-Z",
         "--zstd",
         metavar="[1-22]",
@@ -80,7 +80,7 @@ def cli() -> None:
         type=int,
         help="Compression level to use; invalid in plaintext mode",
     )
-    write_g.add_argument(
+    send_g.add_argument(
         "-j",
         "--threads",
         metavar=f"[1-{cpu}]" if cpu > 1 else "1",
@@ -89,8 +89,8 @@ def cli() -> None:
         type=int,
         help=f"The number of threads to use for compression. Default: {threads}",
     )
-    read_write_g = parser.add_argument_group("Read Mode / Write Mode")
-    io_g = read_write_g.add_mutually_exclusive_group()
+    recv_send_g = parser.add_argument_group("Recv Mode / Send Mode")
+    io_g = recv_send_g.add_mutually_exclusive_group()
     io_g.add_argument(
         "-F",
         "--file",
@@ -109,7 +109,7 @@ def cli() -> None:
         type=Path,
         help="A dir to tar/output as input/output instead of stdin/stdout. For sending, implies --progress <file size> unless otherwise specified. Required -r or -w",
     )
-    prog_g = read_write_g.add_mutually_exclusive_group()
+    prog_g = recv_send_g.add_mutually_exclusive_group()
     prog_g.add_argument("-N", "--no-progress", action="store_true", help="Do not show a progress bar")
     prog_g.add_argument(
         "-P",
@@ -121,10 +121,10 @@ def cli() -> None:
         nargs="?",
         help="Show a progress bar, if a value is passed, assume that's the number of bytes to be passed. Only valid while sending or receiving data. Values can be suffixed with K, M, G, or T, to multiply by powers of 1000",
     )
-    read_write_g.add_argument(
+    recv_send_g.add_argument(
         "-Y", "--total", action="store_true", help="Print the total number of bytes sent/received"
     )
-    read_write_g.add_argument(
+    recv_send_g.add_argument(
         "-K", "--checksum", action="store_true", help="Checksum the data being sent/received"
     )
     # Config options
@@ -145,7 +145,7 @@ def cli() -> None:
         action=argparse.BooleanOptionalAction,
         help=f"Encrypt the data; uses {PASSWORD_ENV} as the password if set, otherwise uses saved password",
     )
-    config.add_argument("-s", "--ssl", action=argparse.BooleanOptionalAction, help="Require host use https")
+    config.add_argument("-S", "--ssl", action=argparse.BooleanOptionalAction, help="Require host use https")
     log_g = parser.add_argument_group("Logging")
     # pylint: disable=duplicate-code
     log_g.add_argument(
@@ -161,17 +161,29 @@ def cli() -> None:
         "Mode Selection",
         description="Force usage of a specific mode (automatically chosen by default)",
     ).add_mutually_exclusive_group()
-    mode_g.add_argument("-r", "--read", action="store_true", help="Send data to server (read mode)")
-    mode_g.add_argument("-w", "--write", action="store_true", help="Receive data from server (write mode)")
+    mode_g.add_argument("-r", "--recv", action="store_true", help="Read data from server")
+    mode_g.add_argument("-s", "--send", action="store_true", help="Send data to server")
     mode_g.add_argument("-d", "--delete", action="store_true", help="Delete all entries in the channel")
-    mode_g.add_argument("-h", "--help", action="help", help="show this help message and exit")
-    mode_g.add_argument("-V", "--version", action="version", version=f"{parser.prog} {__version__}")
+    mode_g.add_argument(
+        "-q",
+        "--query",
+        action="store_true",
+        help="Get information on the given channel",
+    )
+    mode_g.add_argument("-h", "--help", action="help", help="Show this help message and exit")
+    mode_g.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"{parser.prog} {__version__}",
+        help="Show program's version number and exit",
+    )
     mode_g.add_argument(
         "-X", "--print-config", action="store_true", help="Print out the config (including CLI args)"
     )
     mode_g.add_argument(
-        "-S",
-        "--save-config",
+        "-U",
+        "--update-config",
         action="store_true",
         help="Update the existing rpipe config then exit; allows incomplete configs to be saved",
     )
@@ -180,15 +192,10 @@ def cli() -> None:
     )
     mode_g.add_argument("-Q", "--server-version", action="store_true", help="Print the server version")
     mode_g.add_argument(
-        "-q",
-        "--query",
-        action="store_true",
-        help="Get information on the given channel",
-    )
-    mode_g.add_argument("-A", "--admin", action="store_true", help="Allow use of admin commands")
-    mode_g.add_argument(
         "-B", "--blocked", action="store_true", help="Determine if the client is blocked from the server"
     )
+    # Top priority mode
+    mode_g.add_argument("-A", "--admin", action="store_true", help="Allow use of admin commands")
     # Admin commands
     admin = parser.add_subparsers(
         title="Admin Commands",
