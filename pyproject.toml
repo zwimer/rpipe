@@ -29,6 +29,7 @@ dependencies = [
     "flask",
     # Both
     "human_readable",
+    "psutil",
 ]
 dynamic = ["version"]
 

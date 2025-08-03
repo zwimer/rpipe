@@ -62,7 +62,7 @@ def cli() -> None:
         "-y",
         "--yes",
         action="store_true",
-        help="Overwrite output file (requires --file)",
+        help="Overwrite existing output path if it is not a non-empty directory (requires --file or --dir)",
     )
     write_g = parser.add_argument_group("Write Mode")
     write_g.add_argument(

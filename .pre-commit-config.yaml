@@ -28,6 +28,7 @@ repos:
           types-cryptography,
           types-requests,
           types-waitress,
+          types-psutil,
           types-flask,
           types-tqdm
         ]

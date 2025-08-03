@@ -2,7 +2,7 @@ from threading import Thread, Condition
 from logging import getLogger
 import os
 
-from ...shared import TRACE, LFS, total_len
+from ...shared import TRACE, LFS, SpooledTempFile, total_len
 
 
 class IO:
@@ -13,21 +13,24 @@ class IO:
     May use about an extra chunk bytes for stitching data together
     """
 
-    __slots__ = ("_mlog", "_buffer", "_cond", "_eof", "_chunk")
+    __slots__ = ("_mlog", "_buffer", "_cond", "_eof", "_chunk", "_fd")
 
-    def __init__(self, fd: int, chunk: int) -> None:
+    def __init__(self, fd: int | SpooledTempFile, chunk: int) -> None:
         """
-        :param fd: The file descriptor to read from
+        :param fd: The file descriptor (or SpooledTemporaryFile) to read from
         :param chunk: The number of bytes to keep preloaded whenever possible
         """
-        thread = Thread(target=self._worker, args=(fd,), daemon=True)  # Construct first
+        if isinstance(fd, SpooledTempFile) and not fd.is_virtual:
+            fd = fd.fileno()  # This is a file on disk, so prefer reading as such
+        self._fd: int | SpooledTempFile = fd
         self._mlog = getLogger("IO Main")
         self._buffer: list[bytes] = []
         self._cond = Condition()
-        self._eof: bool = False  # Set when reader thread hits EOF; _buffer may still have data
+        self._eof: bool = False  # Set when reader *thread* hits EOF; _buffer may still have data
         self._chunk: int = chunk
-        self._mlog.info("Starting IO thread on fd %d with chunk size: %s", fd, LFS(chunk))
-        thread.start()
+        if isinstance(self._fd, int):  # No need when reading from RAM
+            self._mlog.info("Starting IO thread on fd %d with chunk size: %s", self._fd, LFS(self._chunk))
+            Thread(target=self._worker, daemon=True).start()
 
     # Main Thread
 
@@ -49,6 +52,9 @@ class IO:
         :return: A tuple containing the bytes read and a boolean indicating EOF
         """
         with self._cond:
+            if isinstance(self._fd, SpooledTempFile):
+                return (ret := self._fd.read(self._chunk)), len(ret) == 0
+            # If fd is a file descriptor
             self._cond.wait_for(lambda: self._buffer or self._eof)
             ret = b"".join(self._buffer)
             assert len(ret) <= self._chunk, "Sanity check failed"
@@ -58,17 +64,19 @@ class IO:
             self._mlog.debug("Read %s bytes of data", LFS(ret))
         return ret, self._eof and not self._buffer
 
-    # Worker thread
+    # Worker thread (only exists if fd is int)
 
-    def _worker(self, fd: int) -> None:
+    def _worker(self) -> None:
         """
         The worker thread that reads data from the file descriptor
         Always attempts to keep at least self._chunk bytes loaded
         """
+        assert isinstance(self._fd, int), "Sanity check"
         log = getLogger("IO Thread")
         n = self._chunk
         until = lambda: total_len(self._buffer) < self._chunk
-        while data := os.read(fd, n):  # os.read may read in small chunks (ex. pipe buffer capacity in Linux)
+        # os.read may read in small chunks (ex. pipe buffer capacity in Linux)
+        while data := os.read(self._fd, n):
             log.log(TRACE, "Loaded %s bytes of data from input", LFS(data))  # This can be spammy, so trace
             with self._cond:
                 self._buffer.append(data)

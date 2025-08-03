@@ -1,7 +1,6 @@
 from __future__ import annotations
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
-from dataclasses import replace
 from logging import getLogger
 from pathlib import Path
 from time import sleep
@@ -11,7 +10,14 @@ import atexit
 
 from zstandard import ZstdDecompressor
 
-from ...shared import DownloadRequestParams, DownloadResponseHeaders, DownloadEC, LFS, mk_temp_f, version
+from ...shared import (
+    DownloadRequestParams,
+    DownloadResponseHeaders,
+    DownloadEC,
+    SpooledTempFile,
+    version,
+    LFS,
+)
 from .errors import MultipleClients, ChannelLocked, ReportThis, VersionError, StreamError, NoData
 from .util import wait_delay_sec, request
 from .progress import Progress
@@ -126,6 +132,14 @@ def _recv(conf: Config, mode: Mode, file: IO[bytes]) -> Result:
     return progress.result
 
 
+def _rm_existing(path: Path, yes: bool) -> None:
+    if not path.exists(follow_symlinks=False):
+        return
+    if not yes:
+        raise FileExistsError(f"Path {path} already exists; to overwrite use --yes")
+    (path.rmdir if path.is_dir(follow_symlinks=False) else path.unlink)()
+
+
 def recv(conf: Config, mode: Mode) -> Result:
     """
     Receive data from the remote pipe
@@ -133,50 +147,51 @@ def recv(conf: Config, mode: Mode) -> Result:
     log = getLogger(_LOG)
 
     # Check for existing paths; if mode.dir, set mode.file (untar it later)
-    old = mode
-    if mode.file:
-        if mode.file.exists(follow_symlinks=False):
-            if not mode.yes:
-                raise FileExistsError(f"Path {mode.dir} already exists; to overwrite use --yes")
-            log.debug("Recreating %s", mode.file)
-            mode.file.unlink()
-        mode.file.write_text("")  # touch
-    if mode.dir:
-        if mode.dir.exists(follow_symlinks=False):
-            raise FileExistsError(f"Path {mode.dir} already exists; to overwrite use --yes")
+    out_f: IO[bytes] = stdout.buffer
+    if mode.file is not None:
+        _rm_existing(mode.file, mode.yes)
+        out_f = mode.file.open("xb")
+    if mode.dir is not None:
+        _rm_existing(mode.dir, mode.yes)
         log.debug("Creating placeholder directory %s", mode.file)
-        mode.dir.mkdir(mode=0)
-        atexit.register(mode.dir.rmdir)  # Just in case. Must remove later
-        mode = replace(mode, dir=None, file=(temp_f := mk_temp_f(suffix=f" {mode.dir.name}.tar.gz")))
+        mode.dir.mkdir(mode=0)  # Optional; it is just so that no one create anything here while we work
+        atexit.register(mode.dir.rmdir)
+        out_f = SpooledTempFile()
 
     # Recv data into mode.file
-    with mode.file.open("wb") if mode.file else stdout.buffer as f:
-        ret = _recv(conf, mode, f)
-    mode = old
-    if not mode.dir:
+    try:
+        ret = _recv(conf, mode, out_f)
+    # Cleanup
+    except Exception:
+        if mode.file is not None:
+            empty: bool = out_f.tell() == 0
+            out_f.close()
+            if empty:  # Only cleanup output file if it is empty
+                mode.file.unlink()
+        raise
+    # Return if not dir
+    if mode.dir is None:
+        if mode.file is not None:
+            out_f.close()
         return ret
 
     # Unpack tarball
+    out_f.seek(0)
     with TemporaryDirectory(suffix=f" {mode.dir.name}") as d:
         temp_d = Path(d)
-        log.debug("Extracting %s to %s", temp_f, temp_d)
-        with tarfile.open(temp_f) as tb:
-            log.info("Applying tar_filter for safety")
+        log.debug("Extracting to: %s", temp_d)
+        with tarfile.open(fileobj=out_f) as tb:
+            log.info("Extracting with filter=tar_filter for safety")
             tb.extractall(path=temp_d, filter=tarfile.tar_filter)  # nosec
+        out_f.close()
         # Since our tarball.add -> tarball.extract adds an enclosing dir, pull the child out
         log.debug("Removing placeholder dir %s", mode.dir)
         mode.dir.rmdir()  # Remove placeholder
         atexit.unregister(mode.dir.rmdir)  # Do not delete anymore
         child: Path | None = None
         if len(children := list(temp_d.glob("*"))) == 1 and children[0].is_dir(follow_symlinks=False):
-            log.info("Only one directory found in tarball, moving renaming as enclosing directory")
+            log.info("Only one directory found in tarball, will rename as enclosing directory")
             child = children[0]
-        log.info("Moving unpacked dir into place")
+        log.info("Moving unpacked dir into place: %s", mode.dir)
         (child if child is not None else temp_d).rename(mode.dir)
-        if child is not None:
-            temp_d.rmdir()
-
-    # Cleanup
-    log.debug("Removing tarball %s", temp_f)
-    temp_f.unlink()
     return ret

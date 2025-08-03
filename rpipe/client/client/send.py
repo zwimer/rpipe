@@ -1,9 +1,9 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
 from dataclasses import replace
 from logging import getLogger
 from time import sleep
 import tarfile
+import typing
 import sys
 
 from zstandard import ZstdCompressor
@@ -14,7 +14,7 @@ from ...shared import (
     UploadRequestParams,
     UploadResponseHeaders,
     UploadEC,
-    mk_temp_f,
+    SpooledTempFile,
     version,
 )
 from .errors import MultipleClients, ChannelLocked, ReportThis, VersionError
@@ -23,7 +23,7 @@ from .progress import Progress
 from .crypt import encrypt
 from .io import IO
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     from requests import Response
     from collections.abc import Callable
     from .data import Result, Config, Mode
@@ -88,15 +88,15 @@ def _send_data(
             sleep(0.025)  # Avoid being over-eager with sending data; let the read thread read
 
 
-def _send(conf: Config, mode: Mode, fd: int) -> Result:
+def _send(conf: Config, mode: Mode, file: int | SpooledTempFile) -> Result:
     """
-    Send data to the remote pipe reading from fd fd
+    Send data to the remote pipe reading from file
     """
     log = getLogger(_LOG)
     lvl = _DEFAULT_LVL if mode.zstd is None else mode.zstd
     log.debug("Using compression level %d and %d threads", lvl, mode.threads)
     compress = ZstdCompressor(write_checksum=True, level=lvl, threads=mode.threads).compress
-    io = IO(fd, MAX_SOFT_SIZE_MIN)
+    io = IO(file, MAX_SOFT_SIZE_MIN)
     sleep(0.025)  # Avoid being over-eager with sending data; let the read thread read
     params = UploadRequestParams(
         version=version,
@@ -117,24 +117,25 @@ def send(conf: Config, mode: Mode) -> Result:
     """
     log = getLogger(_LOG)
     # Tarball dir
-    old = mode
     if mode.dir is not None:
         if not mode.dir.is_dir():
             raise FileNotFoundError(f"Upload directory missing: {mode.dir}")
-        temp_f = mk_temp_f(suffix=f" {mode.dir}.tar.gz")
-        log.info("Adding dir %s to tarball %s", mode.dir, temp_f)
-        with tarfile.open(temp_f, mode="w:gz") as tb:
+        # Note: in_f is never a file descriptor to keep the handler alive / file open
+        in_f: SpooledTempFile | typing.IO[bytes] = SpooledTempFile()
+        log.info("Creating tarball from: %s", mode.dir)
+        with tarfile.open(fileobj=in_f, mode="w:gz") as tb:
             tb.add(mode.dir, recursive=True)
-        mode = replace(mode, dir=None, file=temp_f)
+        in_f.seek(0)
+    else:
+        in_f = sys.stdin.buffer if mode.file is None else mode.file.open("rb")
     # Update progress
     if mode.file and not mode.progress:
         size = mode.file.stat().st_size
         log.debug("Setting: --progress %d", size)
         mode = replace(mode, progress=size)
     # Send file
-    with mode.file.open("rb") if mode.file else sys.stdin as fp:
-        ret = _send(conf, mode, fp.fileno())
-    if old.dir:
-        log.debug("Removing tarball %s", mode.file)
-        temp_f.unlink()
-    return ret
+    try:
+        return _send(conf, mode, in_f if isinstance(in_f, SpooledTempFile) else in_f.fileno())
+    finally:
+        if in_f != sys.stdin.buffer:
+            in_f.close()
