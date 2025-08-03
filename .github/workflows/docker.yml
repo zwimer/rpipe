@@ -15,9 +15,6 @@ jobs:
     name: Release docker container
     runs-on: ubuntu-latest
     steps:
-      - name: Sleep to let PyPI changes propagate
-        run: sleep 180s
-        shell: bash
       - name: Checkout
         uses: actions/checkout@v2
       - name: Set up QEMU
