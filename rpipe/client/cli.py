@@ -98,7 +98,7 @@ def cli() -> None:
         const=True,
         nargs="?",
         type=Path,
-        help="A file use for input/output instead of stdin/stdout. For sending, implies --progress <file size> unless otherwise specified. Requires -r or -w",
+        help="A file use for input/output instead of stdin/stdout. For sending, implies --progress <file size> unless otherwise specified. Requires -r or -s",
     )
     io_g.add_argument(
         "-D",
@@ -107,7 +107,7 @@ def cli() -> None:
         const=True,
         nargs="?",
         type=Path,
-        help="A dir to tar/output as input/output instead of stdin/stdout. For sending, implies --progress <file size> unless otherwise specified. Required -r or -w",
+        help="A dir to tar/output as input/output instead of stdin/stdout. For sending, implies --progress <file size> unless otherwise specified. Required -r or -s",
     )
     prog_g = recv_send_g.add_mutually_exclusive_group()
     prog_g.add_argument("-N", "--no-progress", action="store_true", help="Do not show a progress bar")
