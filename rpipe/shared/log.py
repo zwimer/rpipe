@@ -1,4 +1,3 @@
-from __future__ import annotations
 from logging import WARNING, INFO, DEBUG
 from typing import TYPE_CHECKING
 import logging

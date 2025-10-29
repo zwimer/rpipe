@@ -1,6 +1,9 @@
+default_language_version:
+  python: python3.14
+
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
     -   id: check-added-large-files
     -   id: check-ast
@@ -16,36 +19,47 @@ repos:
     -   id: mixed-line-ending
     -   id: trailing-whitespace
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v3.19.1
+    rev: v3.21.0
     hooks:
     -   id: pyupgrade
-        args: [--py313-plus]  # py314 when available
+        args: [--py314-plus]
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.14.1
+    rev: v1.18.2
     hooks:
     -   id: mypy
         additional_dependencies: [
-          types-cryptography,
-          types-requests,
-          types-waitress,
-          types-psutil,
-          types-flask,
-          types-tqdm
+          "zstandard[cffi]",
+          "pycryptodomex",
+          "cryptography",
+          "argcomplete",
+          "requests",
+          "tqdm",
+          "zstdlib>=0.3.2",
+          "waitress",
+          "flask",
+          "human_readable",
+          "psutil",
+          "types-cryptography",
+          "types-requests",
+          "types-waitress",
+          "types-psutil",
+          "types-flask",
+          "types-tqdm",
+          "types-psutil",
         ]
-        args: [--ignore-missing-imports]
 
 #
 # Fail fast
 #
 
 -   repo: https://github.com/abravalheri/validate-pyproject
-    rev: v0.23
+    rev: v0.24.1
     hooks:
     - id: validate-pyproject
       fail_fast: true
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
     # Syntax
     -   id: check-toml
@@ -56,7 +70,7 @@ repos:
         fail_fast: true
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
     -   id: check-ast
         fail_fast: true
@@ -72,7 +86,7 @@ repos:
 
 # Last modifier: Coding Standard
 -   repo: https://github.com/psf/black
-    rev: 25.1.0
+    rev: 25.9.0
     hooks:
     -   id: black
 
@@ -97,20 +111,19 @@ repos:
       - id: vulture
 
 -   repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.9.4
+    rev: v0.14.2
     hooks:
     - id: ruff
 
 -   repo: https://github.com/pycqa/pylint
-    rev: v3.3.4
+    rev: v4.0.2
     hooks:
     -   id: pylint
         args: [--disable=import-error]
 
 -   repo: https://github.com/PyCQA/bandit
-    rev: 1.8.2
+    rev: 1.8.6
     hooks:
     - id: bandit
       additional_dependencies: [".[toml]"]
       args: ["-c", "pyproject.toml", "-r", "."]
-

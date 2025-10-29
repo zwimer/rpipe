@@ -1,4 +1,3 @@
-from __future__ import annotations
 from tempfile import SpooledTemporaryFile
 from contextlib import contextmanager
 from typing import TYPE_CHECKING

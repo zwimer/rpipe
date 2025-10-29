@@ -1,4 +1,3 @@
-from __future__ import annotations
 from dataclasses import dataclass, asdict, field
 from typing import TYPE_CHECKING, cast
 from logging import getLogger
@@ -43,6 +42,7 @@ class Blocked:  # Move into server? Move stats into Stats?
         self._log = getLogger("Blocked")
         if file is not None:
             self._log.info("Loading blocklist: %s", file)
+        js: dict
         js = {"version": __version__} if file is None or not file.is_file() else json.loads(file.read_text())
         if (old := Version(js.pop("version", ""))) < self.MIN_VERSION:
             raise ValueError(f"Blocklist version too old: {old} <= {self.MIN_VERSION}")

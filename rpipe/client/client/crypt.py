@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import TYPE_CHECKING, NamedTuple
 from logging import getLogger
 import hashlib

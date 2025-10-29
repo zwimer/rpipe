@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol, cast
 from logging import getLogger
 from base64 import b85decode
@@ -9,14 +8,13 @@ from time import sleep
 
 from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
-from flask import request
+from flask import Response, request
 
 from ...shared import TRACE, AdminMessage, AdminStats, AdminEC, Version, remote_addr
 from .uid import UID
 
 
 if TYPE_CHECKING:
-    from flask import Response
     from ..server import State
 
 

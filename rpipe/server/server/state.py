@@ -1,4 +1,3 @@
-from __future__ import annotations
 from logging import getLogger, INFO
 from typing import TYPE_CHECKING
 from dataclasses import asdict

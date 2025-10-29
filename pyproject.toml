@@ -19,8 +19,8 @@ dependencies = [
     # Client
     "zstandard[cffi]",
     "pycryptodomex",
-	"cryptography",
-	"argcomplete",
+    "cryptography",
+    "argcomplete",
     "requests",
     "tqdm",
     # Server
@@ -58,17 +58,17 @@ attr = "rpipe.__version__"
 
 [tool.pylint]
 disable = [
-	"unnecessary-lambda-assignment",
-	"missing-function-docstring",
-	"missing-module-docstring",
-	"missing-class-docstring",
-	"too-few-public-methods",
-	"line-too-long"
+    "unnecessary-lambda-assignment",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "too-few-public-methods",
+    "line-too-long"
 ]
 
 [tool.black]
 line-length = 110
-target-version = ["py313"]  # py314 when available
+target-version = ["py314"]
 
 [tool.ruff]
 line-length = 110

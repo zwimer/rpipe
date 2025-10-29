@@ -1,4 +1,3 @@
-from __future__ import annotations
 from logging import getLevelNamesMapping, getLevelName, getLogger
 from typing import TYPE_CHECKING, Any
 from dataclasses import asdict

@@ -1,4 +1,3 @@
-from __future__ import annotations
 from dataclasses import dataclass, asdict, fields
 from typing import TYPE_CHECKING
 from urllib.parse import quote

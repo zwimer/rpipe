@@ -1,4 +1,3 @@
-from __future__ import annotations
 from logging import DEBUG, INFO, StreamHandler, FileHandler, getLevelName, getLogger, shutdown
 from os import environ, close as fd_close
 from dataclasses import dataclass
@@ -270,7 +269,7 @@ def _log_config(conf: LogConfig) -> Path:
             if conf.debug:
                 environ[rdlf_env] = str(log_file)
     # Setup logger
-    fmt = CuteFormatter(**log.CF_KWARGS, colored=conf.colored)
+    fmt = CuteFormatter(**log.CF_KWARGS, colored=conf.colored)  # type: ignore[arg-type]
     fh = FileHandler(log_file, mode="a")
     stream = StreamHandler()
     root = getLogger()

@@ -5,7 +5,6 @@ This is a distinct file from the CLI because importing the client is slow
 Splitting the CLI into two files does cause a cyclic import
 """
 
-from __future__ import annotations
 from logging import StreamHandler, getLevelName, getLogger
 from inspect import Parameter, signature
 from typing import TYPE_CHECKING
@@ -87,7 +86,7 @@ def _config_log(parsed: Namespace) -> None:
     root.setLevel(lvl := log.level(parsed.verbose))
     assert len(root.handlers) == 0, "Root logger should not have any handlers"
     root.addHandler(sh := StreamHandler())
-    sh.setFormatter(CuteFormatter(**log.CF_KWARGS, colored=not parsed.no_color_log))
+    sh.setFormatter(CuteFormatter(**log.CF_KWARGS, colored=not parsed.no_color_log))  # type: ignore[arg-type]
     getLogger(_LOG).info(
         "Logging level set to %s with colors %sABLED",
         getLevelName(lvl),
