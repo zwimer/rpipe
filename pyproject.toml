@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "rpipe"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
@@ -14,7 +14,7 @@ keywords = ["remote", "pipe"]
 license = {text = "GPLv3"}
 description = "A little python remote pipe server and client."
 urls = {Homepage = "https://github.com/zwimer/rpipe"}
-requires-python = ">= 3.12"
+requires-python = ">= 3.14"
 dependencies = [
     # Client
     "zstandard[cffi]",
@@ -24,7 +24,7 @@ dependencies = [
     "requests",
     "tqdm",
     # Server
-    "zstdlib>=0.0.8",
+    "zstdlib>=0.3.0",
     "waitress",
     "flask",
     # Both
@@ -45,14 +45,14 @@ rpipe_server = "rpipe.server:cli"
 include-package-data = true
 license-files = ["LICENSE"]
 
-[tool.setuptools.packages]
-find = {namespaces = false}
+[tool.setuptools.packages.find]
+namespaces = false
 
 [tool.setuptools.package-data]
 rpipe = ["py.typed"]
 
-[tool.setuptools.dynamic]
-version = {attr = "rpipe.__version__"}
+[tool.setuptools.dynamic.version]
+attr = "rpipe.__version__"
 
 # Tools
 
@@ -68,7 +68,7 @@ disable = [
 
 [tool.black]
 line-length = 110
-target-version = ["py312", "py313"]
+target-version = ["py313"]  # py314 when available
 
 [tool.ruff]
 line-length = 110
