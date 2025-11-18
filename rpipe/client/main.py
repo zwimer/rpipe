@@ -34,7 +34,7 @@ def _check_mode_flags(mode: Mode) -> None:
     # Flag specific checks
     if mode.ttl is not None and mode.ttl <= 0:
         raise UsageError("--ttl must be positive")
-    if mode.progress is not False and mode.progress <= 0:
+    if type(mode.progress) is int and mode.progress <= 0:  # pylint: disable=unidiomatic-typecheck
         raise UsageError("--progress argument must be positive if passed")
     if mode.yes and mode.file is None and mode.dir is None:
         raise UsageError("--yes requires --file or --dir")
@@ -57,6 +57,8 @@ def _check_mode_flags(mode: Mode) -> None:
 
 def _main(ns: Namespace, conf: Config):
     mode_d = {i: k for i, k in vars(ns).items() if i in Mode.keys()}
+    if ns.no_progress:
+        mode_d["progress"] = False  # Disable implicit progress
     # Load mode
     if (ns.file or ns.dir) and not ns.recv and not ns.send:
         raise UsageError("--file and --dir require either an explicit -r or -w")

@@ -115,7 +115,7 @@ def cli() -> None:
         "--progress",
         metavar="SIZE",
         type=_si,
-        default=False,
+        default=None,
         const=True,
         nargs="?",
         help="Show a progress bar, if a value is passed, assume that's the number of bytes to be passed. Only valid while sending or receiving data. Values can be suffixed with K, M, G, or T, to multiply by powers of 1000",

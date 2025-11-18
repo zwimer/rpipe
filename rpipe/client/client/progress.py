@@ -28,8 +28,9 @@ class Progress:
         self._redir = logging_redirect_tqdm()
         self._pbar = tqdm.tqdm(
             desc="Uploading" if mode.send else "Downloading",
-            disable=mode.progress is False,
-            total=None if isinstance(mode.progress, bool) else mode.progress,
+            disable=not bool(mode.progress),
+            # pylint: disable=unidiomatic-typecheck
+            total=mode.progress if type(mode.progress) is int else None,
             dynamic_ncols=True,
             leave=False,
             unit_divisor=1000,

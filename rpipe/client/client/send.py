@@ -130,10 +130,9 @@ def send(conf: Config, mode: Mode) -> Result:
         in_f.seek(0)
     elif mode.file is not None:
         in_f = mode.file.open("rb")
-        if not mode.progress:
-            size = mode.file.stat().st_size
+        size = mode.file.stat().st_size
     # Update progress
-    if size is not None:
+    if mode.progress is None and size is not None:
         log.debug("Setting: --progress %d", size)
         mode = replace(mode, progress=size)
     # Send file

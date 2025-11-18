@@ -144,7 +144,7 @@ class Mode:
     threads: int
     # Recv / Send options
     encrypt: bool
-    progress: bool | int
+    progress: bool | int | None  # None means 'False, but change as desired'
     total: bool
     checksum: bool
 
