@@ -115,21 +115,25 @@ def send(conf: Config, mode: Mode) -> Result:
     Send data to the remote pipe
     """
     log = getLogger(_LOG)
-    # Tarball dir
+    size: int | None = None
+    in_f: typing.IO[bytes] = sys.stdin.buffer
+    # Tarball dir or open file
     if mode.dir is not None:
         if not mode.dir.is_dir():
             raise FileNotFoundError(f"Upload directory missing: {mode.dir}")
         # Note: in_f is never a file descriptor to keep the handler alive / file open
-        in_f: SpooledTempFile | typing.IO[bytes] = SpooledTempFile()
+        in_f = SpooledTempFile()
         log.info("Creating tarball from: %s", mode.dir)
         with tarfile.open(fileobj=in_f, mode="w:gz") as tb:
             tb.add(mode.dir, recursive=True)
+        size = in_f.tell()
         in_f.seek(0)
-    else:
-        in_f = sys.stdin.buffer if mode.file is None else mode.file.open("rb")
+    elif mode.file is not None:
+        in_f = mode.file.open("rb")
+        if not mode.progress:
+            size = mode.file.stat().st_size
     # Update progress
-    if mode.file and not mode.progress:
-        size = mode.file.stat().st_size
+    if size is not None:
         log.debug("Setting: --progress %d", size)
         mode = replace(mode, progress=size)
     # Send file

@@ -27,6 +27,7 @@ class Progress:
         self._config = config
         self._redir = logging_redirect_tqdm()
         self._pbar = tqdm.tqdm(
+            desc="Uploading" if mode.send else "Downloading",
             disable=mode.progress is False,
             total=None if isinstance(mode.progress, bool) else mode.progress,
             dynamic_ncols=True,
