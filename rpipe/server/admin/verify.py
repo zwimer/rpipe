@@ -13,7 +13,6 @@ from flask import Response, request
 from ...shared import TRACE, AdminMessage, AdminStats, AdminEC, Version, remote_addr
 from .uid import UID
 
-
 if TYPE_CHECKING:
     from ..server import State
 

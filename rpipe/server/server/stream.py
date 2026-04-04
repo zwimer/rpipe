@@ -7,9 +7,8 @@ import string
 from ...shared import QueryResponse, total_len
 
 if TYPE_CHECKING:
-    from ...version import Version
     from collections import deque
-
+    from ...shared import Version
 
 CHARSET = string.ascii_lowercase + string.ascii_uppercase + string.digits
 _PIPE_MAX_BYTES: int = 10**9

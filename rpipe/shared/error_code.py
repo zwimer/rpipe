@@ -1,6 +1,5 @@
 from zstdlib import Enum
 
-
 BLOCKED_EC: int = 401
 
 

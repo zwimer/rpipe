@@ -6,7 +6,6 @@ import argcomplete
 
 from .. import __version__  # Extract version without importing shared
 
-
 PASSWORD_ENV: str = "RPIPE_PASSWORD"
 _DEFAULT_CF = Path.home() / ".config" / "rpipe.json"
 

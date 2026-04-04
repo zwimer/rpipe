@@ -17,7 +17,6 @@ from .blocked import Blocked
 from .server import Server
 from .admin import Admin
 
-
 _LOG = "app"
 
 
