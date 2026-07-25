@@ -31,7 +31,7 @@ class Verify:
 
     _BRUTE_FORCE_DELAY = 0.02
 
-    __slots__ = ("uid", "_verifiers", "_log", "_brute_force_lock")
+    __slots__ = ("_brute_force_lock", "_log", "_verifiers", "uid")
 
     def __init__(self, key_files: list[Path]):
         self._log = getLogger("Verify")
@@ -45,7 +45,7 @@ class Verify:
     def __call__(self, name: str, state: State) -> Response | str:
         try:
             return self._verify(name, state)
-        except Exception:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except  # noqa: BLE001
             self._log.error("Failed due to:", exc_info=True)
             return Response(status=500)
 

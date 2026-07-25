@@ -13,7 +13,7 @@ class IO:
     May use about an extra chunk bytes for stitching data together
     """
 
-    __slots__ = ("_mlog", "_buffer", "_cond", "_eof", "_chunk", "_fd")
+    __slots__ = ("_buffer", "_chunk", "_cond", "_eof", "_fd", "_mlog")
 
     def __init__(self, fd: int | SpooledTempFile, chunk: int) -> None:
         """

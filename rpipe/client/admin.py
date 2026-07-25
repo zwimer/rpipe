@@ -90,7 +90,7 @@ class _Methods:
             case AdminEC.illegal_version:
                 raise UsageError(ret.text)
         self._require_ok(ret)
-        assert not ret.status_code == AdminEC.invalid, "Sanity check failed"
+        assert ret.status_code != AdminEC.invalid, "Sanity check failed"
         return ret
 
     # Non-SSL-Protected methods

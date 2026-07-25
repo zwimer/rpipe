@@ -31,7 +31,7 @@ class Server(Singleton):
     """
 
     SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGQUIT)
-    __slots__ = ("state", "_state_file", "_log")
+    __slots__ = ("_log", "_state_file", "state")
 
     def shutdown(self):
         """

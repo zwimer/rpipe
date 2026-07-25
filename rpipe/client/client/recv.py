@@ -74,7 +74,7 @@ def _recv_error(*args, **kwargs) -> None:
         _recv_error_helper(*args, **kwargs)
     except (VersionError, NoData, ReportThis, MultipleClients, RuntimeError) as e:
         getLogger(_LOG).error(", ".join(e.args))
-        raise e
+        raise
 
 
 # pylint: disable=too-many-positional-arguments

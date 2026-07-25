@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Self
 from datetime import datetime
 from json import dumps
 
@@ -88,19 +88,16 @@ class BadHeaders(RuntimeError):
     """
 
 
-_Self = TypeVar("_Self", bound="_ResponseHeaders")  # typing.Self in python3.11
-
-
 class _ResponseHeaders(_ToDict):
     @classmethod
-    def from_dict(cls: type[_Self], d: CaseInsensitiveDict[str]) -> _Self:
+    def from_dict(cls: type[Self], d: CaseInsensitiveDict[str]) -> Self:
         try:
             return cls._from_dict(dict(d.lower_items()))
         except KeyError as e:
             raise BadHeaders("Missing headers") from e
 
     @classmethod
-    def _from_dict(cls: type[_Self], d: dict[str, str]) -> _Self:
+    def _from_dict(cls: type[Self], d: dict[str, str]) -> Self:
         raise NotImplementedError()
 
 

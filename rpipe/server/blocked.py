@@ -35,7 +35,7 @@ class Blocked:  # Move into server? Move stats into Stats?
     Used to determine if requests should be blocked or not
     """
 
-    __slots__ = ("_log", "_data", "_file", "_lock", "_white_pat", "_black_pat")
+    __slots__ = ("_black_pat", "_data", "_file", "_lock", "_log", "_white_pat")
     MIN_VERSION = Version("9.11.0")
 
     def __init__(self, file: Path | None, debug: bool) -> None:

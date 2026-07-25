@@ -114,7 +114,7 @@ class Admin:
     Signed requests must contain a valid signed UID that is only valid for a short period of time
     """
 
-    __slots__ = ("_verify", "_methods")
+    __slots__ = ("_methods", "_verify")
 
     def __init__(self, log_file: Path, key_files: list[Path], blocked: Blocked) -> None:
         self._verify = Verify(key_files)

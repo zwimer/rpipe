@@ -56,7 +56,7 @@ def _check_mode_flags(mode: Mode) -> None:
 
 
 def _main(ns: Namespace, conf: Config):
-    mode_d = {i: k for i, k in vars(ns).items() if i in Mode.keys()}
+    mode_d = {i: k for i, k in vars(ns).items() if i in Mode.keys()}  # noqa: SIM118
     if ns.no_progress:
         mode_d["progress"] = False  # Disable implicit progress
     # Load mode
@@ -100,7 +100,7 @@ def _config_log(parsed: Namespace) -> None:
 def main(parser: argparse.ArgumentParser, parsed: Namespace) -> None:
     _config_log(parsed)
     # Load Config
-    conf_d = {i: k for i, k in vars(parsed).items() if i in Config.keys()}
+    conf_d = {i: k for i, k in vars(parsed).items() if i in Config.keys()}  # noqa: SIM118
     if (pw := getenv(PASSWORD_ENV)) is not None:
         getLogger(_LOG).debug("Taking password from: %s", PASSWORD_ENV)
         conf_d["password"] = pw

@@ -44,7 +44,7 @@ class UnlockedState:
     This class is not thread safe and access to it should be protected by a lock
     """
 
-    __slots__ = ("streams", "shutdown", "stats")
+    __slots__ = ("shutdown", "stats", "streams")
 
     _log = getLogger("UnlockedState")
 
@@ -89,16 +89,15 @@ class UnlockedState:
 
     def _save(self, file: Path) -> None:
         self._log.info("Saving state to: %s", file)
-        with restrict_umask(0o6):
-            with file.open("wb") as f:
-                f.write(bytes(version) + b"\n")
-                _writeline(f, str(len(self.streams)).encode())
-                for name, s in self.streams.items():
-                    d = asdict(s)
-                    deq = d.pop("data")
-                    _writeline(f, f"{name} {len(deq)} ".encode() + json.dumps(d, default=str).encode())
-                    for i in deq:
-                        _writeline(f, i)
+        with restrict_umask(0o6), file.open("wb") as f:
+            f.write(bytes(version) + b"\n")
+            _writeline(f, str(len(self.streams)).encode())
+            for name, s in self.streams.items():
+                d = asdict(s)
+                deq = d.pop("data")
+                _writeline(f, f"{name} {len(deq)} ".encode() + json.dumps(d, default=str).encode())
+                for i in deq:
+                    _writeline(f, i)
 
     def _load(self, file: Path) -> bool:
         self._log.info("Loading %s", file)
@@ -121,7 +120,7 @@ class State:
     A thread safe wrapper for ServerState
     """
 
-    __slots__ = ("_lock", "_log", "_state", "_debug")
+    __slots__ = ("_debug", "_lock", "_log", "_state")
 
     def __init__(self, debug: bool) -> None:
         self._lock = RLock()

@@ -19,7 +19,7 @@ class Progress:
 
     DOF_EXC = KeyboardInterrupt | Exception
 
-    __slots__ = ("result", "dof", "_config", "_redir", "_pbar")
+    __slots__ = ("_config", "_pbar", "_redir", "dof", "result")
 
     def __init__(self, config: Config, mode: Mode):
         self.result = Result(total=mode.total, checksum=mode.checksum)
