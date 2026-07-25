@@ -32,7 +32,7 @@ class Version:
     def __bytes__(self):
         return str(self).encode()
 
-    def __lt__(self, other: Version):
+    def __lt__(self, other: Version):  # Important, version tuples may only compare by < or >=
         return self.tuple < other.tuple
 
     def __eq__(self, other: object):
