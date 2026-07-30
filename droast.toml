@@ -1,0 +1,7 @@
+preset       = "strict"
+skip         = ["DF011", "DF022", "DF033", "DF051", "DF062", "DF064"]
+min-severity = "info"
+no-roast     = true
+
+[shellcheck]
+mode = "auto"

@@ -1,12 +1,18 @@
 FROM python:3.14-alpine
 
-RUN pip install -U pip
-COPY . /src
+RUN adduser -D user
+USER user
 
-RUN apk add gcc python3-dev musl-dev linux-headers \
- && pip install /src \
- && apk add gcc python3-dev musl-dev linux-headers
+ENV PYTHONUNBUFFERED=1 \
+	PYTHONDONTWRITEBYTECODE=1 \
+	PATH="$PATH:/home/user/.local/bin"
 
-RUN addgroup rpipe -g 1000
-RUN adduser -u 1000 -HD rpipe -G rpipe
-USER rpipe
+COPY --chown=user:user\
+	pyproject.toml \
+	README.md \
+	LICENSE \
+	/rpipe/
+COPY --chown=user:user rpipe/ /rpipe/rpipe/
+
+RUN pip install --user --no-cache-dir /rpipe
+ENTRYPOINT ["rpipe_server"]

@@ -127,3 +127,8 @@ repos:
     - id: bandit
       additional_dependencies: [".[toml]"]
       args: ["-c", "pyproject.toml", "-r", "."]
+
+-   repo: https://github.com/immanuwell/dockerfile-roast
+    rev: 1.4.11
+    hooks:
+    -   id: droast
