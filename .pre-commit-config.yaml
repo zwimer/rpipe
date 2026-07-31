@@ -48,7 +48,7 @@ repos:
           "types-psutil",
         ]
 -   repo: https://github.com/betterleaks/betterleaks
-    rev: v1.7.2
+    rev: v1.7.3
     hooks:
     -   id: betterleaks
 
@@ -133,6 +133,7 @@ repos:
       args: ["-c", "pyproject.toml", "-r", "."]
 
 -   repo: https://github.com/immanuwell/dockerfile-roast
-    rev: 1.4.11
+    rev: 1.4.12
     hooks:
     -   id: droast
+        args: ["--config", "pyproject.toml", "--fail-on", "info"]

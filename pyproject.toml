@@ -84,3 +84,12 @@ skips = ["B101", "B104", "B201"]
 ignore_names = ["cli", "_help", "_show_version", "_channel", "strict_slashes"]
 min_confidence = 70
 paths = ["rpipe"]
+
+[tool.droast]
+preset       = "strict"
+skip         = ["DF011", "DF022", "DF033", "DF051", "DF062", "DF064"]
+min-severity = "info"
+no-roast     = true
+
+[tool.droast.shellcheck]
+mode = "auto"
