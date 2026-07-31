@@ -47,6 +47,10 @@ repos:
           "types-tqdm",
           "types-psutil",
         ]
+-   repo: https://github.com/betterleaks/betterleaks
+    rev: v1.7.2
+    hooks:
+    -   id: betterleaks
 
 #
 # Fail fast
@@ -111,7 +115,7 @@ repos:
       - id: vulture
 
 -   repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.16.0
+    rev: v0.16.1
     hooks:
     - id: ruff
 
