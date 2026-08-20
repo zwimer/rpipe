@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, IO, Self
 from logging import getLogger
 
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -8,20 +8,18 @@ from .delete import delete
 from .data import Result
 
 if TYPE_CHECKING:
-    from typing import IO
+    from types import TracebackType
     from .data import Config, Mode
 
 
 class Progress:
-    """
-    A small class to handle progress bars and progression data of send/recv
-    """
+    """A small class to handle progress bars and progression data of send/recv"""
 
     DOF_EXC = KeyboardInterrupt | Exception
 
     __slots__ = ("_config", "_pbar", "_redir", "dof", "result")
 
-    def __init__(self, config: Config, mode: Mode):
+    def __init__(self, config: Config, mode: Mode) -> None:
         self.result = Result(total=mode.total, checksum=mode.checksum)
         self.dof: bool = False
         self._config = config
@@ -43,12 +41,17 @@ class Progress:
         self._pbar.__enter__()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         if self.dof and isinstance(exc_val, self.DOF_EXC):
             log = getLogger("Progress")
             log.warning("Caught %s. Deleting channel: %s", type(exc_val), self._config.channel)
             delete(self._config)
-        r1 = bool(self._pbar.__exit__(exc_type, exc_val, exc_tb))
+        r1 = bool(self._pbar.__exit__(exc_type, exc_val, exc_tb))  # type: ignore[func-returns-value]
         r2 = bool(self._redir.__exit__(exc_type, exc_val, exc_tb))
         return r1 or r2
 

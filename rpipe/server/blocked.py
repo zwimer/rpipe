@@ -18,9 +18,7 @@ if TYPE_CHECKING:
 
 @dataclass(kw_only=True, slots=True)
 class Data:
-    """
-    Contains blocklist data such as ips, routes, whitelists, etc
-    """
+    """Contains blocklist data such as ips, routes, whitelists, etc"""
 
     version: Version = field(default_factory=lambda: Version("0.0.1"))
     ip_whitelist: set[str] = field(default_factory=set)
@@ -31,9 +29,7 @@ class Data:
 
 
 class Blocked:  # Move into server? Move stats into Stats?
-    """
-    Used to determine if requests should be blocked or not
-    """
+    """Used to determine if requests should be blocked or not"""
 
     __slots__ = ("_black_pat", "_data", "_file", "_lock", "_log", "_white_pat")
     MIN_VERSION = Version("9.11.0")
@@ -77,20 +73,17 @@ class Blocked:  # Move into server? Move stats into Stats?
         return ret
 
     def __enter__(self) -> Data:
-        """
-        Returns the Data object of Blocked
-        """
+        """Returns the Data object of Blocked"""
         self._lock.acquire()
         return self._data
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, *_: object) -> None:
         self._white_pat = self._mk_pat_from(self._data.route_whitelist)
         self._black_pat = self._mk_pat_from(self._data.route_blacklist)
         self._lock.release()
 
     def _save(self) -> None:
-        """
-        Save data to blocklist
+        """Save data to blocklist
         This function assumes self._file is not None
         """
         if self._file is None:
@@ -105,9 +98,7 @@ class Blocked:  # Move into server? Move stats into Stats?
             self._log.exception("Failed to save blocklist %s", self._file)
 
     def _notate(self, ip: str) -> None:
-        """
-        Record the blocked route (should be called by __call__)
-        """
+        """Record the blocked route (should be called by __call__)"""
         pth = request.path
         self._log.log(TRACE, "%s blocked, attempted path: %s", ip, pth)
         with self as data:
@@ -118,15 +109,19 @@ class Blocked:  # Move into server? Move stats into Stats?
     @staticmethod
     def _match(pth: str, patterns: list[re.Pattern[str]]) -> bool:
         """
-        :param pth: The path string to check for matching
-        :param patterns: The patterns to test s against
-        :return: True iff s matches any of the given patterns
+        Args:
+            pth: The path string to check for matching
+            patterns: The patterns to test s against
+
+        Returns:
+            True iff s matches any of the given patterns
         """
         return any(re.fullmatch(i, pth) is not None for i in patterns)
 
     def __call__(self) -> bool:
         """
-        :return: True if the given request should be blocked
+        Returns:
+            True if the given request should be blocked
         """
         ip = cast(str, request.headers.get("X-Forwarded-For", request.remote_addr))
         with self as data:

@@ -33,8 +33,7 @@ _DEFAULT_LVL: int = 3
 
 
 def _send_known_error(r: Response) -> None:
-    """
-    Raise an exception according to the send response error
+    """Raise an exception according to the send response error
     If error is unknown, does nothing
     """
     match r.status_code:
@@ -49,9 +48,7 @@ def _send_known_error(r: Response) -> None:
 
 
 def _send_block(data: bytes, conf: Config, params: UploadRequestParams, *, lvl: int = 0) -> Response:
-    """
-    Upload the given block of data; updates params for next block
-    """
+    """Upload the given block of data; updates params for next block"""
     typ = "POST" if params.stream_id is None else "PUT"
     r = request(typ, conf.channel_url(), params=params.to_dict(), data=data, timeout=conf.timeout)
     if r.ok:
@@ -68,9 +65,7 @@ def _send_block(data: bytes, conf: Config, params: UploadRequestParams, *, lvl: 
 def _send_data(
     conf: Config, progress: Progress, io: IO, compress: Callable[[bytes], bytes], params: UploadRequestParams
 ) -> None:
-    """
-    Send data to the remote pipe, using the preconfigured parameters provided
-    """
+    """Send data to the remote pipe, using the preconfigured parameters provided"""
     log = getLogger(_LOG)
     while not params.final:
         block, params.final = io.read()
@@ -88,9 +83,7 @@ def _send_data(
 
 
 def _send(conf: Config, mode: Mode, file: int | SpooledTempFile) -> Result:
-    """
-    Send data to the remote pipe reading from file
-    """
+    """Send data to the remote pipe reading from file"""
     log = getLogger(_LOG)
     lvl = _DEFAULT_LVL if mode.zstd is None else mode.zstd
     log.debug("Using compression level %d and %d threads", lvl, mode.threads)
@@ -111,9 +104,7 @@ def _send(conf: Config, mode: Mode, file: int | SpooledTempFile) -> Result:
 
 
 def send(conf: Config, mode: Mode) -> Result:
-    """
-    Send data to the remote pipe
-    """
+    """Send data to the remote pipe"""
     log = getLogger(_LOG)
     size: int | None = None
     in_f: typing.IO[bytes] = sys.stdin.buffer

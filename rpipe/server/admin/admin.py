@@ -20,9 +20,7 @@ _UIDS_PER_QUERY: int = 2
 
 
 class Methods:
-    """
-    Protected methods that can be accessed by the Admin class
-    """
+    """Protected methods that can be accessed by the Admin class"""
 
     def __init__(self, log_file: Path | None, blocked: Blocked) -> None:
         self._log = getLogger("Admin")
@@ -34,7 +32,7 @@ class Methods:
     def debug(state: State, _: str) -> Response:
         return plaintext(str(state.debug))
 
-    def log(self, *_) -> Response:
+    def log(self, *_: Any) -> Response:
         for i in getLogger().handlers:
             i.flush()
         if self._log_file is None:
@@ -66,9 +64,7 @@ class Methods:
 
     @staticmethod
     def channels(state: State, _: str) -> Response:
-        """
-        Return a list of the server's current channels and stats
-        """
+        """Return a list of the server's current channels and stats"""
         with state as s:
             output = {i: asdict(k.query()) for i, k in s.streams.items()}
         return json_response(output)
@@ -107,8 +103,7 @@ class Methods:
 
 
 class Admin:
-    """
-    Admin class that protects the server from unauthorized access
+    """Admin class that protects the server from unauthorized access
     It requires a valid signature to access any method from the Methods class
     Any public method from the method class is a member of this class, wrapped in a signature verification
     Signed requests must contain a valid signed UID that is only valid for a short period of time
@@ -121,13 +116,11 @@ class Admin:
         self._methods = Methods(log_file, blocked)
 
     def __getattr__(self, item: str) -> Any:
-        """
-        Override the getattribute method to wrap most public members with signature verification
-        """
+        """Override the getattribute method to wrap most public members with signature verification"""
         if item.startswith("_"):
             raise AttributeError(f"{item} is a private member")
 
-        def wrapper(state: State, *args, **kwargs) -> Response:
+        def wrapper(state: State, *args: Any, **kwargs: Any) -> Response:
             assert self._verify is not None, "Admin not initialized"
             if isinstance(rv := self._verify(item, state), str):
                 return getattr(self._methods, item)(state, rv, *args, **kwargs)
@@ -136,7 +129,5 @@ class Admin:
         return wrapper
 
     def uids(self) -> Response:
-        """
-        Get a few UIDSs that may each be used in a signature to access the server exactly once
-        """
+        """Get a few UIDSs that may each be used in a signature to access the server exactly once"""
         return json_response(self._verify.uid.new(_UIDS_PER_QUERY))

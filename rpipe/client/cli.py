@@ -6,17 +6,16 @@ import argcomplete
 
 from .. import __version__  # Extract version without importing shared
 
-PASSWORD_ENV: str = "RPIPE_PASSWORD"
+PASSWORD_ENV: str = "RPIPE_PASSWORD"  # noqa: S105
 _DEFAULT_CF = Path.home() / ".config" / "rpipe.json"
 
 
 def _cli(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> None:
-    """
-    We import main from CLI after parsing arguments because
+    """We import main from CLI after parsing arguments because
     it is slow, and not necessary for --help or --version
     """
     # pylint: disable=import-outside-toplevel,cyclic-import
-    from .main import main
+    from .main import main  # noqa: PLC0415
 
     main(parser, parsed)
 
@@ -34,9 +33,7 @@ def _si(size: str) -> int:
 
 # pylint: disable=too-many-locals,too-many-statements
 def cli() -> None:
-    """
-    Parses arguments then invokes rpipe
-    """
+    """Parses arguments then invokes rpipe"""
     threads: int = max(1, (cpu := cpu_count()) - 1)
     parser = argparse.ArgumentParser(add_help=False)
     parser.set_defaults(method=None)

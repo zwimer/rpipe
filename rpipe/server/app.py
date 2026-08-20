@@ -1,9 +1,11 @@
 from logging import DEBUG, INFO, StreamHandler, FileHandler, getLevelName, getLogger, shutdown
 from os import environ, close as fd_close
+from collections.abc import Callable
 from dataclasses import dataclass
 from tempfile import mkstemp
 from functools import wraps
 from pathlib import Path
+from typing import Any
 import atexit
 
 from flask import Response, Flask, send_file, request
@@ -53,7 +55,7 @@ class App(Flask):
         self.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
         self.url_map.strict_slashes = False
 
-    def start(self, conf: ServerConfig, log_file: Path, favicon: Path | None):
+    def start(self, conf: ServerConfig, log_file: Path, favicon: Path | None) -> None:
         lg = getLogger(_LOG)
         if favicon is not None and not favicon.is_file():
             lg.error("Favicon file not found: %s", favicon)
@@ -69,16 +71,15 @@ class App(Flask):
         else:
             waitress.serve(self, host=conf.host, port=conf.port, clear_untrusted_proxy_headers=False)
 
-    def give(self, *, objs: bool = False, logged: bool = True):
-        """
-        Give the wrapped function self.objs and log requests as requested
+    def give(self, *, objs: bool = False, logged: bool = True) -> Callable:
+        """Give the wrapped function self.objs and log requests as requested
         Also handles blocked IP addresses and routes
         """
         lg = getLogger(_LOG)
 
-        def decorator(func):
+        def decorator(func: Callable) -> Callable:
             @wraps(func)
-            def inner(*args, **kwargs):
+            def inner(*args: Any, **kwargs: Any) -> Any:
                 if self._objs.blocked():
                     if lg.isEnabledFor(DEBUG):
                         lg.debug("Blocked request by %s to: %s", remote_addr(), request.path)
@@ -98,9 +99,10 @@ class App(Flask):
 
         return decorator
 
-    def route(self, *paths, admin: bool = False, objs: bool = False, logged: bool = True, **kwargs):
-        """
-        Route decorator that allows for multiple paths to be routed to the same function
+    def route(
+        self, *paths: str, admin: bool = False, objs: bool = False, logged: bool = True, **kwargs: Any
+    ) -> Callable:
+        """Route decorator that allows for multiple paths to be routed to the same function
         Automatically applies the give decorator with objs=objs and logged=logged
         If admin, set objs=True and set methods=["POST"] if not set
         """
@@ -110,7 +112,7 @@ class App(Flask):
             kwargs["methods"] = ["POST"]
         super_route = super().route
 
-        def wrapper(func):
+        def wrapper(func: Callable) -> Any:
             ret = self.give(objs=admin or objs, logged=logged)(func)
             for p in paths:
                 ret = super_route(p, **kwargs)(ret)
@@ -129,7 +131,7 @@ app = App()
 
 @app.errorhandler(404)
 @app.give()
-def _page_not_found(_, *, quiet=False) -> Response:
+def _page_not_found(_: Any, *, quiet: bool = False) -> Response:
     lg = getLogger(_LOG)
     if not quiet:
         lg.warning("404: Not found: %s", request.path)
@@ -188,8 +190,7 @@ def _query(o: App.Objs, channel: str) -> Response:
 
 @app.route("/admin/uid", admin=True, methods=["GET"])
 def _admin_uid(o: App.Objs) -> Response:
-    """
-    Get a few UIDSs needed to sign admin requests
+    """Get a few UIDSs needed to sign admin requests
     The exact number is up to the server, if you need more, request more
     These UIDs will expire after a short period of time
     """

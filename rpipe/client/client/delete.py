@@ -10,9 +10,7 @@ if TYPE_CHECKING:
 
 
 def delete(conf: Config) -> None:
-    """
-    Delete the channel
-    """
+    """Delete the channel"""
     getLogger("delete").info("Deleting channel %s", conf.channel)
     r = request("DELETE", conf.channel_url(), timeout=conf.timeout)
     if r.status_code == DeleteEC.locked:

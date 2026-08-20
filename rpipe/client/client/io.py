@@ -6,8 +6,7 @@ from ...shared import TRACE, LFS, SpooledTempFile, total_len
 
 
 class IO:
-    """
-    A better version of stdin.read that doesn't hang as often
+    """A better version of stdin.read that doesn't hang as often
     Only meant to ever be used from a single thread at a time
     Will attempt to keep chunk bytes loaded at all times
     May use about an extra chunk bytes for stitching data together
@@ -17,8 +16,9 @@ class IO:
 
     def __init__(self, fd: int | SpooledTempFile, chunk: int) -> None:
         """
-        :param fd: The file descriptor (or SpooledTemporaryFile) to read from
-        :param chunk: The number of bytes to keep preloaded whenever possible
+        Args:
+            fd: The file descriptor (or SpooledTemporaryFile) to read from
+            chunk: The number of bytes to keep preloaded whenever possible
         """
         if isinstance(fd, SpooledTempFile) and not fd.is_virtual:
             fd = fd.fileno()  # This is a file on disk, so prefer reading as such
@@ -35,9 +35,7 @@ class IO:
     # Main Thread
 
     def increase_chunk(self, n: int) -> None:
-        """
-        Increase the chunk size to n bytes
-        """
+        """Increase the chunk size to n bytes"""
         if n < self._chunk:
             raise ValueError("Cannot decrease chunk size")
         if n != self._chunk:
@@ -47,9 +45,10 @@ class IO:
                 self._cond.notify()
 
     def read(self) -> tuple[bytes, bool]:
-        """
-        Read up to self._chunk bytes; b"" only if EOF
-        :return: A tuple containing the bytes read and a boolean indicating EOF
+        """Read up to self._chunk bytes; b"" only if EOF
+
+        Returns:
+            A tuple containing the bytes read and a boolean indicating EOF
         """
         with self._cond:
             if isinstance(self._fd, SpooledTempFile):
@@ -67,8 +66,7 @@ class IO:
     # Worker thread (only exists if fd is int)
 
     def _worker(self) -> None:
-        """
-        The worker thread that reads data from the file descriptor
+        """The worker thread that reads data from the file descriptor
         Always attempts to keep at least self._chunk bytes loaded
         """
         assert isinstance(self._fd, int), "Sanity check"

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from logging import getLogger
 from functools import cache
 
@@ -17,7 +17,8 @@ _WAIT_DELAY_SEC: dict[int, float] = {0: 0.3, 1: 0.5, 5: 1.0, 60: 2.0, 300: 5.0}
 
 def wait_delay_sec(lvl: int) -> float:
     """
-    :return: The number of seconds to wait before retrying a request
+    Returns:
+        The number of seconds to wait before retrying a request
     """
     if lvl < 0:
         raise ValueError("Invalid level")
@@ -29,7 +30,7 @@ def _session() -> Session:
     return Session()
 
 
-def request(*args, timeout: int | None, **kwargs) -> Response:
+def request(*args: Any, timeout: int | None, **kwargs: Any) -> Response:
     r = Request(*args, **kwargs).prepare()
     if r.body:
         getLogger("request").debug("Making %s request with %d bytes of data", r.method, len(r.body))

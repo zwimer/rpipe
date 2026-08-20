@@ -5,8 +5,7 @@ BLOCKED_EC: int = 401
 
 # pylint: disable=bad-mcs-method-argument,bad-mcs-classmethod-argument
 class UploadEC(Enum):
-    """
-    HTTP error codes the rpipe client may be sent when uploading data
+    """HTTP error codes the rpipe client may be sent when uploading data
     Others may be sent, but these are the ones the client should be prepared to handle
     """
 
@@ -21,8 +20,7 @@ class UploadEC(Enum):
 
 
 class DownloadEC(Enum):
-    """
-    HTTP error codes the rpipe client may be sent when downloading data
+    """HTTP error codes the rpipe client may be sent when downloading data
     Others may be sent, but these are the ones the client should be prepared to handle
     """
 
@@ -38,8 +36,7 @@ class DownloadEC(Enum):
 
 
 class DeleteEC(Enum):
-    """
-    HTTP error codes the rpipe client may be sent when deleting a channel
+    """HTTP error codes the rpipe client may be sent when deleting a channel
     Others may be sent, but these are the ones the client should be prepared to handle
     """
 
@@ -47,8 +44,7 @@ class DeleteEC(Enum):
 
 
 class QueryEC(Enum):
-    """
-    HTTP error codes the rpipe client may be sent when in query mode
+    """HTTP error codes the rpipe client may be sent when in query mode
     Others may be sent, but these are the ones the client should be prepared to handle
     """
 
@@ -57,8 +53,7 @@ class QueryEC(Enum):
 
 
 class AdminEC(Enum):
-    """
-    HTTP error codes the rpipe client may be sent when in admin mode
+    """HTTP error codes the rpipe client may be sent when in admin mode
     Others may be sent, but these are the ones the client should be prepared to handle
     """
 

@@ -97,11 +97,12 @@ def _priority_actions(conf: Config, mode: Mode, config_file: Path) -> None:
 
 
 def rpipe(conf: Config, mode: Mode, config_file: Path) -> None:
-    """
-    rpipe: A remote piping tool
-    :param conf: Configuration for the remote pipe, may be invalid at this point
-    :param config_file: Path to the configuration file, may not exist
-    :param mode: Mode to operate in, assumes flags are valid and within expected ranges
+    """rpipe: A remote piping tool
+
+    Args:
+        conf: Configuration for the remote pipe, may be invalid at this point
+        config_file: Path to the configuration file, may not exist
+        mode: Mode to operate in, assumes flags are valid and within expected ranges
     """
     log = getLogger(_LOG)
     if mode.priority():

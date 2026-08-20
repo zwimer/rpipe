@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 import random
 import string
 
@@ -15,14 +15,12 @@ _PIPE_MAX_BYTES: int = 10**9
 
 
 def _uid() -> str:
-    return "".join(random.choices(CHARSET, k=32))  # nosec B311
+    return "".join(random.choices(CHARSET, k=32))  # nosec B311  # noqa: S311
 
 
 @dataclass(kw_only=True)
 class Stream:  # pylint: disable=too-many-instance-attributes
-    """
-    Holds data about a stream
-    """
+    """Holds data about a stream"""
 
     ttl: int
     data: deque[bytes]
@@ -40,10 +38,8 @@ class Stream:  # pylint: disable=too-many-instance-attributes
         self._capacity: int = _PIPE_MAX_BYTES
         self._constants = ("encrypted", "version", "id_", "_constants")
 
-    def __setattr__(self, key, value):
-        """
-        __setattr__ override to prevent changing constants and updates self.expire
-        """
+    def __setattr__(self, key: str, value: Any) -> None:
+        """__setattr__ override to prevent changing constants and updates self.expire"""
         if key == "expire":
             raise AttributeError("Expiration date is automatically set; do not change it manually")
         if key in getattr(self, "_constants", {}):
@@ -54,20 +50,20 @@ class Stream:  # pylint: disable=too-many-instance-attributes
             super().__setattr__("expire", datetime.now() + timedelta(seconds=self.ttl))
 
     def expired(self) -> bool:
-        """
-        Return true if the stream is expired and unlocked
-        """
+        """Return true if the stream is expired and unlocked"""
         return not self.locked and self.expire < datetime.now()
 
     def __len__(self) -> int:
         """
-        :return: The number of bytes in the pipe
+        Returns:
+            The number of bytes in the pipe
         """
         return total_len(self.data)
 
     def full(self) -> bool:
         """
-        :return: True if the server pipe is full, else False
+        Returns:
+            True if the server pipe is full, else False
         """
         return len(self) >= self._capacity
 

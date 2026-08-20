@@ -5,8 +5,7 @@ from .. import __version__
 
 @total_ordering
 class Version:
-    """
-    A class to represent a version number
+    """A class to represent a version number
     Implements comparison, equality, and str operators
     Allows invalid versions but marks them as such
     """
@@ -14,7 +13,7 @@ class Version:
     _invalid = (-1, -1, -1)
     _invalid_str = "Unable to parse version"
 
-    def __init__(self, v: str | bytes):
+    def __init__(self, v: str | bytes) -> None:
         try:
             self.str: str = v if isinstance(v, str) else v.decode()
             tup = tuple(int(i) for i in self.str.split("."))
@@ -29,14 +28,18 @@ class Version:
     def __str__(self) -> str:
         return self.str
 
-    def __bytes__(self):
+    def __bytes__(self) -> bytes:
         return str(self).encode()
 
-    def __lt__(self, other: Version):  # Important, version tuples may only compare by < or >=
+    def __lt__(self, other: Version) -> bool:  # Important, version tuples may only compare by < or >=
+        assert isinstance(other, Version)
         return self.tuple < other.tuple
 
-    def __eq__(self, other: object):
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, Version) and self.str == other.str
+
+    def __hash__(self) -> int:
+        return hash(self.str)
 
 
 version = Version(__version__)

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from json import dumps
 
 from flask import Response
@@ -23,13 +23,11 @@ def total_len(x: Sequence[bytes]) -> int:
     return sum(len(i) for i in x)
 
 
-def plaintext(msg: str, status: Enum | int = 200, **kwargs) -> Response:
-    """
-    Return a plain text Response containing the arguments
-    """
+def plaintext(msg: str, status: Enum | int = 200, **kwargs: Any) -> Response:
+    """Return a plain text Response containing the arguments"""
     code: int = status if isinstance(status, int) else status.value
     return Response(msg, status=code, mimetype="text/plain", **kwargs)
 
 
-def json_response(js) -> Response:
+def json_response(js: dict | list | str | float | bool | None) -> Response:
     return Response(dumps(js, default=str), status=200, mimetype="application/json")

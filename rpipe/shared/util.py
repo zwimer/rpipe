@@ -1,5 +1,6 @@
 from tempfile import SpooledTemporaryFile
 from contextlib import contextmanager
+from collections.abc import Iterator
 from typing import TYPE_CHECKING
 from logging import getLogger
 from os import umask
@@ -22,8 +23,8 @@ def total_len(x: Sequence[bytes]) -> int:
 
 
 @contextmanager
-def restrict_umask(mask: int):
-    old = umask(0o66)  # Get the old umask
+def restrict_umask(mask: int) -> Iterator[int]:
+    old: int = umask(0o66)  # Get the old umask
     try:
         yield umask(old | mask)
     finally:
@@ -31,8 +32,7 @@ def restrict_umask(mask: int):
 
 
 class SpooledTempFile(SpooledTemporaryFile):
-    """
-    A subclass of SpooledTemporaryFile that provides a
+    """A subclass of SpooledTemporaryFile that provides a
     method of checking if the files is fully in memory
     """
 
@@ -47,7 +47,8 @@ class SpooledTempFile(SpooledTemporaryFile):
     @property
     def is_virtual(self) -> bool:
         """
-        :return: True if the file is spooled / contained entirely in memory
+        Returns:
+            True if the file is spooled / contained entirely in memory
         """
         return self._is_virtual
 

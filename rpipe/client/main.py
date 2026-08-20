@@ -1,5 +1,4 @@
-"""
-This file converts the output of the CLI to the input of the client
+"""This file converts the output of the CLI to the input of the client
 It also handles CLI error checking
 This is a distinct file from the CLI because importing the client is slow
 Splitting the CLI into two files does cause a cyclic import
@@ -55,7 +54,7 @@ def _check_mode_flags(mode: Mode) -> None:
         raise UsageError(fmt(args) + "when deleting data from the pipe")
 
 
-def _main(ns: Namespace, conf: Config):
+def _main(ns: Namespace, conf: Config) -> None:
     mode_d = {i: k for i, k in vars(ns).items() if i in Mode.keys()}  # noqa: SIM118
     if ns.no_progress:
         mode_d["progress"] = False  # Disable implicit progress

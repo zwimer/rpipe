@@ -25,15 +25,13 @@ class _Verifier(Protocol):
 
 
 class Verify:
-    """
-    A class to manage signature verification of Admin requests
-    """
+    """A class to manage signature verification of Admin requests"""
 
     _BRUTE_FORCE_DELAY = 0.02
 
     __slots__ = ("_brute_force_lock", "_log", "_verifiers", "uid")
 
-    def __init__(self, key_files: list[Path]):
+    def __init__(self, key_files: list[Path]) -> None:
         self._log = getLogger("Verify")
         self._log.info("Loading signing keys")
         verifiers = {self._load_verifier(k): k for k in key_files}

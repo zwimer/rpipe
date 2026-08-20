@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rpipe"
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.14",
-    "Development Status :: 5 - Production/Stable",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.14",
+	"Development Status :: 5 - Production/Stable",
+	"License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 keywords = ["remote", "pipe"]
 license = {text = "GPLv3"}
@@ -16,20 +16,20 @@ description = "A little python remote pipe server and client."
 urls = {Homepage = "https://github.com/zwimer/rpipe"}
 requires-python = ">= 3.14"
 dependencies = [
-    # Client
-    "zstandard[cffi]",
-    "pycryptodomex",
-    "cryptography",
-    "argcomplete",
-    "requests",
-    "tqdm",
-    # Server
-    "zstdlib>=0.3.0",
-    "waitress",
-    "flask",
-    # Both
-    "human_readable",
-    "psutil",
+	# Client
+	"zstandard[cffi]",
+	"pycryptodomex",
+	"cryptography",
+	"argcomplete",
+	"requests",
+	"tqdm",
+	# Server
+	"zstdlib>=0.3.0",
+	"waitress",
+	"flask",
+	# Both
+	"human_readable",
+	"psutil",
 ]
 dynamic = ["version"]
 
@@ -58,12 +58,12 @@ attr = "rpipe.__version__"
 
 [tool.pylint]
 disable = [
-    "unnecessary-lambda-assignment",
-    "missing-function-docstring",
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "too-few-public-methods",
-    "line-too-long"
+	"unnecessary-lambda-assignment",
+	"missing-function-docstring",
+	"missing-module-docstring",
+	"missing-class-docstring",
+	"too-few-public-methods",
+	"line-too-long"
 ]
 
 [tool.black]
@@ -73,7 +73,38 @@ target-version = ["py314"]
 [tool.ruff]
 line-length = 110
 [tool.ruff.lint]
-ignore = ["E731", "I001", "DTZ005"]
+ignore=[
+	"ANN401",
+	"D10", "D2",
+	"D415",
+	"DTZ005",  # Do I want this? TODO:
+	"I001",
+	"PLR0911",
+	"PLR0913",
+	"PLR0915",
+	"PLR2004",
+	"S101", "S104",
+	"TID252",
+]
+extend-select = [
+	"ANN",
+	"ARG",
+	"ASYNC",
+	"C4",
+	"D",
+	"DTZ",
+	"PERF",
+	"PGH",
+	"PIE",
+	"PL",
+	"PTH",
+	"RET",
+	"S",
+	"SIM",
+	"TID"
+]
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]
 

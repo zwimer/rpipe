@@ -25,7 +25,7 @@ def _get_bool(d: dict[str, str], name: str, default: bool) -> bool:
 
 
 def _get_int_or_none(d: dict[str, str], name: str) -> int | None:
-    got: str | None = d.get(name, None)
+    got: str | None = d.get(name)
     if isinstance(got, str):
         try:
             return int(got)  # If we can't convert to an int, we'll just return None
@@ -83,9 +83,7 @@ class DownloadRequestParams(_ToDict):
 
 
 class BadHeaders(RuntimeError):
-    """
-    Raised a response's headers are bad
-    """
+    """Raised a response's headers are bad"""
 
 
 class _ResponseHeaders(_ToDict):

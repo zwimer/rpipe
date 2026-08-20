@@ -1,5 +1,5 @@
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from logging import getLogger
 from pathlib import Path
 from time import sleep
@@ -33,9 +33,7 @@ _LOG = "recv"
 
 # pylint: disable=too-many-arguments
 def _recv_error_helper(r: Response, conf: Config, peek: bool, put: bool, waited: bool) -> None:
-    """
-    Raise an exception according to the recv response error
-    """
+    """Raise an exception according to the recv response error"""
     match r.status_code:
         case DownloadEC.wrong_version:
             v = r.text.split(":")[-1].strip()
@@ -66,10 +64,8 @@ def _recv_error_helper(r: Response, conf: Config, peek: bool, put: bool, waited:
             raise RuntimeError(f"Error {r.status_code}", r.text)
 
 
-def _recv_error(*args, **kwargs) -> None:
-    """
-    Wrapper for _recv_error_helper
-    """
+def _recv_error(*args: Any, **kwargs: Any) -> None:
+    """Wrapper for _recv_error_helper"""
     try:
         _recv_error_helper(*args, **kwargs)
     except (VersionError, NoData, ReportThis, MultipleClients, RuntimeError) as e:
@@ -78,7 +74,7 @@ def _recv_error(*args, **kwargs) -> None:
 
 
 # pylint: disable=too-many-positional-arguments
-def _recv_body(
+def _recv_body(  # noqa: PLR0917
     conf: Config,
     progress: Progress,
     block: bool,
@@ -111,9 +107,7 @@ def _recv_body(
 
 
 def _recv(conf: Config, mode: Mode, file: IO[bytes]) -> Result:
-    """
-    Receive data from the remote pipe and output to file
-    """
+    """Receive data from the remote pipe and output to file"""
     block: bool = mode.block
     log = getLogger(_LOG)
     log.info("Reading from channel %s with peek=%s and force=%s", conf.channel, mode.peek, mode.force)
@@ -140,9 +134,7 @@ def _rm_existing(path: Path, yes: bool) -> None:
 
 
 def recv(conf: Config, mode: Mode) -> Result:
-    """
-    Receive data from the remote pipe
-    """
+    """Receive data from the remote pipe"""
     log = getLogger(_LOG)
 
     # Check for existing paths; if mode.dir, set mode.file (untar it later)
@@ -181,7 +173,7 @@ def recv(conf: Config, mode: Mode) -> Result:
         log.debug("Extracting to: %s", temp_d)
         with tarfile.open(fileobj=out_f) as tb:
             log.info("Extracting with filter=tar_filter for safety")
-            tb.extractall(path=temp_d, filter=tarfile.tar_filter)  # nosec
+            tb.extractall(path=temp_d, filter=tarfile.tar_filter)  # nosec  # noqa: S202
         out_f.close()
         # Since our tarball.add -> tarball.extract adds an enclosing dir, pull the child out
         log.debug("Removing placeholder dir %s", mode.dir)

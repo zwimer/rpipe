@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 MIN_SAVE_STATE_VERSION = Version("8.1.0")
 
 
-def _writeline(f: BinaryIO, s: bytes):
+def _writeline(f: BinaryIO, s: bytes) -> None:
     f.write(str(len(s)).encode() + b"\n")
     f.write(s)
     f.write(b"\n")
@@ -33,14 +33,11 @@ def _readline(f: BinaryIO) -> bytes:
 
 
 class ServerShutdown(RuntimeError):
-    """
-    Raised when trying to acquire the lock on a server that is already shut down
-    """
+    """Raised when trying to acquire the lock on a server that is already shut down"""
 
 
 class UnlockedState:
-    """
-    A class that holds the state of a server
+    """A class that holds the state of a server
     This class is not thread safe and access to it should be protected by a lock
     """
 
@@ -54,9 +51,7 @@ class UnlockedState:
         self.stats = Stats()
 
     def load(self, file: Path) -> None:
-        """
-        Save the state of the server (does not load stats)
-        """
+        """Save the state of the server (does not load stats)"""
         if len(self.streams):
             self._log.error("Existing state detected; will not overwrite")
             raise RuntimeError("Do not load a state on top of an existing state")
@@ -72,8 +67,7 @@ class UnlockedState:
         self._log.info("State loaded successfully")
 
     def save(self, file: Path) -> None:
-        """
-        Save the program state (does not save stats)
+        """Save the program state (does not save stats)
         Do not call this unless the server is shutdown!
         Assumes self.RLock is acquired
         """
@@ -116,9 +110,7 @@ class UnlockedState:
 
 
 class State:
-    """
-    A thread safe wrapper for ServerState
-    """
+    """A thread safe wrapper for ServerState"""
 
     __slots__ = ("_debug", "_lock", "_log", "_state")
 
@@ -133,9 +125,7 @@ class State:
         return self._debug
 
     def __enter__(self) -> UnlockedState:
-        """
-        Acquire the lock and return the state; will fail if the server is shutdown
-        """
+        """Acquire the lock and return the state; will fail if the server is shutdown"""
         self._lock.acquire()
         if self._state.shutdown:
             self._log.error("Lock acquired, but server is shut down")
@@ -143,5 +133,5 @@ class State:
             raise ServerShutdown()
         return self._state
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, *_: object) -> None:
         self._lock.release()

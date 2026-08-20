@@ -32,9 +32,7 @@ _LOG = "admin"
 
 
 class AccessDenied(RuntimeError):
-    """
-    Raised when the server denies an admin request
-    """
+    """Raised when the server denies an admin request"""
 
 
 #
@@ -43,8 +41,7 @@ class AccessDenied(RuntimeError):
 
 
 class _Methods:
-    """
-    Methods that can be called by the Admin class
+    """Methods that can be called by the Admin class
     These methods may return sensitive data and should only be used with SSL
     Any public function may require SSL by invoke it with the prefix _VERIFY_SSL
     All public functions besides 'get' may access self._conf (it will not be None)
@@ -66,9 +63,7 @@ class _Methods:
             raise RuntimeError(what)
 
     def _request(self, path: str, body: str = "") -> Response:
-        """
-        Send a request to the server
-        """
+        """Send a request to the server"""
         if len(self._uids) == 0:
             r = self._session.get(f"{self._conf.url}/admin/uid", timeout=ADMIN_REQUEST_TIMEOUT)
             self._require_ok(r)
@@ -97,16 +92,15 @@ class _Methods:
 
     def debug(self) -> bool:
         """
-        :return: True if the server is in debug mode, else False
+        Returns:
+            True if the server is in debug mode, else False
         """
         return self._request("/admin/debug").text == "True"
 
     # SSL-Protected methods
 
     def log(self, output_file: Path | None = None) -> None:
-        """
-        Download the server log
-        """
+        """Download the server log"""
         out = zlib.decompress(self._request("/admin/log").content)
         if output_file is None:
             print(out.decode())
@@ -114,20 +108,17 @@ class _Methods:
         self._log.info("Writing log to %s", output_file)
         output_file.write_bytes(out)
 
-    def log_level(self, level: int | str | None):
+    def log_level(self, level: int | str | None) -> None:
+        """Update the server log level"""
         old, new = self._request("/admin/log-level", "" if level is None else str(level)).text.split("\n")
         print(f"Log level: {old} -> {new}")
 
     def stats(self) -> None:
-        """
-        Give the client a bunch of stats about the server
-        """
+        """Give the client a bunch of stats about the server"""
         print(dumps(loads(self._request("/admin/stats").text), indent=4))
 
     def channels(self) -> None:
-        """
-        Request information about the channels the server has
-        """
+        """Request information about the channels the server has"""
         if not (raw := self._request("/admin/channels").json()):
             print("Server is empty")
             return
@@ -143,15 +134,11 @@ class _Methods:
         print(self._request("/admin/lock", dumps({"channel": self._conf.channel, "lock": lock_})).text)
 
     def lock(self) -> None:
-        """
-        Lock a channel
-        """
+        """Lock a channel"""
         self._lock(True)
 
     def unlock(self) -> None:
-        """
-        Unlock a channel
-        """
+        """Unlock a channel"""
         self._lock(False)
 
     def _block(self, name: str, block: list[str] | None, unblock: list[str] | None) -> None:
@@ -168,25 +155,19 @@ class _Methods:
                 print(f"{"" if ban else "UN"}BLOCKED: {obj}")
 
     def ip(self, block: list[str] | None, unblock: list[str] | None) -> None:
-        """
-        Request the blocked ip addresses, or block / unblock an ip address
-        """
+        """Request the blocked ip addresses, or block / unblock an ip address"""
         self._block("ip", block, unblock)
 
     def route(self, block: list[str] | None, unblock: list[str] | None) -> None:
-        """
-        Request the blocked routes, or block / unblock a route
-        """
+        """Request the blocked routes, or block / unblock a route"""
         fix = lambda b: None if b is None else [i if i.startswith("/") else f"/{i}" for i in b]
         self._block("route", fix(block), fix(unblock))
 
 
 class Admin:
-    """
-    A class used to ask the server to run admin functions
-    """
+    """A class used to ask the server to run admin functions"""
 
-    def __init__(self, conf: Config):
+    def __init__(self, conf: Config) -> None:
         self._log = getLogger(_LOG)
         self._ssl: bool = any(i in conf.url for i in ("https", ":443/"))
         if not conf.url or not conf.key_file:
@@ -194,9 +175,10 @@ class Admin:
         self._methods = _Methods(self._load_ssh_key_file(conf.key_file), conf)
 
     def _load_ssh_key_file(self, key_file: Path) -> _Signer:
-        """
-        Load a private key from a file
-        :return: A function that can sign data using the key file
+        """Load a private key from a file
+
+        Returns:
+            A function that can sign data using the key file
         """
         self._log.info("Extracting private key from %s", key_file)
         if not key_file.exists():
@@ -210,9 +192,7 @@ class Admin:
         return cast(_Signer, key.sign)
 
     def __getitem__(self, item: str) -> Callable[..., None]:
-        """
-        Get the desired admin function
-        """
+        """Get the desired admin function"""
         if item.startswith("_"):
             raise KeyError(f"Admin method {item} is private")
         debug = self._methods.debug()

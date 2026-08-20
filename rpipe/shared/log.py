@@ -25,9 +25,7 @@ _VERBOSITY: dict[int, int] = {0: WARNING, 1: INFO, 2: DEBUG, 3: TRACE}
 
 
 class LFS:
-    """
-    Human-readable number of bytes, lazily evaluated for logging
-    """
+    """Human-readable number of bytes, lazily evaluated for logging"""
 
     def __init__(self, x: int | bytes | Sequence[bytes]) -> None:
         self._x = x if isinstance(x, int) else (total_len(x) if isinstance(x, list) else len(x))
@@ -40,9 +38,7 @@ def level(verbosity: int) -> int:
     return _VERBOSITY[max(i for i in _VERBOSITY if i <= verbosity)]
 
 
-def define_trace():
-    """
-    Add a TRACE level to the logging module
-    """
+def define_trace() -> None:
+    """Add a TRACE level to the logging module"""
     assert not hasattr(logging, "TRACE"), "Already added TRACE level"
     logging.addLevelName(TRACE, "TRACE")

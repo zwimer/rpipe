@@ -44,7 +44,8 @@ def _check_if_aio(s: Stream, args: DownloadRequestParams) -> Response | None:
 # pylint: disable=too-many-return-statements
 def _read_error_check(s: Stream | None, args: DownloadRequestParams) -> Response | None:
     """
-    :return: A response if the data in s should not be returned due to an error, else None
+    Returns:
+        A response if the data in s should not be returned due to an error, else None
     """
     # No data found?
     if s is None:
@@ -74,8 +75,7 @@ def _read_error_check(s: Stream | None, args: DownloadRequestParams) -> Response
 
 @log_response(_LOG)
 def read(state: State, channel: str) -> Response:
-    """
-    Get the data from channel, delete it afterward if required
+    """Get the data from channel, delete it afterward if required
     If web version: Fail if not encrypted, bypass version checks
     Otherwise: Version check
     """

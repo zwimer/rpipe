@@ -10,11 +10,9 @@ if TYPE_CHECKING:
 
 
 class PruneThread(Thread):
-    """
-    A thread class that periodically prunes expired pipes from the server
-    """
+    """A thread class that periodically prunes expired pipes from the server"""
 
-    def __init__(self, state: State):
+    def __init__(self, state: State) -> None:
         super().__init__(target=self._periodic_prune, daemon=True)
         self._state: State = state
 

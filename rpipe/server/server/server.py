@@ -1,5 +1,7 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Never, Any
 from logging import getLogger
+from os import urandom
+import random
 import signal
 import atexit
 
@@ -17,14 +19,13 @@ if TYPE_CHECKING:
 _LOG = "Server"
 
 
-def _ctrlc(sig, *_):
+def _ctrlc(sig: int, *_: Any) -> Never:
     getLogger(_LOG).error("Received signal %s; raising KeyboardInterrupt", sig)
     raise KeyboardInterrupt()
 
 
 class Server(Singleton):
-    """
-    The main server class
+    """The main server class
     This class is a singleton and should only be instantiated once
     This class is responsible for initializing the server and handling shutdown
     This class may install signal handlers for signal.SIGNALS so that atexit catches them
@@ -33,10 +34,8 @@ class Server(Singleton):
     SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGQUIT)
     __slots__ = ("_log", "_state_file", "state")
 
-    def shutdown(self):
-        """
-        Shut the server down
-        """
+    def shutdown(self) -> None:
+        """Shut the server down"""
         log = getLogger(_LOG)
         log.critical("Server shutdown initiated")
         with self.state as u:
@@ -53,6 +52,7 @@ class Server(Singleton):
     def __init__(self, debug: bool, state_file: Path | None) -> None:
         self._log = getLogger(_LOG)
         self._log.info("Initializing server")
+        random.seed(int.from_bytes(urandom(4)))
         self._state_file: Path | None = state_file
         self.state = State(debug)
         # Flask reloader will just relaunch this so we skip most configuration (such as persistent items)

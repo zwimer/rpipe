@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple, cast
 from logging import getLogger
 import hashlib
 
@@ -8,6 +8,7 @@ from Cryptodome.Cipher import AES
 from ...shared import TRACE, LFS
 
 if TYPE_CHECKING:
+    from Cryptodome.Cipher._mode_gcm import GcmMode
     from collections.abc import Callable
 
 
@@ -38,7 +39,7 @@ class _EncryptedData(NamedTuple):
         return ret
 
 
-def _aes(salt: bytes, password: str, nonce: bytes | None = None):
+def _aes(salt: bytes, password: str, nonce: bytes | None = None) -> GcmMode:
     scrypt = hashlib.scrypt(salt=salt, password=password.encode(), n=2**14, r=8, p=1, dklen=32)
     return AES.new(scrypt, AES.MODE_GCM, nonce=nonce)
 
@@ -54,7 +55,7 @@ def encrypt(data: bytes, compress: Callable[[bytes], bytes], password: str | Non
     salt = get_random_bytes(AES.block_size)
     aes = _aes(salt, password)
     text, tag = aes.encrypt_and_digest(data)
-    return _EncryptedData(text, salt, aes.nonce, tag).encode()
+    return _EncryptedData(text, salt, cast(bytes, aes.nonce), tag).encode()
 
 
 def decrypt(data: bytes, decompress: Callable[[bytes], bytes], password: str | None) -> bytes:

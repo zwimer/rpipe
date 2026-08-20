@@ -20,9 +20,7 @@ _CONFIG_FILE_PERMISSIONS: int = 0o600
 
 @dataclass(init=False, slots=True)
 class Result:
-    """
-    Result of a successful send/receive
-    """
+    """Result of a successful send/receive"""
 
     checksum: blake2s | None
     total: int | None
@@ -34,9 +32,7 @@ class Result:
 
 @dataclass(kw_only=True, frozen=True, slots=True)
 class Config:
-    """
-    Information about where the remote pipe is
-    """
+    """Information about where the remote pipe is"""
 
     ssl: bool = True
     url: str = ""
@@ -45,7 +41,7 @@ class Config:
     timeout: int | None = None
     key_file: Path | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.key_file and self.key_file.suffix == ".pub":
             getLogger(_CONFIG_LOG).warning("Signing key should be a private key: %s", self.key_file)
 
@@ -58,9 +54,7 @@ class Config:
 
     @classmethod
     def load(cls, cli: dict[str, bool | str | Path | None], file: Path) -> Self:
-        """
-        Preference: CLI > Config file > Default
-        """
+        """Preference: CLI > Config file > Default"""
         log = getLogger(_CONFIG_LOG)
         conf = asdict(Config())
         # Load config file then cli args
@@ -115,8 +109,7 @@ class Config:
 # pylint: disable=too-many-instance-attributes
 @dataclass(kw_only=True, frozen=True, slots=True)
 class Mode:
-    """
-    Arguments used to decide how rpipe should operate
+    """Arguments used to decide how rpipe should operate
     Only one priority mode may be used at a time
     """
 
