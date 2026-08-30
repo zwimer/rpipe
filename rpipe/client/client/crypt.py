@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING, NamedTuple, cast
+from secrets import token_bytes
 from logging import getLogger
 import hashlib
 
-from Cryptodome.Random import get_random_bytes
 from Cryptodome.Cipher import AES
 
 from ...shared import TRACE, LFS
@@ -52,7 +52,7 @@ def encrypt(data: bytes, compress: Callable[[bytes], bytes], password: str | Non
     log.debug("Compressing %s chunk", LFS(data))
     data = compress(data)
     log.debug("Encrypting compressed %s chunk", LFS(data))
-    salt = get_random_bytes(AES.block_size)
+    salt = token_bytes(AES.block_size)
     aes = _aes(salt, password)
     text, tag = aes.encrypt_and_digest(data)
     return _EncryptedData(text, salt, cast(bytes, aes.nonce), tag).encode()

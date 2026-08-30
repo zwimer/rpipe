@@ -1,8 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
-import random
-import string
+from secrets import token_hex
 
 from ...shared import QueryResponse, total_len
 
@@ -10,12 +9,12 @@ if TYPE_CHECKING:
     from collections import deque
     from ...shared import Version
 
-CHARSET = string.ascii_lowercase + string.ascii_uppercase + string.digits
 _PIPE_MAX_BYTES: int = 10**9
+_UID_NB = 32
 
 
 def _uid() -> str:
-    return "".join(random.choices(CHARSET, k=32))  # nosec B311  # noqa: S311
+    return token_hex(_UID_NB)
 
 
 @dataclass(kw_only=True)

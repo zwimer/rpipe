@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
+from secrets import token_hex
 from logging import getLogger
 from threading import RLock
-from os import urandom
 
 
 class UID:
@@ -16,7 +16,7 @@ class UID:
         self._lock = RLock()
 
     def new(self, n: int) -> list[str]:
-        ret = [urandom(self._UID_LEN).hex() for i in range(n)]
+        ret = [token_hex(self._UID_LEN) for i in range(n)]
         with self._lock:
             eol = datetime.now() + timedelta(seconds=self._UID_EXPIRE)
             self._uids.update(dict.fromkeys(ret, eol))

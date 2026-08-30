@@ -1,7 +1,5 @@
 from typing import TYPE_CHECKING, Never, Any
 from logging import getLogger
-from os import urandom
-import random
 import signal
 import atexit
 
@@ -52,7 +50,6 @@ class Server(Singleton):
     def __init__(self, debug: bool, state_file: Path | None) -> None:
         self._log = getLogger(_LOG)
         self._log.info("Initializing server")
-        random.seed(int.from_bytes(urandom(4)))
         self._state_file: Path | None = state_file
         self.state = State(debug)
         # Flask reloader will just relaunch this so we skip most configuration (such as persistent items)
