@@ -65,6 +65,8 @@ disable = [
 	"too-few-public-methods",
 	"line-too-long"
 ]
+[tool.pylint.main]
+jobs = 0
 
 [tool.black]
 line-length = 110
@@ -77,7 +79,7 @@ ignore=[
 	"ANN401",
 	"D10", "D2",
 	"D415",
-	"DTZ005",  # Do I want this? TODO:
+	"DTZ005",
 	"I001",
 	"PLR0911",
 	"PLR0913",
