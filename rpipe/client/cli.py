@@ -90,8 +90,6 @@ def cli() -> None:
         "-F",
         "--file",
         default=None,
-        const=True,
-        nargs="?",
         type=Path,
         help="A file use for input/output instead of stdin/stdout. For sending, implies --progress <file size> unless otherwise specified. Requires -r or -s",
     )
@@ -99,8 +97,6 @@ def cli() -> None:
         "-D",
         "--dir",
         default=None,
-        const=True,
-        nargs="?",
         type=Path,
         help="A dir to tar/output as input/output instead of stdin/stdout. For sending, implies --progress <tarball size> unless otherwise specified. Requires -r or -s",
     )
