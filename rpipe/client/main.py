@@ -60,7 +60,7 @@ def _main(ns: Namespace, conf: Config) -> None:
         mode_d["progress"] = False  # Disable implicit progress
     # Load mode
     if (ns.file or ns.dir) and not ns.recv and not ns.send:
-        raise UsageError("--file and --dir require either an explicit -r or -w")
+        raise UsageError("--file and --dir require either an explicit -r or -s")
     if (ns.recv, ns.send, ns.delete).count(True) == 0:
         mode_d["recv"] = ns.file is None and sys.stdin.isatty() and not ns.delete
         mode_d["send"] = not (mode_d["recv"] or ns.delete)
