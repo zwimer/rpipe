@@ -14,7 +14,7 @@ def _cli(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> None:
     """We import main from CLI after parsing arguments because
     it is slow, and not necessary for --help or --version
     """
-    # pylint: disable=import-outside-toplevel,cyclic-import
+    # pylint: disable-next=import-outside-toplevel,cyclic-import
     from .main import main  # noqa: PLC0415
 
     main(parser, parsed)
@@ -31,7 +31,7 @@ def _si(size: str) -> int:
         raise ValueError(f"Invalid size: {size}") from e
 
 
-# pylint: disable=too-many-locals,too-many-statements
+# pylint: disable-next=too-many-locals,too-many-statements
 def cli() -> None:
     """Parses arguments then invokes rpipe"""
     threads: int = max(1, (cpu := cpu_count()) - 1)
@@ -146,6 +146,7 @@ def cli() -> None:
         default=0,
         help="Increase Log verbosity, pass more than once to increase verbosity",
     )
+    # pylint: enable=duplicate-code
     log_g.add_argument("-n", "--no-color-log", action="store_true", help="Disable color in the log output")
     # Modes
     mode_g = parser.add_argument_group(

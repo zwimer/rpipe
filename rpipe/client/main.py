@@ -95,7 +95,7 @@ def _config_log(parsed: Namespace) -> None:
     )
 
 
-# pylint: disable=too-many-locals,too-many-statements
+# pylint: disable-next=too-many-locals,too-many-statements
 def main(parser: argparse.ArgumentParser, parsed: Namespace) -> None:
     _config_log(parsed)
     # Load Config

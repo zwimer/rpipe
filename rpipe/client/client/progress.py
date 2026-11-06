@@ -27,7 +27,7 @@ class Progress:
         self._pbar = tqdm.tqdm(
             desc="Uploading" if mode.send else "Downloading",
             disable=not bool(mode.progress),
-            # pylint: disable=unidiomatic-typecheck
+            # pylint: disable-next=unidiomatic-typecheck
             total=mode.progress if type(mode.progress) is int else None,
             dynamic_ncols=True,
             leave=False,

@@ -3,7 +3,7 @@ from zstdlib import Enum
 BLOCKED_EC: int = 401
 
 
-# pylint: disable=bad-mcs-method-argument,bad-mcs-classmethod-argument
+# pylint: disable-next=bad-mcs-method-argument,bad-mcs-classmethod-argument
 class UploadEC(Enum):
     """HTTP error codes the rpipe client may be sent when uploading data
     Others may be sent, but these are the ones the client should be prepared to handle

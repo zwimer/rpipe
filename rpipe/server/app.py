@@ -63,7 +63,7 @@ class App(Flask):
         blocked = Blocked(conf.blocklist, conf.debug)
         admin = Admin(log_file, conf.key_files, blocked)
         lg.info("Starting server version: %s", __version__)
-        # pylint: disable=attribute-defined-outside-init
+        # pylint: disable-next=attribute-defined-outside-init
         self._objs = self.Objs(admin, Server(conf.debug, conf.state_file), blocked, favicon)
         lg.info("Binding to %s:%s", conf.host, conf.port)
         if conf.debug:

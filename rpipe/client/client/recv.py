@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 _LOG = "recv"
 
 
-# pylint: disable=too-many-arguments
+# pylint: disable-next=too-many-arguments
 def _recv_error_helper(r: Response, conf: Config, peek: bool, put: bool, waited: bool) -> None:
     """Raise an exception according to the recv response error"""
     match r.status_code:
@@ -73,7 +73,7 @@ def _recv_error(*args: Any, **kwargs: Any) -> None:
         raise
 
 
-# pylint: disable=too-many-positional-arguments
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def _recv_body(  # noqa: PLR0917
     conf: Config,
     progress: Progress,

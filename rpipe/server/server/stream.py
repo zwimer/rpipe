@@ -18,7 +18,8 @@ def _uid() -> str:
 
 
 @dataclass(kw_only=True)
-class Stream:  # pylint: disable=too-many-instance-attributes
+# pylint: disable-next=too-many-instance-attributes
+class Stream:
     """Holds data about a stream"""
 
     ttl: int
@@ -45,7 +46,7 @@ class Stream:  # pylint: disable=too-many-instance-attributes
             raise AttributeError("Cannot change constant values")
         super().__setattr__(key, value)
         if hasattr(self, "ttl"):  # hasattr b/c we might not during init
-            # pylint: disable=attribute-defined-outside-init
+            # pylint: disable-next=attribute-defined-outside-init
             super().__setattr__("expire", datetime.now() + timedelta(seconds=self.ttl))
 
     def expired(self) -> bool:

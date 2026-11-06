@@ -42,6 +42,7 @@ def cli() -> None:
         default=0,
         help="Increase Log verbosity, pass more than once to increase verbosity",
     )
+    # pylint: enable=duplicate-code
     log_g.add_argument("-C", "--colored", action="store_true", help="Enable color in the log output")
     parser.add_argument("--debug", action="store_true", help="Run the server in debug mode")
     ns = parser.parse_args()

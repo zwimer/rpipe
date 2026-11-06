@@ -129,8 +129,8 @@ class DownloadResponseHeaders(_ResponseHeaders):
 #
 
 
-# pylint: disable=too-many-instance-attributes
 @dataclass(kw_only=True, frozen=True)
+# pylint: disable-next=too-many-instance-attributes
 class QueryResponse:
     new: bool
     upload_complete: bool

@@ -41,7 +41,7 @@ def _check_if_aio(s: Stream, args: DownloadRequestParams) -> Response | None:
     return None
 
 
-# pylint: disable=too-many-return-statements
+# pylint: disable-next=too-many-return-statements
 def _read_error_check(s: Stream | None, args: DownloadRequestParams) -> Response | None:
     """
     Returns:

@@ -38,8 +38,8 @@ def _put_error_check(s: Stream | None, args: UploadRequestParams) -> Response | 
     return None
 
 
-# pylint: disable=too-many-return-statements
 @log_response(_LOG)
+# pylint: disable-next=too-many-return-statements
 def write(state: State, channel: str) -> Response:
     args = UploadRequestParams.from_dict(request.args)
     log = logging.getLogger(_LOG)

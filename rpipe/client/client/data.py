@@ -106,8 +106,8 @@ class Config:
         return str(asdict(self))
 
 
-# pylint: disable=too-many-instance-attributes
 @dataclass(kw_only=True, frozen=True, slots=True)
+# pylint: disable-next=too-many-instance-attributes
 class Mode:
     """Arguments used to decide how rpipe should operate
     Only one priority mode may be used at a time
