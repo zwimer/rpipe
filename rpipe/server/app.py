@@ -12,9 +12,10 @@ from flask import Response, Flask, send_file, request
 from zstdlib.log import CuteFormatter
 import waitress
 
-from ..shared import BLOCKED_EC, TRACE, restrict_umask, remote_addr, log, __version__
+from ..shared import BLOCKED_EC, TRACE, restrict_umask, log, __version__
 from .util import MAX_SIZE_HARD, MIN_VERSION, json_response, plaintext
 from .channel import handler, query
+from .stats import remote_addr
 from .blocked import Blocked
 from .server import Server
 from .admin import Admin

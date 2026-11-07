@@ -9,6 +9,5 @@ from .request_response import (
     AdminMessage,
 )
 from .error_code import BLOCKED_EC, UploadEC, DownloadEC, DeleteEC, QueryEC, AdminEC
-from .util import restrict_umask, remote_addr, SpooledTempFile, total_len
-from .stats import AdminStats, Stats
+from .util import restrict_umask, SpooledTempFile, total_len
 from .log import TRACE, LFS

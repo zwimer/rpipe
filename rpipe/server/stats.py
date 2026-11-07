@@ -3,10 +3,16 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 from datetime import datetime
 
-from .util import remote_addr
+from flask import request
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+def remote_addr() -> str:
+    addr = request.remote_addr
+    xf = request.headers.get("X-Forwarded-For")
+    return f"{addr} / X-Forwarded-For: {xf}" if xf else str(addr)
 
 
 @dataclass(kw_only=True)

@@ -5,7 +5,8 @@ from collections import deque
 from threading import RLock
 import json
 
-from ...shared import Stats, Version, restrict_umask, version
+from ...shared import Version, restrict_umask, version
+from ..stats import Stats
 from .stream import Stream
 
 if TYPE_CHECKING:

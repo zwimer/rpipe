@@ -10,7 +10,8 @@ from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from flask import Response, request
 
-from ...shared import TRACE, AdminMessage, AdminStats, AdminEC, Version, remote_addr
+from ...shared import TRACE, AdminMessage, AdminEC, Version
+from ..stats import AdminStats, remote_addr
 from .uid import UID
 
 if TYPE_CHECKING:
