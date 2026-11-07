@@ -39,6 +39,7 @@ class ServerConfig:
     state_file: Path | None
     blocklist: Path | None
     key_files: list[Path]
+    trusted_proxies: list[str]
 
 
 class App(Flask):
@@ -61,7 +62,8 @@ class App(Flask):
         if favicon is not None and not favicon.is_file():
             lg.error("Favicon file not found: %s", favicon)
             favicon = None
-        blocked = Blocked(conf.blocklist, conf.debug)
+        trusted_proxies = frozenset([] if conf.trusted_proxies is None else conf.trusted_proxies)
+        blocked = Blocked(trusted_proxies, conf.blocklist, conf.debug)
         admin = Admin(log_file, conf.key_files, blocked)
         lg.info("Starting server version: %s", __version__)
         # pylint: disable-next=attribute-defined-outside-init
