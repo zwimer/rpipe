@@ -9,12 +9,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def remote_addr() -> str:
-    addr = request.remote_addr
-    xf = request.headers.get("X-Forwarded-For")
-    return f"{addr} / X-Forwarded-For: {xf}" if xf else str(addr)
-
-
 @dataclass(kw_only=True)
 class ChannelStats:
     peeks: defaultdict[str, int] = field(default_factory=lambda: defaultdict(int))
@@ -54,5 +48,5 @@ class Stats:
         self._update(channel, "deletes")
 
     def _update(self, channel: str, name: str) -> None:
-        getattr(self.channels[channel], name)[remote_addr()] += 1
+        getattr(self.channels[channel], name)[request.remote_addr] += 1
         self.channels[channel].natime = datetime.now()

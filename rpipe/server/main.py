@@ -22,7 +22,11 @@ def cli() -> None:
     parser.add_argument("-b", "--blocklist", type=Path, help="The blocklist configuration file")
     parser.add_argument("-s", "--state-file", type=Path, help="The save state file, if desired")
     parser.add_argument(
-        "-T", "--trusted-proxies", nargs="+", default="+", help="IP addresses to trust as trusted proxies"
+        "-T",
+        "--trusted-proxies",
+        nargs="+",
+        default=[],
+        help="IP addresses / networks to trust as trusted proxies",
     )
     parser.add_argument(
         "-k",

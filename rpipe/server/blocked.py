@@ -31,10 +31,10 @@ class Data:
 class Blocked:  # Move into server? Move stats into Stats?
     """Used to determine if requests should be blocked or not"""
 
-    __slots__ = ("_black_pat", "_data", "_file", "_lock", "_log", "_trusted_proxies", "_white_pat")
+    __slots__ = ("_black_pat", "_data", "_file", "_lock", "_log", "_white_pat")
     MIN_VERSION = Version("9.11.0")
 
-    def __init__(self, trusted_proxies: frozenset[str], file: Path | None, debug: bool) -> None:
+    def __init__(self, file: Path | None, debug: bool) -> None:
         self._log = getLogger("Blocked")
         if file is not None:
             self._log.info("Loading blocklist: %s", file)
@@ -43,7 +43,6 @@ class Blocked:  # Move into server? Move stats into Stats?
         if (old := Version(js.pop("version", ""))) < self.MIN_VERSION:
             raise ValueError(f"Blocklist version too old: {old} <= {self.MIN_VERSION}")
         js.update({i: set(k) for i, k in js.items() if i.startswith("ip_")})
-        self._trusted_proxies = frozenset(trusted_proxies)
         self._data = Data(version=version, **js)  # Use new version
         self._white_pat: list[re.Pattern[str]] = []
         self._black_pat: list[re.Pattern[str]] = []
@@ -124,9 +123,8 @@ class Blocked:  # Move into server? Move stats into Stats?
         Returns:
             True if the given request should be blocked
         """
-        ip: str = request.remote_addr
-        if ip in self._trusted_proxies:
-            ip = request.headers.get("X-Forwarded-For", ip)
+        ip = request.remote_addr
+        self._log.debug("Checking ip '%s' against blocklist", request.remote_addr)
         with self as data:
             # Block / allow based on ip first, then routes
             if ip in data.ip_whitelist:
