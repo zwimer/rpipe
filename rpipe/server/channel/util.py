@@ -7,9 +7,6 @@ from flask import Response
 if TYPE_CHECKING:
     from ...shared import UploadRequestParams, DownloadRequestParams
     from collections.abc import Callable
-    from typing import ParamSpec
-
-    _P = ParamSpec("_P")
 
 
 def log_params(log: Logger, p: UploadRequestParams | DownloadRequestParams) -> None:
@@ -20,13 +17,13 @@ def log_params(log: Logger, p: UploadRequestParams | DownloadRequestParams) -> N
         log.debug("  %s: %s", i, getattr(p, i))
 
 
-def log_response(
+def log_response[**P](
     log_name: str = "util",
-) -> Callable[[Callable[_P, Response]], Callable[_P, Response]]:
+) -> Callable[[Callable[P, Response]], Callable[P, Response]]:
     """A decorator that logs the returned flask Responses to the log log_name"""
 
-    def decorator(func: Callable[_P, Response]) -> Callable[_P, Response]:
-        def inner(*args: _P.args, **kwargs: _P.kwargs) -> Response:
+    def decorator(func: Callable[P, Response]) -> Callable[P, Response]:
+        def inner(*args: P.args, **kwargs: P.kwargs) -> Response:
             ret: Response = func(*args, **kwargs)
             log = getLogger(log_name)
             if log.isEnabledFor(DEBUG):
