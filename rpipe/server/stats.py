@@ -3,7 +3,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 from datetime import datetime
 
-from .util import remote_addr
+from flask import request
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -48,5 +48,5 @@ class Stats:
         self._update(channel, "deletes")
 
     def _update(self, channel: str, name: str) -> None:
-        getattr(self.channels[channel], name)[remote_addr()] += 1
+        getattr(self.channels[channel], name)[request.remote_addr] += 1
         self.channels[channel].natime = datetime.now()

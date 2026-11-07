@@ -1,23 +1,29 @@
 from logging import DEBUG, INFO, StreamHandler, FileHandler, getLevelName, getLogger, shutdown
+from ipaddress import ip_network, ip_address
 from os import environ, close as fd_close
-from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 from dataclasses import dataclass
+from contextlib import suppress
 from tempfile import mkstemp
 from functools import wraps
 from pathlib import Path
-from typing import Any
 import atexit
 
 from flask import Response, Flask, send_file, request
 from zstdlib.log import CuteFormatter
 import waitress
 
-from ..shared import BLOCKED_EC, TRACE, restrict_umask, remote_addr, log, __version__
+from ..shared import BLOCKED_EC, TRACE, restrict_umask, log, __version__
 from .util import MAX_SIZE_HARD, MIN_VERSION, json_response, plaintext
 from .channel import handler, query
 from .blocked import Blocked
 from .server import Server
 from .admin import Admin
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+    from ipaddress import IPv4Network, IPv6Network
+    from wsgiref.types import StartResponse, WSGIEnvironment
 
 _LOG = "app"
 
@@ -38,9 +44,12 @@ class ServerConfig:
     state_file: Path | None
     blocklist: Path | None
     key_files: list[Path]
+    trusted_proxies: list[str]
 
 
 class App(Flask):
+
+    __slots__ = ("_log", "_trusted_proxies")
 
     @dataclass(frozen=True, slots=True)
     class Objs:
@@ -51,21 +60,41 @@ class App(Flask):
 
     def __init__(self) -> None:
         super().__init__(f"rpipe_server {__version__}")
-        getLogger(_LOG).info("Setting max packet size: %s", log.LFS(MAX_SIZE_HARD))
+        self._log = getLogger(_LOG)
+        self._log.info("Setting max packet size: %s", log.LFS(MAX_SIZE_HARD))
+        self._trusted_proxies: tuple[IPv4Network | IPv6Network, ...] = ()
         self.config["MAX_CONTENT_LENGTH"] = MAX_SIZE_HARD
         self.url_map.strict_slashes = False
+        # Adjust self.remote_addr so that it respected self._trusted_proxies
+        original = self.wsgi_app
+
+        @wraps(original)
+        def wrapper(env: WSGIEnvironment, start_response: StartResponse) -> Iterable[bytes]:
+            raw_remote = env.get("REMOTE_ADDR")
+            forwarded = env.pop("HTTP_X_FORWARDED_FOR", None)
+            if isinstance(raw_remote, str) and isinstance(forwarded, str):
+                with suppress(ValueError):
+                    remote_ip = ip_address(raw_remote)
+                    if any(remote_ip in net for net in self._trusted_proxies):
+                        new = str(ip_address(forwarded.split(",", 1)[0].strip()))
+                        self._log.debug("Trusting proxy '%s', setting remote_addr to '%s'", remote_ip, new)
+                        env["REMOTE_ADDR"] = new
+
+            return original(env, start_response)
+
+        self.wsgi_app = wrapper  # type: ignore[method-assign,assignment]
 
     def start(self, conf: ServerConfig, log_file: Path, favicon: Path | None) -> None:
-        lg = getLogger(_LOG)
         if favicon is not None and not favicon.is_file():
-            lg.error("Favicon file not found: %s", favicon)
+            self._log.error("Favicon file not found: %s", favicon)
             favicon = None
+        self._trusted_proxies = tuple(set(map(ip_network, conf.trusted_proxies)))
         blocked = Blocked(conf.blocklist, conf.debug)
         admin = Admin(log_file, conf.key_files, blocked)
-        lg.info("Starting server version: %s", __version__)
+        self._log.info("Starting server version: %s", __version__)
         # pylint: disable-next=attribute-defined-outside-init
         self._objs = self.Objs(admin, Server(conf.debug, conf.state_file), blocked, favicon)
-        lg.info("Binding to %s:%s", conf.host, conf.port)
+        self._log.info("Binding to %s:%s", conf.host, conf.port)
         if conf.debug:
             self.run(host=conf.host, port=conf.port, debug=True)
         else:
@@ -75,14 +104,13 @@ class App(Flask):
         """Give the wrapped function self.objs and log requests as requested
         Also handles blocked IP addresses and routes
         """
-        lg = getLogger(_LOG)
 
         def decorator(func: Callable) -> Callable:
             @wraps(func)
             def inner(*args: Any, **kwargs: Any) -> Any:
                 if self._objs.blocked():
-                    if lg.isEnabledFor(DEBUG):
-                        lg.debug("Blocked request by %s to: %s", remote_addr(), request.path)
+                    if self._log.isEnabledFor(DEBUG):
+                        self._log.debug("Blocked request by %s to: %s", request.remote_addr, request.path)
                     return Response(status=BLOCKED_EC)
                 ret = func(*args, self._objs, **kwargs) if objs else func(*args, **kwargs)
                 if not logged or self._objs.server.state.debug:
@@ -91,8 +119,8 @@ class App(Flask):
                 quiet = ret.status_code == 404 and request.full_path.strip("?") == "/favicon.ico"
                 lvl = DEBUG if (quiet or ret.status_code in (410, 425) or ret.status_code < 300) else INFO
                 lvl = TRACE if request.method in ("OPTIONS", "HEAD") else lvl
-                args = (remote_addr(), request.method, request.full_path.strip("?"), ret.status_code)
-                lg.log(lvl, '%s - "%s %s" %d', *args)
+                args = (request.remote_addr, request.method, request.full_path.strip("?"), ret.status_code)
+                self._log.log(lvl, '%s - "%s %s" %d', *args)
                 return ret
 
             return inner

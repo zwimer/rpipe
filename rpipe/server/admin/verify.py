@@ -10,7 +10,8 @@ from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from flask import Response, request
 
-from ...shared import TRACE, AdminMessage, AdminStats, AdminEC, Version, remote_addr
+from ...shared import TRACE, AdminMessage, AdminEC, Version
+from ..stats import AdminStats
 from .uid import UID
 
 if TYPE_CHECKING:
@@ -70,7 +71,7 @@ class Verify:
         return None
 
     def _verify(self, name: str, state: State) -> Response | str:
-        stat = AdminStats(host=remote_addr(), command=name)
+        stat = AdminStats(host=request.remote_addr, command=name)
         with state as s:
             s.stats.admin.append(stat)
         # Check version

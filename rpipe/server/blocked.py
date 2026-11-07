@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict, field
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 from logging import getLogger
 from datetime import datetime
 from threading import RLock
@@ -123,7 +123,8 @@ class Blocked:  # Move into server? Move stats into Stats?
         Returns:
             True if the given request should be blocked
         """
-        ip = cast(str, request.headers.get("X-Forwarded-For", request.remote_addr))
+        ip = request.remote_addr
+        self._log.debug("Checking ip '%s' against blocklist", request.remote_addr)
         with self as data:
             # Block / allow based on ip first, then routes
             if ip in data.ip_whitelist:
