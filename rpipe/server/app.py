@@ -89,7 +89,7 @@ class App(Flask):
             self._log.error("Favicon file not found: %s", favicon)
             favicon = None
         self._trusted_proxies = tuple(set(map(ip_network, conf.trusted_proxies)))
-        self._log.info("Trusting proxies: %s", self._trusted_proxies)
+        self._log.info("Trusting proxies: %s", ", ".join(map(str, self._trusted_proxies)))
         blocked = Blocked(conf.blocklist, conf.debug)
         admin = Admin(log_file, conf.key_files, blocked)
         self._log.info("Starting server version: %s", __version__)
