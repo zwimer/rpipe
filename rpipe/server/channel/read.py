@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 from collections import deque
 from logging import getLogger
 
@@ -88,8 +88,7 @@ def read(state: State, channel: str) -> Response:
         s: Stream | None = u.streams.get(channel, None)
         if (err := _read_error_check(s, args)) is not None:
             return err
-        if TYPE_CHECKING:
-            s = cast(Stream, s)  # For type checker
+        assert s is not None  # For type checker
         # Read all at once if required
         if not args.delete:  # Peek mode (could also be web version)
             log.debug("Reading channel %s in peek mode", channel)

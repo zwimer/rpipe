@@ -17,8 +17,11 @@ def cli() -> None:
         version=f"rpipe>={MIN_VERSION}",
         help="Print the minimum supported client version then exit",
     )
-    parser.add_argument("port", type=int, help="The port waitress will listen on")
-    parser.add_argument("--host", default="0.0.0.0", help="The host waitress will bind to for listening")
+    parser.add_argument(
+        "listen",
+        default=None,
+        help="What waiterss will bind to; for debug mode (flask): <host>:<port> (IPv4 xor IPv6)",
+    )
     parser.add_argument("-b", "--blocklist", type=Path, help="The blocklist configuration file")
     parser.add_argument("-s", "--state-file", type=Path, help="The save state file, if desired")
     parser.add_argument(
@@ -53,5 +56,19 @@ def cli() -> None:
     log_g.add_argument("-C", "--colored", action="store_true", help="Enable color in the log output")
     parser.add_argument("--debug", action="store_true", help="Run the server in debug mode")
     ns = parser.parse_args()
-    gen = lambda C: C(**{i: getattr(ns, i) for i in (k.name for k in fields(C))})
-    serve(gen(ServerConfig), gen(LogConfig), ns.favicon)
+    # Create listen
+    listen: tuple[str, int] | str = ns.listen
+    if ns.debug:
+        try:
+            if isinstance(listen, str):
+                host, port_s = listen.split(":")
+                if host:
+                    listen = (host, int(port_s))
+        except ValueError:
+            pass
+        if isinstance(listen, str):
+            raise ValueError("In debug mode, listen must be <host>:<port>")
+    # Pass remaining arguments
+    field_names = lambda x: (i.name for i in fields(x))
+    gen = lambda C, **kw: C(**{i: getattr(ns, i) for i in field_names(C) if i not in kw}, **kw)
+    serve(gen(ServerConfig, listen=listen), gen(LogConfig), ns.favicon)

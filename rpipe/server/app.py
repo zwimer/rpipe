@@ -38,8 +38,7 @@ class LogConfig:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ServerConfig:
-    host: str
-    port: int
+    listen: str | tuple[str, int]  # Flask takes (host, port), waitress takes listen=
     debug: bool
     state_file: Path | None
     blocklist: Path | None
@@ -95,11 +94,13 @@ class App(Flask):
         self._log.info("Starting server version: %s", __version__)
         # pylint: disable-next=attribute-defined-outside-init
         self._objs = self.Objs(admin, Server(conf.debug, conf.state_file), blocked, favicon)
-        self._log.info("Binding to %s:%s", conf.host, conf.port)
+        self._log.info("Binding to %s", conf.listen)
         if conf.debug:
-            self.run(host=conf.host, port=conf.port, debug=True)
+            assert isinstance(conf.listen, tuple)
+            self.run(host=conf.listen[0], port=conf.listen[1], debug=True)
         else:
-            waitress.serve(self, host=conf.host, port=conf.port, clear_untrusted_proxy_headers=False)
+            assert isinstance(conf.listen, str)
+            waitress.serve(self, listen=conf.listen, clear_untrusted_proxy_headers=False)
 
     def give(self, *, objs: bool = False, logged: bool = True) -> Callable:
         """Give the wrapped function self.objs and log requests as requested

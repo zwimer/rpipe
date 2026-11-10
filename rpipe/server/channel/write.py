@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 from collections import deque
 import logging
 
@@ -75,8 +75,7 @@ def write(state: State, channel: str) -> Response:
         s: Stream | None = unlocked.streams.get(channel, None)
         if (err := _put_error_check(s, args)) is not None:
             return err
-        if TYPE_CHECKING:
-            s = cast(Stream, s)  # For type checker
+        assert s is not None  # For type checker
         if s.locked:
             return plaintext("Channel is locked and cannot be edited.", UploadEC.locked)
         s.upload_complete = args.final
