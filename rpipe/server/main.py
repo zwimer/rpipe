@@ -61,7 +61,7 @@ def cli() -> None:
     if ns.debug:
         try:
             if isinstance(listen, str):
-                host, port_s = listen.split(":")
+                host, port_s = listen[1:].split("]:") if listen.startswith("[") else listen.rsplit(":", 1)
                 if host:
                     listen = (host, int(port_s))
         except ValueError:

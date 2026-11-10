@@ -97,6 +97,7 @@ class App(Flask):
         self._log.info("Binding to %s", conf.listen)
         if conf.debug:
             assert isinstance(conf.listen, tuple)
+            self._log.warning("Flask is not dual-stack, IPv6 bindings will not support IPv4 addresses")
             self.run(host=conf.listen[0], port=conf.listen[1], debug=True)
         else:
             assert isinstance(conf.listen, str)
