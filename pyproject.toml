@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.2"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,10 +8,10 @@ classifiers = [
 	"Programming Language :: Python :: 3",
 	"Programming Language :: Python :: 3.14",
 	"Development Status :: 5 - Production/Stable",
-	"License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 keywords = ["remote", "pipe"]
-license = {text = "GPLv3"}
 description = "A little python remote pipe server and client."
 urls = {Homepage = "https://github.com/zwimer/rpipe"}
 requires-python = ">= 3.14"
@@ -43,7 +43,6 @@ rpipe_server = "rpipe.server:cli"
 
 [tool.setuptools]
 include-package-data = true
-license-files = ["LICENSE"]
 
 [tool.setuptools.packages.find]
 namespaces = false
