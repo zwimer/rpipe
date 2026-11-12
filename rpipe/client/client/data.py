@@ -5,6 +5,7 @@ from json import loads, dumps
 from logging import getLogger
 from hashlib import blake2s
 from pathlib import Path
+from stat import S_IMODE
 
 from human_readable import listing
 
@@ -59,7 +60,11 @@ class Config:
         conf = asdict(Config())
         # Load config file then cli args
         if file.exists():
-            file.chmod(_CONFIG_FILE_PERMISSIONS)  # Update permissions in case permissions are bad
+            if S_IMODE(file.stat().st_mode) != _CONFIG_FILE_PERMISSIONS:
+                try:
+                    file.chmod(_CONFIG_FILE_PERMISSIONS)  # Update permissions in case permissions are bad
+                except OSError:
+                    log.exception("Failed to update file permissions")
             log.debug("Loading config file %s", file)
             conf.update(loads(file.read_text(encoding="utf-8")))
         else:
